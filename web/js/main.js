@@ -1504,6 +1504,9 @@ touch.addEventListener("click", function (e) {
   else handleAction({ type: t });
 });
 tv.addEventListener("click", function (e) {
+  // A click on a menu row or dialog button can remove that element before the click gets here (the menu
+  // closes and a dialog opens). It was a click on an overlay, not on the picture: don't press OK again.
+  if (!tv.contains(e.target)) return;
   if (e.target.closest && e.target.closest(".touch,.guide,.menu,.dialog,.banner")) return;
   handleAction({ type: "ok" });
 });

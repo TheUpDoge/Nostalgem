@@ -276,6 +276,14 @@ try {
   await key("Escape", 200);
   check((await state()).overlay === "", "Back closes help");
 
+  // Clicking a menu row that opens a dialog must leave the dialog open (the click used to fall through
+  // to the picture and press OK on the dialog's first button, closing it at once).
+  await key("ArrowRight", 300);
+  await page.click('#menu .m-item:has-text("Phone remote")');
+  await page.waitForTimeout(400);
+  check((await state()).overlay === "dialog", "clicking Phone remote with the mouse keeps its dialog open");
+  await key("Escape", 300);
+
   // Phone remote: pair through the menu, then drive the TV from a second page acting as the phone.
   await key("ArrowRight", 300);
   for (let i = 0; i < 25; i++) {
