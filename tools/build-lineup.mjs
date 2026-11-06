@@ -114,13 +114,19 @@ for (const def of config.channels) {
       if (!keep()) console.log("   left out until it can be built");
       continue;
     }
-    Object.assign(about, built.about);
-    channels.push({ ...display, items: built.items });
     const hours = built.items.reduce((s, p) => s + p.d, 0) / 3600;
-    summary.push({ ch: def.number + (def.sub ? "-" + def.sub : ""), name: def.name, programs: built.items.length, hours: +hours.toFixed(1), searched: built.searched });
     const why = Object.entries(built.rejected).map(([k, n]) => `${n} ${k}`).join(", ");
     console.log(`${String(built.items.length).padStart(4)} programs  ${hours.toFixed(1).padStart(6)} h  ${((Date.now() - t0) / 1000).toFixed(0)}s${why ? "  (skipped: " + why + ")" : ""}`);
-    if (built.items.length < 8) console.warn(`   ⚠ only ${built.items.length} programs on ${def.slug}`);
+    // A channel that comes up nearly empty (streams down, uploads removed, a bad filter) keeps what it had
+    // rather than going on the air with a few minutes of programming. Same limits as tests/lineup.test.mjs.
+    const allLive = def.youtube.every((s) => s.live);
+    if (built.items.length < (allLive ? 2 : 10) || hours < (allLive ? 0.5 : 3)) {
+      console.warn(`   ⚠ too little to air on ${def.slug}; ` + (keep() ? "keeping its previous programs" : "left out for now"));
+      continue;
+    }
+    Object.assign(about, built.about);
+    channels.push({ ...display, items: built.items });
+    summary.push({ ch: def.number + (def.sub ? "-" + def.sub : ""), name: def.name, programs: built.items.length, hours: +hours.toFixed(1), searched: built.searched });
     continue;
   }
   const built = await buildChannel(def, {
