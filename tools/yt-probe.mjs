@@ -142,7 +142,10 @@ for (const t of targets) {
   });
   // The newest few, and a few of the oldest scanned: an old show's own episodes are often far down the list.
   const sample = good.length > 16 ? good.slice(0, 10).concat(good.slice(-6)) : good;
-  details.push(`### ${t} — ${ch.snippet.title} (id ${ch.id})\n` + sample.map((g) => `- ${g.t} (${Math.round(g.d / 60)} min)${g.about ? " — " + g.about : ""}`).join("\n"));
+  // Who runs it: an official channel says so, and has the subscribers to match.
+  const subs = Number((ch.statistics && ch.statistics.subscriberCount) || 0).toLocaleString("en-US");
+  const blurb = (ch.snippet.description || "").replace(/\s+/g, " ").slice(0, 200);
+  details.push(`### ${t} — ${ch.snippet.title} (id ${ch.id}, ${subs} subscribers, since ${String(ch.snippet.publishedAt || "").slice(0, 4)})\n> ${blurb}\n` + sample.map((g) => `- ${g.t} (${Math.round(g.d / 60)} min)${g.about ? " — " + g.about : ""}`).join("\n"));
 }
 console.table(rows);
 for (const d of details) console.log("\n" + d);
