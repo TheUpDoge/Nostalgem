@@ -57,6 +57,13 @@ test("titles lose upload clutter but keep the episode", () => {
   assert.equal(cleanYtTitle("He-Man Official | The Rarest Gift of All | He-Man Full Episodes"), "He-Man: The Rarest Gift of All");
   assert.equal(cleanYtTitle("He-Man Official | Return of the Sea Hawke | She-Ra Full Episodes | Cartoons for kids |Retro Cartoons"), "She-Ra: Return of the Sea Hawke");
   assert.equal(cleanYtTitle("Inspector Gadget 101 - Monster Lake | HD"), "Inspector Gadget 101 - Monster Lake");
+  assert.equal(cleanYtTitle("He-Man Official ❄️Song of Celice ❄️He-Man Full Episode❄️ Cartoons for kids"), "He-Man: Song of Celice");
+  assert.equal(cleanYtTitle("He-Man Official🎃Temple of the Sun 🎃He-Man Full Episode🎃 Cartoons for Kids"), "He-Man: Temple of the Sun");
+  assert.equal(cleanYtTitle("Three Courageous Hearts💘He-Man Official💘VALENTINES DAY SPECIAL💘She-Ra Episodes💘Cartoons for Kids"), "She-Ra: Three Courageous Hearts | VALENTINES DAY SPECIAL");
+  assert.equal(cleanYtTitle("100 MINUTES of Teenage Mutant Ninja Turtles (1987) 📺 EVERY EPISODE MARATHON! #10 | TMNT"), "100 MINUTES of Teenage Mutant Ninja Turtles (1987) 📺 EVERY EPISODE MARATHON! #10");
+  assert.equal(cleanYtTitle("Bewitched Goes Patriotic 🇺🇲 | Time Travel & Founding Fathers Moments | Bewitched"), "Bewitched Goes Patriotic 🇺🇲 | Time Travel & Founding Fathers Moments | Bewitched", "emoji stay where there's no branding");
+  assert.equal(cleanYtTitle("THE DONNY & CLARENCE SHOW | EP01 | PRANKZ"), "THE DONNY & CLARENCE SHOW | EP01 | PRANKZ", "an episode name in capitals stays");
+  assert.equal(cleanYtTitle("Treasure of the Depths! | The Adventures of Flash Gordon | S1E18"), "Treasure of the Depths! | The Adventures of Flash Gordon | S1E18", "so does an episode number");
 });
 
 test("YouTube program ids", () => {

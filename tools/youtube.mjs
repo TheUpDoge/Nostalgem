@@ -75,8 +75,20 @@ export function cleanYtTitle(t) {
   // "He-Man Official | <title> | She-Ra Full Episodes | Cartoons for kids" or "| Ultra Series 60th Anniversary".
   s = s.replace(/^featured:\s*/i, "");
   s = s.replace(/\s*[-–]\s*official\s*[-–]?\s*$/i, "").replace(/\s+full episode\s*$/i, "");
+  // Some channels separate the pieces with emoji instead ("He-Man Official ❄️Song of Celice ❄️He-Man Full Episode").
+  if (/\b(official|full episodes?|for kids)\b/i.test(s)) s = s.replace(/\s*(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|\uFE0F|\u200D)+\s*/gu, " | ");
   s = dropBranding(s);
   return s.replace(/\s+/g, " ").replace(/^[\s|:–-]+|[\s|:–-]+$/g, "").trim();
+}
+
+function initials(text) {
+  return text
+    .split(/[^A-Za-z]+/)
+    .filter(Boolean)
+    .map(function (w) {
+      return w.charAt(0).toUpperCase();
+    })
+    .join("");
 }
 
 const BRANDING = /\b(official|anniversary|full episodes?|for kids|retro cartoons?|kids cartoons?|cartoon universe)\b|^(hd|4k|1080p|720p|remastered)$/i;
@@ -89,9 +101,13 @@ function dropBranding(s) {
   let show = "";
   for (let i = 1; i < parts.length; i++) {
     const part = parts[i].trim();
-    const m = /^(.{2,30}?)\s+full episodes?\b/i.exec(part);
+    // "He-Man Full Episode", "She-Ra Episodes": which show it is, not part of the title.
+    const m = /^(.{2,30}?)\s+(full\s+)?episodes?$/i.exec(part) || /^(.{2,30}?)\s+full episodes?\b/i.exec(part);
     if (m && !show) show = m[1];
-    if (part && !BRANDING.test(part)) kept.push(part);
+    if (m || !part || BRANDING.test(part)) continue;
+    // The show's initials at the very end: "Teenage Mutant Ninja Turtles (1987) … MARATHON! | TMNT".
+    if (i === parts.length - 1 && /^[A-Z]{2,6}$/.test(part) && initials(kept[0]).indexOf(part) >= 0) continue;
+    kept.push(part);
   }
   const out = kept.join(" | ");
   return show && out.toLowerCase().indexOf(show.toLowerCase()) < 0 ? show + ": " + out : out;
