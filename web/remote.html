@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
+    <title>NostalGem Remote</title>
+    <meta name="description" content="Use your phone as the remote for NostalGem: buttons, a channel list, and a keyboard for searching the Internet Archive." />
+    <meta name="theme-color" content="#0d0221" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="manifest" href="remote.webmanifest" />
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="NG Remote" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="preload" href="fonts/orbitron-latin-900-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="vendor/peerjs.min.js" as="script" />
+    <link rel="stylesheet" href="css/phone.css" />
+    <script type="module" src="js/phone.js"></script>
+  </head>
+  <body>
+    <header class="top">
+      <div class="brand">NOSTAL<span>GEM</span> <small>REMOTE</small></div>
+      <button type="button" id="link" class="link" data-status="idle" aria-live="polite"><i></i><span>Not paired</span></button>
+    </header>
+
+    <main>
+      <!-- Pairing: shown until a TV answers -->
+      <section id="pair" class="view pair" hidden>
+        <div class="sun" aria-hidden="true"></div>
+        <h1>Pair with your TV</h1>
+        <p>On the TV, open <b>Menu ▸ 📱 Phone remote</b>, then scan the QR code with your camera, or type the code it shows.</p>
+        <form id="pairForm" class="pair-form" autocomplete="off">
+          <input id="codeInput" inputmode="text" autocapitalize="characters" spellcheck="false" maxlength="9" placeholder="K7P-Q2M" aria-label="Pairing code" />
+          <button type="submit" class="big">Connect</button>
+        </form>
+        <p id="pairMsg" class="msg" role="status"></p>
+      </section>
+
+      <!-- The remote -->
+      <section id="remote" class="view" hidden>
+        <article id="now" class="now">
+          <div class="now-ch">
+            <span class="now-icon"></span>
+            <span class="now-num"></span>
+            <span class="now-name"></span>
+            <span class="now-badge"></span>
+          </div>
+          <div class="now-title"></div>
+          <div class="now-bar"><i></i></div>
+          <div class="now-times"><span class="now-at"></span><span class="now-left"></span></div>
+          <div class="now-next"></div>
+        </article>
+
+        <div class="row three">
+          <button type="button" data-key="back" class="pill">◀ Back</button>
+          <button type="button" data-key="guide" class="pill">Guide</button>
+          <button type="button" data-key="menu" class="pill">Menu</button>
+        </div>
+
+        <div class="deck">
+          <div class="rocker" role="group" aria-label="Channel">
+            <button type="button" data-key="chup" data-repeat aria-label="Channel up">▲</button>
+            <span>CH</span>
+            <button type="button" data-key="chdown" data-repeat aria-label="Channel down">▼</button>
+          </div>
+          <div class="dpad" role="group" aria-label="Arrows">
+            <button type="button" class="d-up" data-key="up" data-repeat aria-label="Up"><b>▲</b></button>
+            <button type="button" class="d-left" data-key="left" data-repeat aria-label="Left"><b>◀</b></button>
+            <button type="button" class="d-ok" data-key="ok" aria-label="OK">OK</button>
+            <button type="button" class="d-right" data-key="right" data-repeat aria-label="Right"><b>▶</b></button>
+            <button type="button" class="d-down" data-key="down" data-repeat aria-label="Down"><b>▼</b></button>
+          </div>
+          <div class="side" role="group" aria-label="Playback">
+            <button type="button" data-key="playpause" id="playBtn" aria-label="Pause or resume">❚❚</button>
+            <button type="button" data-key="live" id="liveBtn" aria-label="Back to live">LIVE</button>
+            <button type="button" data-key="mute" id="muteBtn" aria-label="Sound on or off">🔊</button>
+          </div>
+        </div>
+
+        <div class="row four">
+          <button type="button" data-key="cc" class="chip" id="ccBtn">CC</button>
+          <button type="button" data-key="fav" class="chip" id="favBtn">☆ Fav</button>
+          <button type="button" data-key="last" class="chip">⇄ Last</button>
+          <button type="button" id="padBtn" class="chip" aria-expanded="false" aria-controls="pad">123</button>
+        </div>
+
+        <div id="pad" class="pad" hidden>
+          <button type="button" data-digit="1">1</button><button type="button" data-digit="2">2</button><button type="button" data-digit="3">3</button>
+          <button type="button" data-digit="4">4</button><button type="button" data-digit="5">5</button><button type="button" data-digit="6">6</button>
+          <button type="button" data-digit="7">7</button><button type="button" data-digit="8">8</button><button type="button" data-digit="9">9</button>
+          <button type="button" data-key="info">Info</button><button type="button" data-digit="0">0</button><button type="button" data-key="ok">OK</button>
+        </div>
+      </section>
+
+      <!-- Channel list -->
+      <section id="channels" class="view" hidden>
+        <h2>Channels</h2>
+        <ul id="chList" class="ch-list"></ul>
+      </section>
+
+      <!-- Search -->
+      <section id="search" class="view" hidden>
+        <h2>Search the Archive</h2>
+        <p class="hint">Type what you'd like a channel of: a show, a star, a genre, a decade. The TV builds it and tunes in.</p>
+        <form id="searchForm" class="search-form" autocomplete="off">
+          <input id="searchInput" type="search" enterkeyhint="go" spellcheck="false" placeholder="e.g. lone ranger" aria-label="Search words" />
+          <div class="row two">
+            <button type="submit" class="big" data-kind="video">📡 TV channel</button>
+            <button type="submit" class="big alt" data-kind="audio">📻 Radio channel</button>
+          </div>
+        </form>
+        <p id="searchMsg" class="msg" role="status"></p>
+        <div id="ideas" class="ideas"></div>
+      </section>
+    </main>
+
+    <nav class="tabs" id="tabs" hidden>
+      <button type="button" data-tab="remote" class="on"><i>◉</i>Remote</button>
+      <button type="button" data-tab="channels"><i>☰</i>Channels</button>
+      <button type="button" data-tab="search"><i>⌕</i>Search</button>
+    </nav>
+
+    <div id="toast" class="toast" role="status" hidden></div>
+    <noscript><p style="color: #fff; padding: 2rem">The NostalGem remote needs JavaScript turned on.</p></noscript>
+  </body>
+</html>

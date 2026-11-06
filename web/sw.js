@@ -1,6 +1,6 @@
 // Keeps a copy of the set itself (HTML, CSS, JS, fonts, lineup) so it still starts on a flaky
 // connection. Programs stream from archive.org and are never cached.
-const VERSION = "ng-1.0.0";
+const VERSION = "ng-1.1.0";
 const SHELL = [
   "./",
   "index.html",
@@ -18,6 +18,13 @@ const SHELL = [
   "js/ui/guide.js",
   "js/ui/menu.js",
   "js/ui/dialog.js",
+  "js/link.js",
+  "js/phone.js",
+  "remote.html",
+  "remote.webmanifest",
+  "css/phone.css",
+  "vendor/peerjs.min.js",
+  "vendor/qrcode.js",
   "data/lineup.json",
   "manifest.webmanifest",
   "icons/icon.svg",
@@ -55,6 +62,10 @@ self.addEventListener("fetch", (e) => {
         }
         return res;
       })
-      .catch(() => caches.match(e.request, { ignoreSearch: true }).then((hit) => hit || caches.match("index.html")))
+      .catch(() =>
+        caches
+          .match(e.request, { ignoreSearch: true })
+          .then((hit) => hit || caches.match(/\/remote(\.html)?$/.test(url.pathname) ? "remote.html" : "index.html"))
+      )
   );
 });
