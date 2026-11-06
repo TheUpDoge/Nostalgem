@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseIsoDuration, rejectReason, cleanYtTitle, buildYouTubeChannel } from "../tools/youtube.mjs";
+import { parseIsoDuration, rejectReason, cleanYtTitle, buildYouTubeChannel, filterText } from "../tools/youtube.mjs";
 import { isYouTube, videoIdOf } from "../web/js/youtube.js";
 import { programKey } from "../web/js/schedule.js";
 
@@ -168,4 +168,20 @@ test("every: live news between documentaries, repeating", async () => {
   assert.deepEqual(res.items.map((p) => p.t), ["Doc d7", "Doc d6", "Doc d5", "News n1", "Doc d4", "Doc d3", "Doc d2", "News n2", "Doc d1"]);
   const onlyLive = await buildYouTubeChannel({ slug: "x", youtube: [{ handle: "@a", live: true, every: 2 }] }, { yt });
   assert.deepEqual(onlyLive.items.map((p) => p.t), ["News n1"], "a channel of only spread sources still airs them");
+});
+
+test("allow: an official 'Full Series' watch party gets past the piracy words, nothing else does", async () => {
+  const mk = (id, title, description) => ok({ id, snippet: { title, liveBroadcastContent: "none", description } });
+  const videos = [
+    mk("w1", "Full Series | Junji Ito Collection Full Series Watch Party (LIMITED TIME)", "Watch the full series free"),
+    mk("w2", "Junji Ito Collection Full Series", "nsfw cut"),
+    mk("w3", "Junji Ito Collection Ep. 1", "Uploaded from a Full Series torrent"),
+  ];
+  const { yt } = fakeApi({ "@cr": { videos } });
+  const words = ["full series", "torrent", "nsfw"];
+  const strict = await buildYouTubeChannel({ slug: "a", youtube: [{ handle: "@cr" }] }, { yt, exclude: words });
+  assert.equal(strict.items.length, 0, "without allow, the word filter keeps all three off");
+  const res = await buildYouTubeChannel({ slug: "a", youtube: [{ handle: "@cr", allow: "full series" }] }, { yt, exclude: words });
+  assert.deepEqual(res.items.map((p) => p.id), ["yt:w1"], "the other words still count");
+  assert.equal(filterText(videos[0], /full series/gi).toLowerCase().indexOf("full series"), -1);
 });

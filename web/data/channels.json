@@ -171,7 +171,7 @@
       "youtube": [
         { "handle": "@NozomiEnt", "match": "episode", "exclude": "kickstarter|trailer|teaser|preview|announcement|interview|guide to japan", "order": "title", "maxScan": 1200 },
         { "handle": "@RetroCrush", "match": "episode|\\bep\\.? ?\\d|full movie|yu-gi-oh", "exclude": "podcast|chat|cosplay|interview|review|reaction|ranking|explained|\\btop \\d|guide to japan", "order": "title", "maxScan": 1900 },
-        { "handle": "@crunchyroll", "match": "junji ito", "minMinutes": 60, "maxMinutes": 400, "maxScan": 2500 }
+        { "handle": "@crunchyroll", "match": "junji ito", "allow": "full series", "minMinutes": 60, "maxMinutes": 400, "maxScan": 2500 }
       ]
     },
     {"number": 60, "sub": 1, "slug": "yt-laugh-riot", "name": "Laugh Riot", "tagline": "Cartoons, comedy and weird true facts", "icon": "🤪", "color": "#ff2a6d", "kind": "video", "minMinutes": 4, "maxMinutes": 90, "maxItems": 150, "about": false, "youtube": [{"handle": "@TheBigLezShowOfficial", "maxScan": 80}, {"handle": "@MeatCanyon", "maxScan": 80}, {"handle": "@PapaMeat", "maxScan": 80}, {"handle": "@zefrank", "maxScan": 80}, {"handle": "@Huggbees", "maxScan": 80}, {"handle": "@patoneillcomedy", "maxScan": 80, "minMinutes": 3}, {"handle": "@wizards_with_guns", "maxScan": 80}]},

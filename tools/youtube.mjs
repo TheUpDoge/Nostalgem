@@ -9,6 +9,8 @@
 // A source with "live": true airs what the channel is broadcasting live right now, each stream as a
 // block of "blockMinutes" (default 20); "videos": [ids] names streams directly. Live channels rebuild daily.
 // "every": N spreads a source's programs through the channel, one after every N of the others.
+// "allow": a pattern of phrases the word filter lets through for that source (an official channel's own
+// "Full Series" watch party, say); the rest of its title and description is still checked.
 // order: "shuffle" (default), "oldest", "playlist", or "title" (series, then episode number).
 // Every video is checked before it goes on the air: public, embeddable, not age-restricted, not blocked
 // in the region (US unless "region" says otherwise), not live or upcoming, and long enough not to be a
@@ -79,6 +81,14 @@ export function toProgram(v) {
 
 function regex(src) {
   return src ? new RegExp(src, "i") : null;
+}
+
+// What the word filter reads: the title and the start of the description, minus any phrases the source
+// "allow"s. The filter's piracy words ("full series") also turn up in an official channel's own titles.
+export function filterText(v, allow) {
+  const sn = v.snippet || {};
+  const text = (sn.title || "") + " " + (sn.description || "").slice(0, 400);
+  return allow ? text.replace(allow, " ") : text;
 }
 
 export function makeYouTubeFetch(key) {
@@ -201,6 +211,7 @@ export async function buildYouTubeChannel(def, ctx) {
     const videos = await videoDetails(ids, yt);
     const match = regex(src.match);
     const skip = regex(src.exclude);
+    const allow = src.allow ? new RegExp(src.allow, "gi") : null;
     const list = [];
     for (const v of videos) {
       if (seen[v.id]) continue;
@@ -212,7 +223,7 @@ export async function buildYouTubeChannel(def, ctx) {
         live: !!src.live,
       });
       const title = (v.snippet && v.snippet.title) || "";
-      const reason = why || (match && !match.test(title) ? "no match" : "") || (skip && skip.test(title) ? "excluded" : "") || (exclude && exclude.test(title + " " + ((v.snippet && v.snippet.description) || "").slice(0, 400)) ? "filtered" : "");
+      const reason = why || (match && !match.test(title) ? "no match" : "") || (skip && skip.test(title) ? "excluded" : "") || (exclude && exclude.test(filterText(v, allow)) ? "filtered" : "");
       if (reason) {
         rejected[reason] = (rejected[reason] || 0) + 1;
         continue;

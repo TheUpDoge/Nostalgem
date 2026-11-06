@@ -10,12 +10,18 @@
 // Prints a table and, on GitHub Actions, writes it to the job summary.
 
 import { appendFile, readFile } from "node:fs/promises";
-import { makeYouTubeFetch, rejectReason, parseIsoDuration, cleanYtTitle, liveVideoIds } from "./youtube.mjs";
+import { makeYouTubeFetch, rejectReason, parseIsoDuration, cleanYtTitle, liveVideoIds, filterText } from "./youtube.mjs";
 import { compileExclude } from "../web/js/archive.js";
 
-// The same word filter the lineup builder applies to titles and descriptions.
+// The same word filter the lineup builder applies to titles and descriptions, with each source's "allow".
 const config = JSON.parse(await readFile(new URL("../web/data/channels.json", import.meta.url), "utf8"));
 const wordFilter = compileExclude(config.exclude || []);
+const allowFor = {};
+(config.channels || []).forEach(function (c) {
+  (c.youtube || []).forEach(function (s) {
+    if (s.handle && s.allow) allowFor[s.handle.toLowerCase()] = new RegExp(s.allow, "gi");
+  });
+});
 
 const args = process.argv.slice(2);
 const opt = (name, d) => {
@@ -106,7 +112,7 @@ for (const t of targets) {
     for (const v of j.items || []) {
       if (match && !match.test(v.snippet.title)) continue;
       let why = rejectReason(v, { minS: minMin * 60, maxS: 24 * 3600 });
-      const text = v.snippet.title + " " + (v.snippet.description || "").slice(0, 400);
+      const text = filterText(v, allowFor[t.toLowerCase()]);
       const hit = !why && wordFilter && text.match(wordFilter);
       if (hit) why = "word filter: " + hit[0].trim();
       if (match) {
