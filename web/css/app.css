@@ -1196,6 +1196,31 @@ body {
   font-size: 1.2rem;
 }
 
+.problems {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.45rem 1.2rem;
+  margin-top: 0.6rem;
+  font-size: 0.95rem;
+  line-height: 1.3;
+}
+.problems b {
+  color: var(--cyan);
+  font-family: var(--font-mono);
+  font-size: 1.2rem;
+  font-weight: 400;
+  white-space: nowrap;
+}
+.problems i {
+  color: var(--faint);
+  font-style: normal;
+}
+.dialog-note {
+  margin-top: 0.8rem;
+  color: var(--faint);
+  font-size: 0.85rem;
+}
+
 /* ---------- toast ---------- */
 .toast {
   position: absolute;

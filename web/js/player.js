@@ -1,7 +1,8 @@
 // The tuner. Plays whatever the schedule says is on, joining in progress like a real TV,
-// and keeps going when the Internet Archive doesn't: a file that won't play is reported to the app
-// (which drops it from that channel), and three failures in a row means the network is down,
-// so it shows "technical difficulties" and quietly retries.
+// and keeps going when the Internet Archive or YouTube doesn't: a program that won't play is reported
+// to the app (which drops it from that channel) with the reason (problems.js). A service that won't
+// play anything, or three unexplained failures in a row, shows "technical difficulties" and quietly
+// retries; a channel where nothing in a row will play here says so.
 //
 // Modes: idle, tuning, playing, paused, gap (station break / up next), standby, gesture, off, empty
 
@@ -9,11 +10,13 @@ import { slotAt } from "./schedule.js";
 import { downloadUrl, corsUrl } from "./archive.js";
 import { srtToVtt, pickSubtitle, subtitleLabel } from "./captions.js";
 import { YtMedia, isYouTube, videoIdOf } from "./youtube.js";
+import { failureInfo } from "./problems.js";
 
 const TUNE_TIMEOUT = 25000; // no picture this long after tuning: give up on the file
 const STALL_TIMEOUT = 40000; // buffering this long mid-program: give up on the file
 const MAX_DRIFT = 30; // fallen this many seconds behind live after buffering: jump back to live
 const RETRY_AFTER = 30000; // standby retry interval
+const SKIPS_IN_A_ROW = 6; // this many programs in a row that can't play here: say so instead of trying them all
 
 export class Player {
   constructor(video, hooks) {
@@ -27,6 +30,7 @@ export class Player {
     this.shifted = false; // paused or restarted: no longer following the live schedule
     this.token = 0;
     this.failures = [];
+    this.skips = 0;
     this.retryAt = 0;
     this.loadStart = 0;
     this.waitingSince = 0;
@@ -105,9 +109,11 @@ export class Player {
   }
 
   // Start following a channel's schedule.
-  tune(timeline) {
+  // again: the same channel, retuned after dropping a program that wouldn't play.
+  tune(timeline, again) {
     this.tl = timeline;
     this.retryAt = 0;
+    if (!again) this.skips = 0;
     this.syncToLive();
   }
 
@@ -191,6 +197,7 @@ export class Player {
     if (this.mode !== "tuning" && this.mode !== "playing" && this.mode !== "paused" && this.mode !== "gesture") return;
     this.waitingSince = 0;
     this.failures = [];
+    this.skips = 0;
     this.emit("buffering", false);
     if (this.v === this.ytm && this.ccWanted) this.ytm.setCaptions(true, this.ccLang);
     if (this.mode !== "playing") this.setMode("playing");
@@ -207,8 +214,10 @@ export class Player {
     if (this.slot && this.slot.item.live) {
       // The broadcast is over: drop it for now and move on to the next stream.
       const item = this.slot.item;
+      const info = failureInfo({ youtube: isYouTube(item), reason: "ended" });
       this.clear();
-      this.emit("bad", item, "ended");
+      this.emit("problem", item, info);
+      this.emit("bad", item, info);
       return;
     }
     if (this.shifted || !this.slot) {
@@ -221,24 +230,45 @@ export class Player {
 
   fail(reason) {
     const now = Date.now();
-    this.failures = this.failures.filter(function (t) {
-      return now - t < 120000;
-    });
-    this.failures.push(now);
-    const offline = typeof navigator !== "undefined" && navigator.onLine === false;
-    if (offline || this.failures.length >= 3) {
-      this.standby(offline ? "offline" : "archive");
+    const item = this.slot && this.slot.item;
+    const yt = !!item && isYouTube(item);
+    const err = this.v && this.v.error;
+    const info = failureInfo({ youtube: yt, code: err ? err.code : undefined, reason: reason });
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      this.standby("offline");
       return;
     }
-    const item = this.slot && this.slot.item;
+    this.emit("problem", item, info);
+    if (info.kind === "service") {
+      // Nothing from this service will play right now; the program itself is fine.
+      this.standby(info.service, info.text);
+      return;
+    }
+    if (info.kind === "unsure") {
+      this.failures = this.failures.filter(function (t) {
+        return now - t < 120000;
+      });
+      this.failures.push(now);
+      if (this.failures.length >= 3) {
+        this.standby(info.service);
+        return;
+      }
+    }
     this.clear();
-    if (item) this.emit("bad", item, reason); // the app drops it from the channel and retunes
+    if (++this.skips >= SKIPS_IN_A_ROW) {
+      // Program after program won't play here (a region lock on a whole channel, say): stop and say why.
+      // Tuning back in later tries the rest.
+      if (item) this.emit("bad", item, info, true);
+      this.setMode("empty", { why: info.text });
+      return;
+    }
+    if (item) this.emit("bad", item, info); // the app drops it from the channel and retunes
   }
 
-  standby(why) {
+  standby(why, text) {
     this.clear();
     this.retryAt = Date.now() + RETRY_AFTER;
-    this.setMode("standby", { why: why, retryAt: this.retryAt });
+    this.setMode("standby", { why: why, text: text || "", retryAt: this.retryAt });
   }
 
   enterGap() {

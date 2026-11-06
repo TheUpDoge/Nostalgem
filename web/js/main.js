@@ -30,6 +30,7 @@ const SLEEP_STEPS = [0, 15, 30, 45, 60, 90, 120];
 const STILL_AFTER = 4 * 3600 * 1000; // no button pressed for four hours: ask
 const STILL_GRACE = 2 * 60 * 1000; // then switch off two minutes later
 const BAD_TTL = 24 * 3600 * 1000; // a file that wouldn't play is skipped for a day
+const PROBLEMS_KEPT = 30; // Menu ▸ Playback problems lists this many
 const CUSTOM_FROM = 30; // channels you add start at CH 30
 const SWATCHES = ["#ff2a6d", "#05d9e8", "#b967ff", "#fffb96", "#ff9f1c", "#3ddc97", "#f72585", "#4cc9f0"];
 
@@ -59,6 +60,9 @@ const app = {
   favs: new Set(load("favs", [])),
   hidden: new Set(load("hidden", [])),
   bad: pruneBad(load("bad", {})),
+  problems: keptProblems(load("problems", [])),
+  skipToastAt: 0,
+  emptyWhy: "",
   badSet: null,
   timelines: {},
   digits: "",
@@ -90,6 +94,7 @@ const player = new Player($("screen"), {
   state: onPlayerState,
   program: onProgram,
   bad: onBad,
+  problem: onProblem,
   captions: function (info) {
     if (info.error) V.toast("Subtitles aren't available for this program");
   },
@@ -318,7 +323,8 @@ function onPlayerState(mode, extra) {
     case "empty":
       fx.release();
       hideRadio();
-      V.showCard("empty", V.emptyCard(ch));
+      app.emptyWhy = (extra && extra.why) || "";
+      V.showCard("empty", V.emptyCard(ch, app.emptyWhy));
       break;
     case "gesture":
       fx.release();
@@ -343,13 +349,80 @@ function onProgram(slot) {
   if (!radio.hidden) showRadio(current());
 }
 
-function onBad(item) {
+// A program that won't play is skipped on this TV for a day. stop: the player gave up on this channel
+// for now (program after program wouldn't play here), so don't retune.
+function onBad(item, info, stop) {
   app.bad[programKey(item)] = Date.now() + BAD_TTL;
   save("bad", app.bad);
   app.badSet = null;
   app.timelines = {};
   const ch = current();
-  if (ch) player.tune(timelineFor(ch));
+  if (ch && !stop) player.tune(timelineFor(ch), true);
+}
+
+// ---------- playback problems ----------
+// Each program that wouldn't play and why, newest first, kept across restarts: Menu ▸ Playback problems
+// answers "which channels didn't work, and why?" on the TV it happened on.
+function keptProblems(list) {
+  return Array.isArray(list)
+    ? list
+        .filter(function (p) {
+          return p && typeof p.at === "number" && typeof p.text === "string" && Date.now() - p.at < 7 * 86400000;
+        })
+        .slice(0, PROBLEMS_KEPT)
+    : [];
+}
+function onProblem(item, info) {
+  const ch = current();
+  app.problems.unshift({ at: Date.now(), ch: ch ? chLabel(ch) + " " + ch.name : "", t: item ? item.t : "", text: info.text, kind: info.kind });
+  if (app.problems.length > PROBLEMS_KEPT) app.problems.length = PROBLEMS_KEPT;
+  save("problems", app.problems);
+  // One program that can't play here: say so briefly, so a skip doesn't look like a broken TV.
+  if (info.kind === "item" && app.state === "on" && !overlayOpen() && Date.now() - app.skipToastAt > 10000) {
+    app.skipToastAt = Date.now();
+    V.toast("⚠ Skipped a program that won't play here: " + info.short, 3500);
+  }
+}
+function problemsValue() {
+  return app.problems.length ? app.problems.length + " lately" : "None";
+}
+function showProblems() {
+  const day = 86400000;
+  const rows = app.problems.slice(0, 12).map(function (p) {
+    const when = new Date(p.at);
+    const stamp = (Date.now() - p.at > day ? when.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + " " : "") + fmtClock(when, s.clock24);
+    return "<b>" + esc(stamp) + "</b><span><i>CH " + esc(p.ch) + "</i> · " + esc(p.t || "?") + "<br>" + esc(p.text) + "</span>";
+  });
+  dialog.open({
+    title: "Playback problems",
+    html: rows.length
+      ? '<div class="problems">' +
+        rows.join("") +
+        "</div><p class=\"dialog-note\">A program that won't play is skipped on this TV for a day. YouTube channels are checked for the US every day; elsewhere, some videos may be blocked.</p>"
+      : "<p>Every program has played fine on this TV lately.</p>",
+    buttons: [
+      {
+        label: "Close",
+        action: function (d) {
+          d.close();
+        },
+      },
+    ].concat(
+      rows.length
+        ? [
+            {
+              label: "Clear list",
+              action: function (d) {
+                app.problems = [];
+                save("problems", app.problems);
+                d.close();
+                V.toast("Problem list cleared");
+              },
+            },
+          ]
+        : []
+    ),
+  });
 }
 
 function showRadio(ch) {
@@ -761,6 +834,14 @@ function rootPage() {
         label: "Remote buttons",
         ok: function () {
           showHelp();
+          return "close";
+        },
+      });
+      list.push({
+        label: "⚠ Playback problems",
+        value: problemsValue,
+        ok: function () {
+          showProblems();
           return "close";
         },
       });
@@ -1348,7 +1429,7 @@ function restoreCard() {
   const ch = current();
   if (player.mode === "gap" && player.slot) V.showCard("gap", V.gapCard(ch, player.slot, s.clock24));
   else if (player.mode === "standby") V.showCard("standby", V.standbyCard(app.standby));
-  else if (player.mode === "empty") V.showCard("empty", V.emptyCard(ch));
+  else if (player.mode === "empty") V.showCard("empty", V.emptyCard(ch, app.emptyWhy));
   else V.hideCard();
 }
 

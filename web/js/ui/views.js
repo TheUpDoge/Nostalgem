@@ -1,6 +1,7 @@
 // What's drawn on screen: the sunset scene, channel number, toast, info banner, full-screen cards, radio.
 
 import { escapeHtml as esc, fmtClock, fmtDuration, fmtLeft, fmtRuntime, pad2, chLabel } from "../util.js";
+import { standbyText } from "../problems.js";
 
 export function $(id) {
   return document.getElementById(id);
@@ -207,13 +208,20 @@ export function gapSecondsLeft(slot) {
 
 export function standbyCard(info) {
   const left = info && info.retryAt ? Math.max(0, Math.ceil((info.retryAt - Date.now()) / 1000)) : 0;
-  const why =
-    info && info.why === "offline" ? "This TV is offline. Check the Wi-Fi." : "The Internet Archive isn't answering right now.";
+  const why = standbyText(info && info.why, info && info.text);
   return '<div class="bars"></div>' + panel("TECHNICAL DIFFICULTIES", "PLEASE STAND BY", why + (left ? " Trying again in " + left + "s." : " Trying again…"));
 }
 
-export function emptyCard(ch) {
-  return '<div class="bars"></div>' + panel("CH " + chLabel(ch) + " · " + ch.name.toUpperCase(), "NO SIGNAL", "Nothing on this channel plays right now. Try another channel.");
+// why: the last reason a program here wouldn't play, when program after program wouldn't.
+export function emptyCard(ch, why) {
+  return (
+    '<div class="bars"></div>' +
+    panel(
+      "CH " + chLabel(ch) + " · " + ch.name.toUpperCase(),
+      "NO SIGNAL",
+      why ? "Nothing on this channel will play here right now. " + why + " Try another channel." : "Nothing on this channel plays right now. Try another channel."
+    )
+  );
 }
 
 export function signoffCard() {

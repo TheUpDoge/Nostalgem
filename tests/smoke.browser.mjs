@@ -141,6 +141,10 @@ try {
   });
   // …and a second sub-channel under the same number, 99-2.
   lineup.channels.push({ number: 99, sub: 2, slug: "yt-test-2", name: "Test Magic", tagline: "Sub-channel test", icon: "✨", color: "#ff71ce", kind: "video", offset: 0, items: [{ id: "yt:magic000001", f: "yt", t: "Test Magic", d: 12 }] });
+  // 99-3: nothing on it will play here (a region lock on the whole channel). 99-4: YouTube refuses the page.
+  const blocked = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({ id: "yt:badregion00" + n, f: "yt", t: "Blocked " + n, d: 12 }));
+  lineup.channels.push({ number: 99, sub: 3, slug: "yt-test-3", name: "Test Locked", tagline: "Region lock test", icon: "🔒", color: "#b967ff", kind: "video", offset: 0, items: blocked });
+  lineup.channels.push({ number: 99, sub: 4, slug: "yt-test-4", name: "Test Refused", tagline: "Embed refusal test", icon: "⛔", color: "#ff2a6d", kind: "video", offset: 0, items: [{ id: "yt:cfgvideo0001", f: "yt", t: "Refused", d: 12 }] });
   const fakeYouTube = await readFile(join(fixtures, "fake-youtube.js"), "utf8");
   await page.route("https://www.youtube.com/iframe_api", (r) => r.fulfill({ status: 200, contentType: "text/javascript", body: fakeYouTube }));
   await page.route(base + "/data/lineup.json", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(lineup) }));
@@ -296,6 +300,34 @@ try {
   check(rowLabels.some((t) => t.includes("99-1")) && rowLabels.some((t) => t.includes("99-2")), "the guide lists 99-1 and 99-2");
   await shot("4c-guide-subchannels");
   await key("Escape", 300);
+
+  // A whole channel that won't play here: it gives up after a few and says why, instead of cycling.
+  await key("9", 100);
+  await key("9", 100);
+  await key("3", 300);
+  await page.waitForFunction(() => window.NP.state().mode === "empty", null, { timeout: 10000 }).catch(() => {});
+  const lockedTries = (await page.evaluate(() => window.__yt.log)).filter((l) => /^badregion/.test(l.id)).length;
+  check((await state()).mode === "empty", `a channel where nothing will play here stops trying (mode ${(await state()).mode}, tried ${lockedTries} of 8)`);
+  const lockedCard = await page.textContent("#card");
+  check(/NO SIGNAL/.test(lockedCard) && /not in this country/.test(lockedCard), "…and its card says why: " + lockedCard.replace(/\s+/g, " ").slice(0, 160));
+  await shot("4d-youtube-locked");
+  // YouTube refusing the page is about YouTube, not the program: stand by, and don't skip the program.
+  await key("9", 100);
+  await key("9", 100);
+  await key("4", 300);
+  await page.waitForFunction(() => window.NP.state().mode === "standby", null, { timeout: 10000 }).catch(() => {});
+  check((await state()).mode === "standby" && /won't play videos inside this page/.test(await page.textContent("#card")), "YouTube refusing the page shows stand-by with that reason");
+  const badList = await page.evaluate(() => localStorage.getItem("nostalgem:bad") || "");
+  check(badList.includes("badregion001") && !badList.includes("cfgvideo0001"), "programs that can't play here are skipped for a day; one YouTube refused isn't");
+  // The problems list remembers each one and why.
+  await key("ArrowRight", 300);
+  await page.click('#menu .m-item:has-text("Playback problems")');
+  await page.waitForTimeout(300);
+  const probs = await page.textContent("#dialog");
+  check(/Playback problems/.test(probs) && /Won't Embed/.test(probs) && /Blocked 1/.test(probs) && /error 153/.test(probs), "Menu ▸ Playback problems lists what didn't play and why");
+  await shot("4e-problems");
+  await key("Escape", 300);
+
   await key("4", 1500);
   check((await page.isVisible("#screen")) && !(await page.isVisible("#yt")), "leaving YouTube puts the <video> back");
 

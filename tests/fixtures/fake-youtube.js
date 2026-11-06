@@ -1,6 +1,6 @@
 // Stand-in for https://www.youtube.com/iframe_api in the browser test. Implements the slice of YT.Player
-// that web/js/youtube.js uses. A video id starting with "bad" fails with error 150 (embedding disabled);
-// every video is 12 seconds long. window.__yt.log records what was loaded and where it started.
+// that web/js/youtube.js uses. A video id starting with "bad" fails with error 150 (embedding disabled),
+// one starting with "cfg" with error 153 (YouTube refuses the page); every video is 12 seconds long. window.__yt.log records what was loaded and where it started.
 (function () {
   const log = [];
   window.__yt = { log: log, players: [] };
@@ -38,9 +38,9 @@
     this.t = o.startSeconds || 0;
     log.push({ id: o.videoId, start: this.t });
     this.el.textContent = "YouTube: " + o.videoId;
-    if (/^bad/.test(o.videoId)) {
+    if (/^(bad|cfg)/.test(o.videoId)) {
       setTimeout(function () {
-        self.ev.onError && self.ev.onError({ data: 150, target: self });
+        self.ev.onError && self.ev.onError({ data: /^bad/.test(o.videoId) ? 150 : 153, target: self });
       }, 60);
       return;
     }
