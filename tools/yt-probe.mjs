@@ -6,6 +6,7 @@
 //   … ?Cleetus_McFarland        search channels by name (underscores for spaces) and list the top matches
 //   … --live @exploreorg        list what each channel is streaming live right now
 //   … --match "junji ito|uzumaki"  only count uploads whose title matches (case-insensitive)
+//   … --max 140                    and no longer than this many minutes
 //
 // Prints a table and, on GitHub Actions, writes it to the job summary.
 
@@ -34,6 +35,7 @@ const opt = (name, d) => {
 const liveMode = args.indexOf("--live") >= 0;
 if (liveMode) args.splice(args.indexOf("--live"), 1);
 const minMin = Number(opt("min", "18"));
+const maxMin = Number(opt("max", "1440"));
 const matchText = opt("match", "");
 const match = matchText ? new RegExp(matchText, "i") : null;
 const scan = Number(opt("scan", "500"));
@@ -111,7 +113,7 @@ for (const t of targets) {
     const j = await yt("videos", { part: "snippet,contentDetails,status", id: ids.slice(i, i + 50).join(",") });
     for (const v of j.items || []) {
       if (match && !match.test(v.snippet.title)) continue;
-      let why = rejectReason(v, { minS: minMin * 60, maxS: 24 * 3600 });
+      let why = rejectReason(v, { minS: minMin * 60, maxS: maxMin * 60 });
       const text = filterText(v, allowFor[t.toLowerCase()]);
       const hit = !why && wordFilter && text.match(wordFilter);
       if (hit) why = "word filter: " + hit[0].trim();
@@ -121,7 +123,7 @@ for (const t of targets) {
         console.log(`  ${t} ${v.id} ${Math.round(d / 60)}m ${v.snippet.liveBroadcastContent} → ${why || "OK"} | ${v.snippet.title}`);
       }
       if (why) reasons[why] = (reasons[why] || 0) + 1;
-      else good.push({ t: cleanYtTitle(v.snippet.title), d: parseIsoDuration(v.contentDetails.duration) });
+      else good.push({ t: cleanYtTitle(v.snippet.title), d: parseIsoDuration(v.contentDetails.duration), about: (v.snippet.description || "").replace(/\s+/g, " ").slice(0, 90) });
     }
   }
   const hours = good.reduce((s, g) => s + g.d, 0) / 3600;
@@ -138,7 +140,9 @@ for (const t of targets) {
     ageGate: reasons["age-restricted"] || 0,
     short: reasons["too short"] || 0,
   });
-  details.push(`### ${t} — ${ch.snippet.title} (id ${ch.id})\n` + good.slice(0, 12).map((g) => `- ${g.t} (${Math.round(g.d / 60)} min)`).join("\n"));
+  // The newest few, and a few of the oldest scanned: an old show's own episodes are often far down the list.
+  const sample = good.length > 16 ? good.slice(0, 10).concat(good.slice(-6)) : good;
+  details.push(`### ${t} — ${ch.snippet.title} (id ${ch.id})\n` + sample.map((g) => `- ${g.t} (${Math.round(g.d / 60)} min)${g.about ? " — " + g.about : ""}`).join("\n"));
 }
 console.table(rows);
 for (const d of details) console.log("\n" + d);

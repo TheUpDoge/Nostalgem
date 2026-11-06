@@ -12,6 +12,9 @@ on:
       min_minutes:
         description: "Shortest video that counts as an episode"
         default: "18"
+      max_minutes:
+        description: "Longest video that counts (minutes)"
+        default: "1440"
       scan:
         description: "Uploads to check per channel"
         default: "500"
@@ -39,7 +42,8 @@ jobs:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           CHANNELS: ${{ github.event.inputs.channels }}
           MIN: ${{ github.event.inputs.min_minutes }}
+          MAX: ${{ github.event.inputs.max_minutes }}
           SCAN: ${{ github.event.inputs.scan }}
           LIVE: ${{ github.event.inputs.live }}
           MATCH: ${{ github.event.inputs.match }}
-        run: node tools/yt-probe.mjs $CHANNELS --min "$MIN" --scan "$SCAN" $([ "$LIVE" = "true" ] && echo --live) ${MATCH:+--match "$MATCH"}
+        run: node tools/yt-probe.mjs $CHANNELS --min "$MIN" --max "${MAX:-1440}" --scan "$SCAN" $([ "$LIVE" = "true" ] && echo --live) ${MATCH:+--match "$MATCH"}
