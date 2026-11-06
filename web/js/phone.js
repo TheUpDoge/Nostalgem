@@ -251,7 +251,7 @@ function renderNow() {
   const ch = st.ch;
   el.style.setProperty("--ch", ch.color || "#ff2a6d");
   el.querySelector(".now-icon").textContent = ch.icon || "📺";
-  el.querySelector(".now-num").textContent = "CH " + pad2(ch.number);
+  el.querySelector(".now-num").textContent = "CH " + (ch.label || pad2(ch.number));
   el.querySelector(".now-name").textContent = ch.name;
   let badge = "LIVE";
   if (st.app === "off") badge = "OFF";
@@ -318,7 +318,7 @@ function renderChannels() {
         '"><span class="ci">' +
         esc(c.icon || "📺") +
         '</span><span class="cn">' +
-        pad2(c.number) +
+        esc(c.label || pad2(c.number)) +
         '</span><span class="ct"><b>' +
         esc(c.name) +
         (c.fav ? " ★" : "") +
@@ -343,7 +343,7 @@ function renderSearchStatus() {
     r.searching = true;
   } else if (r.searching) {
     r.searching = false;
-    msg.textContent = r.state && r.state.ch ? "Now on CH " + pad2(r.state.ch.number) + " " + r.state.ch.name : "";
+    msg.textContent = r.state && r.state.ch ? "Now on CH " + (r.state.ch.label || pad2(r.state.ch.number)) + " " + r.state.ch.name : "";
   }
 }
 

@@ -126,6 +126,7 @@ try {
   // A YouTube channel whose first video refuses to embed, so the tuner has to skip it.
   lineup.channels.push({
     number: 60,
+    sub: 1,
     slug: "yt-test",
     name: "Test Toons",
     tagline: "YouTube test channel",
@@ -138,6 +139,8 @@ try {
       { id: "yt:mecha000001", f: "yt", t: "Test Mecha", d: 12 },
     ],
   });
+  // …and a second sub-channel under the same number, 60-2.
+  lineup.channels.push({ number: 60, sub: 2, slug: "yt-test-2", name: "Test Magic", tagline: "Sub-channel test", icon: "✨", color: "#ff71ce", kind: "video", offset: 0, items: [{ id: "yt:magic000001", f: "yt", t: "Test Magic", d: 12 }] });
   const fakeYouTube = await readFile(join(fixtures, "fake-youtube.js"), "utf8");
   await page.route("https://www.youtube.com/iframe_api", (r) => r.fulfill({ status: 200, contentType: "text/javascript", body: fakeYouTube }));
   await page.route(base + "/data/lineup.json", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(lineup) }));
@@ -261,9 +264,11 @@ try {
   // A YouTube channel: the first video won't embed and is skipped; the next one joins in progress.
   await key("6", 120);
   await key("0", 300);
+  check((await page.textContent("#osd")).includes("60-"), "typing 6 0 waits for a sub-channel digit (shows CH 60-)");
+  await page.waitForTimeout(1700); // no third digit: the first sub-channel
   await page.waitForFunction(() => window.NP.state().program === "Test Mecha" && window.NP.state().mode === "playing", null, { timeout: 8000 }).catch(() => {});
   st = await state();
-  check(st.channel === 60 && st.mode === "playing" && st.program === "Test Mecha", `YouTube channel plays (${st.channel} ${st.mode}: ${st.program})`);
+  check(st.label === "60-1" && st.mode === "playing" && st.program === "Test Mecha", `6 0 tunes the first sub-channel, 60-1, and its YouTube video plays (${st.label} ${st.mode}: ${st.program})`);
   const ytLog = await page.evaluate(() => (window.__yt ? window.__yt.log : []));
   check(ytLog.some((l) => l.id === "badvideo001") && ytLog.some((l) => l.id === "mecha000001"), "a video that won't embed is skipped (" + ytLog.map((l) => l.id).join(", ") + ")");
   const mecha = ytLog.filter((l) => l.id === "mecha000001").pop();
@@ -277,6 +282,20 @@ try {
   st = await state();
   check(!st.shifted && st.mode === "playing", "back to live on YouTube");
   await shot("4b-youtube");
+  if (await page.isVisible("#banner")) await key("Enter", 300);
+  await page.waitForTimeout(2100);
+  check((await page.textContent("#bug")).includes("60-1"), "the channel logo shows 60-1");
+  await key("ArrowUp", 900);
+  check((await state()).label === "60-2", `▲ from 60-1 goes to 60-2 (got ${(await state()).label})`);
+  await key("6", 100);
+  await key("0", 100);
+  await key("1", 900);
+  check((await state()).label === "60-1", `typing 6 0 1 tunes 60-1 at once (got ${(await state()).label})`);
+  await key("ArrowLeft", 500);
+  const rowLabels = await page.$$eval(".g-row", (r) => r.map((x) => x.textContent));
+  check(rowLabels.some((t) => t.includes("60-1")) && rowLabels.some((t) => t.includes("60-2")), "the guide lists 60-1 and 60-2");
+  await shot("4c-guide-subchannels");
+  await key("Escape", 300);
   await key("4", 1500);
   check((await page.isVisible("#screen")) && !(await page.isVisible("#yt")), "leaving YouTube puts the <video> back");
 

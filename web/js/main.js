@@ -12,7 +12,7 @@ import { Menu } from "./ui/menu.js";
 import { Dialog } from "./ui/dialog.js";
 import * as V from "./ui/views.js";
 import { TvLink, makeCode, cleanCode, remoteUrl, prettyCode, qrSvg, loadScript } from "./link.js";
-import { pad2, escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32 } from "./util.js";
+import { pad2, escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder } from "./util.js";
 
 const VERSION = "1.1.0";
 const NAME = "NostalGem";
@@ -151,9 +151,7 @@ function timelineFor(ch) {
 function sortChannels() {
   const cur = current();
   const last = app.channels[app.last];
-  app.channels.sort(function (a, b) {
-    return a.number - b.number;
-  });
+  app.channels.sort(chOrder);
   app.idx = app.channels.indexOf(cur);
   app.last = last ? app.channels.indexOf(last) : -1;
 }
@@ -194,13 +192,13 @@ function surf(dir) {
   else if (dir > 0)
     next =
       list.filter(function (c) {
-        return c.number > base.number;
+        return chOrder(c, base) > 0;
       })[0] || list[0];
   else
     next =
       list
         .filter(function (c) {
-          return c.number < base.number;
+          return chOrder(c, base) < 0;
         })
         .pop() || list[list.length - 1];
   app.pendingIdx = app.channels.indexOf(next);
@@ -215,35 +213,48 @@ function surf(dir) {
   }, 380);
 }
 
+// Number entry. Channels are 1–2 digits; a sub-channel adds one more, so 5 0 1 is CH 50-1. The TV tunes
+// as soon as no longer number could follow, otherwise after a short pause. 5 0 alone, on a channel that
+// only has sub-channels, goes to the first of them.
 function digit(n) {
-  app.digits = (app.digits + String(n)).slice(-2);
+  app.digits = (app.digits + String(n)).slice(-3);
   const typed = app.digits;
-  V.osd("CH " + (typed.length < 2 ? typed + "-" : typed), "", 2500);
   clearTimeout(app.digitTimer);
-  const num = Number(typed);
-  const exact = app.channels.some(function (c) {
-    return c.number === num;
-  });
+  const exact = channelForDigits(typed, false);
   const longer = app.channels.some(function (c) {
-    const t = String(c.number);
-    return t.length > typed.length && t.indexOf(typed) === 0;
+    const k = chKey(c);
+    return k.length > typed.length && k.indexOf(typed) === 0;
   });
-  if ((exact && !longer) || typed.length >= 2) commitDigits();
+  if (longer) {
+    const shown = typed.length === 1 ? typed + "-" : typed.length === 2 ? pad2(Number(typed)) + "-" : typed;
+    V.osd("CH " + shown, "", 2500);
+  }
+  if ((exact && !longer) || typed.length >= 3 || (!exact && !longer)) commitDigits();
   else app.digitTimer = setTimeout(commitDigits, 1600);
+}
+
+function channelForDigits(typed, firstSub) {
+  const exact = app.channels.filter(function (c) {
+    return chKey(c) === typed;
+  })[0];
+  if (exact || !firstSub) return exact;
+  const num = Number(typed);
+  return app.channels.filter(function (c) {
+    return c.number === num;
+  })[0];
 }
 
 function commitDigits() {
   clearTimeout(app.digitTimer);
-  const num = Number(app.digits);
+  const typed = app.digits;
   app.digits = "";
-  const ch = app.channels.filter(function (c) {
-    return c.number === num;
-  })[0];
+  if (!typed) return;
+  const ch = channelForDigits(typed, true);
   if (ch) {
     closeOverlays();
     tuneTo(ch);
   } else {
-    V.osd("CH " + pad2(num), "NO SIGNAL", 2000);
+    V.osd("CH " + (typed.length > 2 ? typed.slice(0, 2) + "-" + typed.slice(2) : pad2(Number(typed))), "NO SIGNAL", 2000);
     staticBurst(500);
   }
 }
@@ -385,11 +396,11 @@ function toggleFav(ch) {
   if (!ch) return;
   if (app.favs.has(ch.slug)) {
     app.favs.delete(ch.slug);
-    V.toast("Removed CH " + pad2(ch.number) + " from favorites");
+    V.toast("Removed CH " + chLabel(ch) + " from favorites");
   } else {
     app.favs.add(ch.slug);
     app.hidden.delete(ch.slug);
-    V.toast("★ CH " + pad2(ch.number) + " " + ch.name + " is a favorite");
+    V.toast("★ CH " + chLabel(ch) + " " + ch.name + " is a favorite");
   }
   saveLists();
 }
@@ -452,7 +463,7 @@ function updateBug() {
   const show = !!(s.bug && ch && app.state === "on" && (player.mode === "playing" || player.mode === "paused") && banner.hidden && !overlayOpen() && ch.kind !== "audio");
   bug.hidden = !show;
   if (show) {
-    const text = (ch.icon ? ch.icon + " " : "") + pad2(ch.number);
+    const text = (ch.icon ? ch.icon + " " : "") + chLabel(ch);
     if (bug.textContent !== text) bug.textContent = text;
   }
 }
@@ -553,7 +564,7 @@ function rootPage() {
   return {
     title: function () {
       const ch = current();
-      return "CH " + pad2(ch.number) + " · " + ch.name;
+      return "CH " + chLabel(ch) + " · " + ch.name;
     },
     sub: function () {
       const it = player.slot ? player.slot.item : null;
@@ -606,7 +617,7 @@ function rootPage() {
       if (prev)
         list.push({
           label: "Previous channel",
-          value: "CH " + pad2(prev.number),
+          value: "CH " + chLabel(prev),
           ok: function () {
             tuneTo(prev);
             return "close";
@@ -782,7 +793,7 @@ function channelsPage() {
           };
         };
         out.push({
-          label: pad2(ch.number) + "  " + ch.name,
+          label: chLabel(ch) + "  " + ch.name,
           swatch: ch.color,
           cycle: true,
           value: function () {
@@ -827,7 +838,7 @@ function addPage() {
         list.push({
           label: (def.icon ? def.icon + "  " : "") + def.name,
           swatch: def.color,
-          value: have ? "✓ CH " + pad2(have.number) : def.kind === "audio" ? "Radio" : "TV",
+          value: have ? "✓ CH " + chLabel(have) : def.kind === "audio" ? "Radio" : "TV",
           ok: function () {
             if (have) tuneTo(have);
             else buildCustom(Object.assign({}, def, { slug: "x-" + def.slug }));
@@ -871,7 +882,7 @@ function removeCustom(ch) {
   app.hidden.delete(ch.slug);
   saveLists();
   saveCustom();
-  V.toast("Removed CH " + pad2(ch.number) + " " + ch.name);
+  V.toast("Removed CH " + chLabel(ch) + " " + ch.name);
   if (wasCurrent || app.idx < 0) {
     app.idx = 0;
     menu.close();
@@ -989,7 +1000,7 @@ function buildCustom(def) {
       cancelled = true; // done: closing the dialog now is not a cancel
       dialog.close();
       tuneTo(ch);
-      V.toast("CH " + pad2(ch.number) + " " + ch.name + " is on the air" + (saved ? "" : " (couldn't save it on this TV)"), 4000);
+      V.toast("CH " + chLabel(ch) + " " + ch.name + " is on the air" + (saved ? "" : " (couldn't save it on this TV)"), 4000);
     })
     .catch(function (err) {
       if (!cancelled) dialog.status("Couldn't reach the Archive (" + err.message + "). Try again in a moment.");
@@ -1066,7 +1077,7 @@ function phoneSnapshot() {
     muted: player.muted,
     cc: ccValue(),
     fav: ch ? app.favs.has(ch.slug) : false,
-    ch: ch ? { slug: ch.slug, number: ch.number, name: ch.name, icon: ch.icon || "", color: ch.color || "", kind: ch.kind || "video", tagline: ch.tagline || "" } : null,
+    ch: ch ? { slug: ch.slug, number: ch.number, label: chLabel(ch), name: ch.name, icon: ch.icon || "", color: ch.color || "", kind: ch.kind || "video", tagline: ch.tagline || "" } : null,
     now: now,
     next: sl && sl.next ? sl.next.t : "",
     overlay: dialog.isOpen ? "dialog" : menu.isOpen ? "menu" : guide.isOpen ? "guide" : "",
@@ -1081,6 +1092,7 @@ function phoneChannels() {
     return {
       slug: ch.slug,
       number: ch.number,
+      label: chLabel(ch),
       name: ch.name,
       icon: ch.icon || "",
       color: ch.color || "",
@@ -1569,6 +1581,8 @@ window.NP = {
       mode: player.mode,
       shifted: player.shifted,
       channel: ch ? ch.number : 0,
+      sub: ch && ch.sub ? ch.sub : 0,
+      label: ch ? chLabel(ch) : "",
       name: ch ? ch.name : "",
       program: it ? it.t : "",
       channels: app.channels.length,
@@ -1654,14 +1668,12 @@ async function boot() {
       return Object.assign({}, c, { custom: true });
     })
   );
-  app.channels.sort(function (a, b) {
-    return a.number - b.number;
-  });
-  const asked = Number(params.get("ch"));
+  app.channels.sort(chOrder);
+  const asked = (params.get("ch") || "").replace(/[^0-9]/g, "").replace(/^0+(?=\d)/, "");
   const lastSlug = load("last", "");
   const start =
     app.channels.filter(function (c) {
-      return asked && c.number === asked;
+      return asked && chKey(c) === asked;
     })[0] ||
     app.channels.filter(function (c) {
       return c.slug === lastSlug;

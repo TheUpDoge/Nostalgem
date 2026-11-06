@@ -43,13 +43,19 @@ for (const t of targets) {
   const uploads = ch.contentDetails.relatedPlaylists.uploads;
   const ids = [];
   let page = "";
-  while (ids.length < scan) {
-    const p = { part: "contentDetails", playlistId: uploads, maxResults: "50" };
-    if (page) p.pageToken = page;
-    const j = await yt("playlistItems", p);
-    for (const it of j.items || []) ids.push(it.contentDetails.videoId);
-    page = j.nextPageToken;
-    if (!page) break;
+  try {
+    while (ids.length < scan) {
+      const p = { part: "contentDetails", playlistId: uploads, maxResults: "50" };
+      if (page) p.pageToken = page;
+      const j = await yt("playlistItems", p);
+      for (const it of j.items || []) ids.push(it.contentDetails.videoId);
+      page = j.nextPageToken;
+      if (!page) break;
+    }
+  } catch (e) {
+    if (/API key|quota|keyInvalid|unregistered/i.test(e.message)) throw e;
+    rows.push({ handle: t, channel: ch.snippet.title.slice(0, 32), videos: Number(ch.statistics.videoCount), scanned: 0, airable: 0 });
+    continue;
   }
   const reasons = {};
   const good = [];

@@ -4,7 +4,7 @@
 import { programsBetween } from "../schedule.js";
 import { thumbUrl } from "../archive.js";
 import { isYouTube, videoIdOf, ytThumb } from "../youtube.js";
-import { escapeHtml as esc, fmtClock, pad2, clamp } from "../util.js";
+import { escapeHtml as esc, fmtClock, pad2, clamp, chLabel } from "../util.js";
 import { programMeta, hintsHtml, LOGO } from "./views.js";
 
 const HALF_HOUR = 30 * 60 * 1000;
@@ -172,7 +172,7 @@ export class Guide {
         '<div class="g-info"><div class="g-title">' +
         esc(it.t) +
         '</div><div class="g-meta">CH ' +
-        pad2(f.ch.number) +
+        chLabel(f.ch) +
         " " +
         esc(f.ch.name) +
         " · " +
@@ -231,7 +231,7 @@ export class Guide {
         '" style="--ch:' +
         esc(ch.color) +
         '"><span class="n">' +
-        pad2(ch.number) +
+        chLabel(ch) +
         '</span><span class="nm">' +
         esc(ch.name) +
         "</span>" +

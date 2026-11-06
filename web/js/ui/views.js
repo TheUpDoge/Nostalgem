@@ -1,6 +1,6 @@
 // What's drawn on screen: the sunset scene, channel number, toast, info banner, full-screen cards, radio.
 
-import { escapeHtml as esc, fmtClock, fmtDuration, fmtLeft, fmtRuntime, pad2 } from "../util.js";
+import { escapeHtml as esc, fmtClock, fmtDuration, fmtLeft, fmtRuntime, pad2, chLabel } from "../util.js";
 
 export function $(id) {
   return document.getElementById(id);
@@ -56,7 +56,7 @@ export function osd(num, name, ms) {
   }, ms || 3500);
 }
 export function osdChannel(ch, ms) {
-  osd("CH " + pad2(ch.number), ch.name, ms);
+  osd("CH " + chLabel(ch), ch.name, ms);
 }
 export function osdHide() {
   $("osd").classList.remove("show");
@@ -137,7 +137,7 @@ export function bannerHtml(d) {
     '<div class="chip" style="--ch:' +
     esc(d.ch.color) +
     '"><div class="chip-num">' +
-    pad2(d.ch.number) +
+    chLabel(d.ch) +
     '</div><div class="chip-icon">' +
     esc(d.ch.icon || "") +
     "</div></div>" +
@@ -193,7 +193,7 @@ export function gapCard(ch, slot, clock24) {
   return (
     SCENE +
     panel(
-      "UP NEXT ON CH " + pad2(ch.number) + " · " + ch.name.toUpperCase(),
+      "UP NEXT ON CH " + chLabel(ch) + " · " + ch.name.toUpperCase(),
       n.t,
       programMeta(n) + " · " + fmtClock(new Date(startMs), clock24),
       '<div class="card-count">' + fmtDuration(left) + "</div>"
@@ -213,7 +213,7 @@ export function standbyCard(info) {
 }
 
 export function emptyCard(ch) {
-  return '<div class="bars"></div>' + panel("CH " + pad2(ch.number) + " · " + ch.name.toUpperCase(), "NO SIGNAL", "Nothing on this channel plays right now. Try another channel.");
+  return '<div class="bars"></div>' + panel("CH " + chLabel(ch) + " · " + ch.name.toUpperCase(), "NO SIGNAL", "Nothing on this channel plays right now. Try another channel.");
 }
 
 export function signoffCard() {

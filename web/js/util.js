@@ -60,6 +60,18 @@ export function pad2(n) {
   return (n < 10 ? "0" : "") + n;
 }
 
+// Channel numbers: "07", or "50-1" for a sub-channel (like digital TV's 50-1, 50-2 …).
+export function chLabel(ch) {
+  return pad2(ch.number) + (ch.sub ? "-" + ch.sub : "");
+}
+// What you type on the remote to reach it: "7", "501".
+export function chKey(ch) {
+  return String(ch.number) + (ch.sub ? String(ch.sub) : "");
+}
+export function chOrder(a, b) {
+  return a.number - b.number || (a.sub || 0) - (b.sub || 0);
+}
+
 export function fmtClock(date, h24) {
   let h = date.getHours();
   const m = pad2(date.getMinutes());
