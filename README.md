@@ -45,6 +45,19 @@ with one button (*Bonanza*, *The Lone Ranger*, Duke Westerns, Hopalong Cassidy, 
 *Gunsmoke* radio, Popeye, Chaplin & Keaton, Méliès, Jack Benny, *Dragnet*, *X Minus One*), or type
 any search and get a channel of it: *the shadow*, *kung fu*, *jazz*, *collection:prelinger*.
 
+### YouTube channels (50 and up)
+
+Built from official YouTube channels (the creators', studios' or distributors' own uploads, played in
+YouTube's player) and rebuilt daily:
+
+| CH | Channel | From |
+|---|---|---|
+| 50-1, 50-2 | Mecha Hangar, Anime Vault | GUNDAM CHANNEL, Voltron; Nozomi Entertainment, RetroCrush |
+| 60-1 … 60-9 | Laugh Riot, The Workshop, Gearheads, Range Day, Great Outdoors, Passport & Plate, Dark Files, Game Room, VHS Late Show | Big Lez, MeatCanyon, Ze Frank, Hand Tool Rescue, Primitive Technology, Cleetus McFarland, Garage 54, Garand Thumb, AntsCanada, Bald and Bankrupt, Dark Docs, AVGN, brutalmoose, Retro Ryu, Orbital Bacon and more |
+| 70-1 … 70-5 | Cam Tour, Rail Cam, Launch Pad, Lo-Fi Radio, Vapor Lounge | **Live**: Monterey Bay Aquarium, EarthCam, Namibia, Virtual Railfan, NASA, NASASpaceflight, Lofi Girl, Chillhop, Ryan Celsius |
+| 80-1 … 80-6 | Sitcom Classics, After Hours, Stand-Up Stage, FilmRise TV, Midnight Movies, True Crime | I Dream of Jeannie, Married with Children, Bewitched, Adult Swim, Dropout, Funny Or Die, Comedy Central Stand-Up, FilmRise |
+| 90-1, 90-2 | Joe Rogan Experience, Pod Squad | PowerfulJRE; Unsubscribe, Underwhelming, Conan O'Brien Needs a Friend |
+
 ## What it does
 
 - **Live, synchronized schedule.** Every TV agrees on what's on, with no server involved: the schedule
