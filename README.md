@@ -114,7 +114,9 @@ channel, play/pause, info, guide and coloured buttons.
    `https://github.com/<you>/<repo>/releases/latest/download/nostalgem.apk`
    then choose **Install**. NostalGem appears in your apps. Move it to your favorites row.
 
-To update, run the workflow again and reinstall with the same link. Your favorites and settings are kept.
+The app runs the published site, so new channels and fixes reach the TV as soon as they're on GitHub
+Pages, with no reinstall. Reinstall only when the app itself changes: run the workflow again and use
+the same link. Your favorites and settings are kept.
 
 > The APK is signed with a key kept in this repo (`android-tv/keystore/`), so new builds install over
 > old ones. That's fine for your own TV. Publishing to the Play Store would need a private key instead.
@@ -161,7 +163,9 @@ real keyboard for **Search the Archive**.
 
 - Nothing to install. To keep it handy, use your browser's **Add to Home Screen**; it opens like an app.
 - It works with the Android TV app, a TV's web browser, or a computer plugged into or casting to the TV.
-  Phone and TV don't need to be on the same Wi-Fi.
+  It's easiest with the phone on the TV's Wi-Fi: the TV app tells the phone its address, so the two
+  link up directly. Guest Wi-Fi, VPNs and "AP isolation" on a router keep devices apart. If it won't
+  link, the phone shows how far the handshake got (small print under the message).
 - The TV keeps its code, so a paired phone reconnects by itself after the TV restarts. **New code** in
   the same dialog disconnects every phone paired before; **Turn off** stops listening.
 - The QR code points at the GitHub Pages copy, so turn on Pages first: Settings ▸ Pages ▸ Source: **GitHub Actions**.
@@ -229,8 +233,9 @@ Monday to pick up new uploads and drop removed ones. Locally: `YOUTUBE_API_KEY=�
 npm install               # once: the tests need acorn (a dev dependency)
 npm start                 # http://localhost:8080
 npm test                  # schedule, remote, Archive parsing, subtitles, lineup checks, TV-browser syntax
-npm i --no-save playwright@1.63.0 && npx playwright install chromium
+npm i --no-save playwright@1.63.0 peer@1.0.2 && npx playwright install chromium
 npm run test:browser      # drives the app in Chromium with remote keys; SHOTS=1 saves screenshots
+npm run test:lan          # the phone remote over real WebRTC, through a local PeerJS broker
 ```
 
 The browser test needs no network. Small local clips stand in for the Archive, and it checks
@@ -263,16 +268,22 @@ tests/                         node:test unit tests + a Playwright smoke test
 - **Playing.** Videos load with a `#t=` media fragment so they start near the live point, then seek to
   it exactly. The player corrects drift after buffering, waits out programs that run short, and reports
   files that won't play so they drop out of that channel for a day.
-- **The Android app** bundles `web/` into the APK and serves it from a private https origin through
-  `WebViewAssetLoader`, so it behaves exactly like the website. It asks the website for the latest
-  lineup (rebuilt daily) at start-up and when you come back to it after a few hours, keeps a copy for
-  when the internet is down, and falls back to the lineup inside the APK. A `format` number in the
+- **The Android app** opens the published site, so fixes and the daily lineup arrive without a
+  reinstall. It also bundles `web/` into the APK and serves it from a private https origin through
+  `WebViewAssetLoader`, and switches to that copy when the site can't be reached (no internet, or no
+  answer in 15 seconds). That copy asks the website for the latest lineup (rebuilt daily) at start-up
+  and when you come back to it after a few hours, keeps a copy for when the internet is down, and falls
+  back to the lineup inside the APK. A `format` number in the
   lineup keeps an older app from loading a lineup it can't play. It adds the home-screen banner, keeps
   the screen on, and passes remote buttons the page can't see (CH±, media keys, Guide, Info,
   coloured keys, Back) to `window.NP`.
 - **The phone remote.** The TV registers with the free PeerJS broker as `nostalgem-<code>`; the phone
   finds it there, and from then on the two talk directly over a WebRTC data channel (relayed through
-  PeerJS's TURN server when a network won't allow a direct link). The phone sends the same actions a
+  PeerJS's TURN server when a network won't allow a direct link). Browsers hide their own address
+  behind a random `….local` name that the other device has to look up over multicast DNS, which a lot
+  of home Wi-Fi (and any Android app that doesn't ask for multicast) never answers. So the TV app hands
+  the page its real Wi-Fi address (`window.NostalGemTV`, offered only to this site's pages), and the
+  TV sends the phone each hidden address twice: as the browser wrote it, and with the real one. The phone sends the same actions a
   key press makes; the TV sends back what's on. Only whitelisted actions are accepted.
 - **Older TVs.** The app sticks to ES2018 (a test enforces it), ships its own fonts, and uses no frameworks.
 

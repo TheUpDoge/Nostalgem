@@ -5,30 +5,43 @@ import android.app.Activity
 import android.content.pm.ApplicationInfo
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.net.ConnectivityManager
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.webkit.WebViewAssetLoader
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
+import java.net.Inet4Address
+import java.net.NetworkInterface
 
 /**
  * NostalGem for Google TV, Android TV and Fire TV.
  *
- * The whole TV is the web app bundled in assets/www, served from a private https origin so it
- * behaves exactly like the website. This activity only adds what a web page can't do alone:
- * a home-screen banner, the screen kept awake, and remote buttons (channel up/down, play/pause,
- * guide, info, the colored keys, Back) handed to the page.
+ * The whole TV is the web app. The app opens the published site, so fixes and the daily lineup arrive
+ * without reinstalling, and falls back to the copy bundled in assets/www (served from a private https
+ * origin, so it behaves exactly like the website) when the site can't be reached. This activity only
+ * adds what a web page can't do alone: a home-screen banner, the screen kept awake, remote buttons
+ * (channel up/down, play/pause, guide, info, the colored keys, Back) handed to the page, and this TV's
+ * Wi-Fi address, so a phone remote on the same Wi-Fi can reach it directly.
  */
 class MainActivity : Activity() {
 
     private lateinit var web: WebView
+    private val main = Handler(Looper.getMainLooper())
+    private var usingBundled = false
+    private var siteLoaded = false
 
     private val assetLoader by lazy {
         WebViewAssetLoader.Builder()
@@ -61,7 +74,20 @@ class MainActivity : Activity() {
 
                 // The TV never navigates away from itself.
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
-                    request.url.host != APP_HOST
+                    !isOurs(request.url)
+
+                override fun onPageFinished(view: WebView, url: String) {
+                    if (Uri.parse(url).host == SITE_HOST) siteLoaded = true
+                }
+
+                // No network, or the site is down: run the copy inside the app.
+                override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                    if (request.isForMainFrame) useBundled()
+                }
+
+                override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
+                    if (request.isForMainFrame && response.statusCode >= 400) useBundled()
+                }
             }
 
             webChromeClient = object : WebChromeClient() {
@@ -70,10 +96,67 @@ class MainActivity : Activity() {
             }
         }
 
+        // The page asks for this TV's Wi-Fi address; only pages from this app or its site get an answer.
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+            WebViewCompat.addWebMessageListener(web, "NostalGemTV", setOf("https://$APP_HOST", "https://$SITE_HOST")) { _, _, _, isMainFrame, reply ->
+                if (isMainFrame) reply.postMessage(hello())
+            }
+        }
+
         setContentView(web)
         hideSystemBars()
-        web.loadUrl(START_URL)
+        web.loadUrl(SITE_URL)
+        // A slow network: don't sit on a black screen.
+        main.postDelayed({ if (!siteLoaded) useBundled() }, SITE_TIMEOUT_MS)
         web.requestFocus()
+    }
+
+    private fun isOurs(url: Uri): Boolean =
+        url.host == APP_HOST || (url.host == SITE_HOST && (url.path ?: "").startsWith(SITE_PATH))
+
+    private fun useBundled() {
+        if (usingBundled) return
+        usingBundled = true
+        web.stopLoading()
+        web.loadUrl(BUNDLED_URL)
+    }
+
+    /** {"lan":["192.168.1.23"],"app":"1.0.21"}: this TV's IPv4 addresses on the local network. */
+    private fun hello(): String {
+        val ips = lanAddresses().joinToString(",") { "\"" + it + "\"" }
+        val version = try {
+            packageManager.getPackageInfo(packageName, 0).versionName ?: ""
+        } catch (e: Exception) {
+            ""
+        }
+        return "{\"lan\":[" + ips + "],\"app\":\"" + version.replace("\"", "") + "\"}"
+    }
+
+    private fun lanAddresses(): List<String> {
+        val out = LinkedHashSet<String>()
+        try {
+            val cm = getSystemService(ConnectivityManager::class.java)
+            cm?.getLinkProperties(cm.activeNetwork)?.linkAddresses?.forEach { la ->
+                val a = la.address
+                if (a is Inet4Address && !a.isLoopbackAddress && !a.isLinkLocalAddress) a.hostAddress?.let { out.add(it) }
+            }
+        } catch (e: Exception) {
+            // no permission or no network: try the interfaces
+        }
+        if (out.isEmpty()) {
+            try {
+                NetworkInterface.getNetworkInterfaces()?.toList()?.forEach { ni ->
+                    if (ni.isUp && !ni.isLoopback) {
+                        ni.inetAddresses.toList().forEach { a ->
+                            if (a is Inet4Address && a.isSiteLocalAddress) a.hostAddress?.let { out.add(it) }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // none to offer
+            }
+        }
+        return out.toList().take(4)
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
@@ -111,6 +194,7 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
+        main.removeCallbacksAndMessages(null)
         web.destroy()
         super.onDestroy()
     }
@@ -135,7 +219,11 @@ class MainActivity : Activity() {
 
     companion object {
         const val APP_HOST = WebViewAssetLoader.DEFAULT_DOMAIN
-        val START_URL: String = Uri.Builder()
+        const val SITE_HOST = "theupdoge.github.io"
+        const val SITE_PATH = "/Nostalgem/"
+        const val SITE_URL = "https://$SITE_HOST$SITE_PATH?tv=android"
+        const val SITE_TIMEOUT_MS = 15000L
+        val BUNDLED_URL: String = Uri.Builder()
             .scheme("https")
             .authority(APP_HOST)
             .path("/assets/www/index.html")

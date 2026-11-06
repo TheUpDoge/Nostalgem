@@ -127,6 +127,102 @@ export function peerOptions() {
   return Object.assign({ debug: 0 }, window.NostalGemPeerOptions || {});
 }
 
+// ---------- getting through a home network ----------
+// A browser hides its own address from WebRTC behind a random name like "1f0c….local", which the
+// other device must look up with multicast DNS. Lots of home Wi-Fi drops those lookups, and an Android
+// app doesn't hear them at all unless it asks, so a phone on the same Wi-Fi as the TV can't find it.
+// The TV app knows its real address, so the TV sends each hidden address twice: as the browser wrote
+// it, and with the real address in its place. The phone can then reach the TV directly, and the TV
+// learns the phone's address from the phone's first packet.
+
+export function isIPv4(s) {
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(String(s || ""));
+  return !!m && m.slice(1).every(function (n) {
+    return Number(n) <= 255;
+  });
+}
+
+// A PeerJS "CANDIDATE" message carrying a hidden (.local) UDP address → a copy for each real address.
+export function lanCopies(msg, ips) {
+  if (!msg || msg.type !== "CANDIDATE" || !msg.payload || !ips || !ips.length) return [];
+  const p = msg.payload;
+  const c = p.candidate || {};
+  // candidate:<foundation> <component> <transport> <priority> <address> <port> typ host …
+  const parts = String(c.candidate || "").split(" ");
+  if (parts.length < 8 || !/\.local$/i.test(parts[4]) || parts[2].toLowerCase() !== "udp") return [];
+  return ips.filter(isIPv4).map(function (ip) {
+    const copy = parts.slice();
+    copy[4] = ip;
+    return {
+      type: msg.type,
+      dst: msg.dst,
+      payload: {
+        type: p.type,
+        connectionId: p.connectionId,
+        candidate: { candidate: copy.join(" "), sdpMid: c.sdpMid, sdpMLineIndex: c.sdpMLineIndex, usernameFragment: c.usernameFragment },
+      },
+    };
+  });
+}
+
+// Makes a PeerJS peer send those copies along with every hidden address it signals.
+export function sendLanCopies(peer, ips) {
+  const sock = peer && peer.socket;
+  if (!sock || typeof sock.send !== "function" || sock.ngLan) return false;
+  const send = sock.send;
+  sock.ngLan = true;
+  sock.send = function (msg) {
+    send.call(sock, msg);
+    lanCopies(msg, ips()).forEach(function (m) {
+      send.call(sock, m);
+    });
+  };
+  return true;
+}
+
+// How far a WebRTC handshake got, in a few words for the "couldn't link up" messages, e.g.
+// "answered · ICE failed · here: 2 local, 1 public · there: 2 hidden, 1 public · 0 of 4 routes worked".
+const KIND = { host: "local", srflx: "public", prflx: "learned", relay: "relay" };
+export function linkReport(conn) {
+  const pc = conn && conn.peerConnection;
+  if (!pc) return Promise.resolve("no answer yet");
+  const head = (pc.remoteDescription ? "answered" : "no answer") + " · ICE " + pc.iceConnectionState;
+  if (typeof pc.getStats !== "function") return Promise.resolve(head);
+  return pc.getStats().then(
+    function (stats) {
+      const here = {};
+      const there = {};
+      let pairs = 0;
+      let worked = 0;
+      stats.forEach(function (s) {
+        if (s.type === "local-candidate" || s.type === "remote-candidate") {
+          const addr = String(s.address || s.ip || "");
+          const kind = s.candidateType === "host" && /\.local$/i.test(addr) ? "hidden" : KIND[s.candidateType] || s.candidateType;
+          const side = s.type === "local-candidate" ? here : there;
+          side[kind] = (side[kind] || 0) + 1;
+        } else if (s.type === "candidate-pair") {
+          pairs++;
+          if (s.state === "succeeded") worked++;
+        }
+      });
+      const list = function (o) {
+        const k = Object.keys(o);
+        return k.length
+          ? k
+              .map(function (x) {
+                return o[x] + " " + x;
+              })
+              .join(", ")
+          : "none";
+      };
+      return head + " · here: " + list(here) + " · there: " + list(there) + " · " + worked + " of " + pairs + " routes worked";
+    },
+    function () {
+      return head;
+    }
+  );
+}
+
 // Draws a QR code as an SVG string: dark squares on a white quiet zone, which every phone camera reads.
 export function qrSvg(text) {
   const qr = window.qrcode(0, "M");
@@ -146,7 +242,8 @@ export function qrSvg(text) {
 }
 
 // ---------- the TV's side ----------
-// opts: { code, vendorBase, onMessage(msg, conn), onPhones(count), onStatus(status), snapshot(), channels() }
+// opts: { code, vendorBase, onMessage(msg, conn), onPhones(count), onStatus(status), onCalling(what, why),
+//         snapshot(), channels(), lan() → this TV's real addresses, when the TV app can tell }
 // status: "off" | "starting" | "ready" | "retrying" | "taken" | "unsupported"
 export class TvLink {
   constructor(opts) {
@@ -225,6 +322,7 @@ export class TvLink {
         self.destroyPeer();
         const peer = new Peer(peerIdFor(self.code), peerOptions());
         self.peer = peer;
+        if (self.o.lan) sendLanCopies(peer, self.o.lan);
         peer.on("open", function () {
           if (peer !== self.peer) return;
           self.retries = 0;
@@ -300,9 +398,21 @@ export class TvLink {
     }
     self.conns.push(conn);
     if (!conn.open && self.o.onCalling) self.o.onCalling("calling");
-    const timer = setTimeout(function () {
-      if (!conn.open && self.o.onCalling) self.o.onCalling("failed");
-    }, 15000);
+    let failed = false;
+    const fail = function () {
+      if (failed || conn.open) return;
+      failed = true;
+      clearTimeout(timer);
+      linkReport(conn).then(function (why) {
+        if (!conn.open && self.o.onCalling) self.o.onCalling("failed", why);
+      });
+    };
+    const timer = setTimeout(fail, 20000);
+    // ICE gives up by itself on a network with no way through; say so then rather than at the timeout.
+    if (conn.on)
+      conn.on("iceStateChanged", function (st) {
+        if (st === "failed") fail();
+      });
     const ready = function () {
       clearTimeout(timer);
       if (self.o.onCalling) self.o.onCalling("");

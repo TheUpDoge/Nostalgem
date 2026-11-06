@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- To tell a phone remote this TV's Wi-Fi address. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!-- A TV app that also runs on phones and tablets: neither a remote nor a touchscreen is required. -->
     <uses-feature android:name="android.software.leanback" android:required="false" />

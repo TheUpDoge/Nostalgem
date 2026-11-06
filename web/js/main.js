@@ -11,16 +11,18 @@ import { Guide } from "./ui/guide.js";
 import { Menu } from "./ui/menu.js";
 import { Dialog } from "./ui/dialog.js";
 import * as V from "./ui/views.js";
-import { TvLink, makeCode, cleanCode, remoteUrl, prettyCode, qrSvg, loadScript, PAGES_BASE } from "./link.js";
+import { TvLink, makeCode, cleanCode, remoteUrl, prettyCode, qrSvg, loadScript, isIPv4, PAGES_BASE } from "./link.js";
 import { loadLineup, builtAt } from "./lineup.js";
 import { pad2, escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder } from "./util.js";
 
-const VERSION = "1.2.0";
+const VERSION = "1.3.0";
 const NAME = "NostalGem";
 const params = new URLSearchParams(window.location.search);
 const ANDROID = params.get("tv") === "android";
-// The TV app's own lineup is as old as the app; the published one is rebuilt daily, so the app asks for it.
-const LIVE_LINEUP = ANDROID ? PAGES_BASE + "data/lineup.json" : "";
+// The TV app opens the published site, and falls back to its own copy when it can't reach it. That
+// copy's lineup is as old as the app, while the published one is rebuilt daily, so the copy asks for it.
+const ON_PAGES = window.location.href.indexOf(PAGES_BASE) === 0;
+const LIVE_LINEUP = ANDROID && !ON_PAGES ? PAGES_BASE + "data/lineup.json" : "";
 const LINEUP_RECHECK = 3 * 3600 * 1000; // coming back to the app after this long: look for a newer lineup
 
 const DEFAULTS = { crt: "light", fit: "contain", cc: "off", staticFx: "sound", bug: true, clock24: false, surf: "all", phone: false };
@@ -78,6 +80,7 @@ const app = {
   lineupSource: "",
   lineupCheckedAt: 0,
   calling: "",
+  callingWhy: "",
 };
 const s = app.s;
 
@@ -1034,9 +1037,13 @@ const link = new TvLink({
   channels: phoneChannels,
   onMessage: phoneMessage,
   onStatus: pairStatus,
-  onCalling: function (what) {
+  onCalling: function (what, why) {
     app.calling = what;
+    app.callingWhy = why || "";
     pairStatus();
+  },
+  lan: function () {
+    return native.lan;
   },
   onPhones: function (n) {
     if (n > app.phones) V.toast("📱 Phone remote connected");
@@ -1161,7 +1168,10 @@ function pairStatus() {
   let text = words[link.status] || "";
   if (link.status === "ready" && app.calling === "calling") text = "📱 A phone is calling… linking up";
   else if (link.status === "ready" && app.calling === "failed")
-    text = "📱 A phone called, but the link didn't come up. Try the phone on the same Wi-Fi as the TV.";
+    text =
+      "📱 A phone called, but the two couldn't reach each other. " +
+      (ANDROID ? "Guest Wi-Fi, VPNs and “AP isolation” on a router block it." : "On the same Wi-Fi, the NostalGem TV app links more reliably than a browser.") +
+      (app.callingWhy ? " (" + app.callingWhy + ")" : "");
   dialog.status(text);
 }
 
@@ -1196,7 +1206,7 @@ function openPairing() {
       esc(shown) +
       "</b> and enter</div>" +
       '<div class="pair-code"></div>' +
-      '<div class="pair-note">Nothing to install. Phone and TV can be on different networks.</div>' +
+      '<div class="pair-note">Nothing to install. Easiest with the phone on the same Wi-Fi as the TV.</div>' +
       "</div></div>",
     buttons: [
       {
@@ -1303,6 +1313,7 @@ function showAbout() {
       (app.lineupSource === "web" ? " (fresh from the web)" : app.lineupSource === "saved" ? " (saved copy; offline)" : "") +
       ". Version " +
       VERSION +
+      (native.app ? " (TV app " + esc(native.app) + (ON_PAGES ? "" : ", offline copy") + ")" : "") +
       ".",
     buttons: [
       {
@@ -1566,6 +1577,7 @@ function suspend() {
   player.off();
 }
 function resume() {
+  askApp();
   if (!app.suspended) return;
   app.suspended = false;
   if (app.state === "on" && current()) tuneTo(current(), { quiet: true });
@@ -1575,7 +1587,7 @@ function resume() {
 // Back in the app after a while: if the website has a newer lineup, switch to it now, while the viewer
 // is just settling in. A late answer is kept for the next start instead of interrupting a program.
 function refreshLineup() {
-  if (!LIVE_LINEUP || !app.lineup || Date.now() - app.lineupCheckedAt < LINEUP_RECHECK) return;
+  if (!ANDROID || !app.lineup || Date.now() - app.lineupCheckedAt < LINEUP_RECHECK) return;
   app.lineupCheckedAt = Date.now();
   const asked = Date.now();
   loadLineup({ bundled: "data/lineup.json", live: LIVE_LINEUP })
@@ -1621,7 +1633,8 @@ window.NP = {
       program: it ? it.t : "",
       channels: app.channels.length,
       overlay: dialog.isOpen ? "dialog" : menu.isOpen ? "menu" : guide.isOpen ? "guide" : "",
-      phone: { on: s.phone, status: link.status, phones: link.phones(), code: link.code },
+      phone: { on: s.phone, status: link.status, phones: link.phones(), code: link.code, lan: native.lan.length, calling: app.calling, why: app.callingWhy },
+      tvApp: native.app,
       lineup: { source: app.lineupSource, built: app.lineup ? app.lineup.built : "" },
     };
   },
@@ -1709,7 +1722,33 @@ function wait(ms) {
   });
 }
 
+// The TV app (Android) answers what a web page can't find out: this TV's real Wi-Fi address, so a phone
+// on the same Wi-Fi can reach it directly (see link.js), and the app's version. It answers only pages
+// from this site.
+const native = { lan: [], app: "" };
+function askApp() {
+  const bridge = window.NostalGemTV;
+  if (!ANDROID || !bridge || typeof bridge.postMessage !== "function") return;
+  bridge.onmessage = function (e) {
+    let m = null;
+    try {
+      m = JSON.parse(e.data);
+    } catch (x) {
+      return;
+    }
+    if (!m || typeof m !== "object") return;
+    if (Array.isArray(m.lan)) native.lan = m.lan.filter(isIPv4).slice(0, 4);
+    if (typeof m.app === "string") native.app = m.app.slice(0, 20);
+  };
+  try {
+    bridge.postMessage("hello");
+  } catch (x) {
+    /* an older app */
+  }
+}
+
 async function boot() {
+  askApp();
   registerTvKeys();
   applyLook();
   tv.classList.add("hide-cursor");

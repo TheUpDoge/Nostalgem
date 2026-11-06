@@ -1,7 +1,7 @@
 // NostalGem Remote: the phone side. Opens remote.html#CODE, finds the TV through the PeerJS broker,
 // then sends button presses straight to it over WebRTC and shows what the TV reports back.
 
-import { cleanCode, peerIdFor, prettyCode, peerClass, peerOptions, PROTOCOL } from "./link.js";
+import { cleanCode, peerIdFor, prettyCode, peerClass, peerOptions, linkReport, PROTOCOL } from "./link.js";
 import { escapeHtml as esc, fmtDuration, pad2 } from "./util.js";
 
 const KEY = "nostalgem-remote:";
@@ -72,6 +72,7 @@ function setStatus(st, msg) {
   pill.title = r.code ? "Code " + prettyCode(r.code) + ". Tap to pair with a different TV." : "";
   document.body.classList.toggle("offline", st !== "connected");
   if (msg != null) $("pairMsg").textContent = msg;
+  if (st === "connected") $("pairWhy").textContent = "";
   showViews();
 }
 
@@ -162,14 +163,31 @@ function connect() {
 function openConn(peer) {
   const conn = peer.connect(peerIdFor(r.code), { serialization: "json", reliable: true });
   r.conn = conn;
-  // Some networks never finish the WebRTC handshake; don't wait forever.
-  clearTimeout(r.openTimer);
-  r.openTimer = setTimeout(function () {
-    if (conn === r.conn && !conn.open) {
+  let failed = false;
+  // Some networks never finish the WebRTC handshake; don't wait forever. The details line says how far
+  // it got, for a screenshot.
+  const fail = function () {
+    if (failed || conn !== r.conn || conn.open) return;
+    failed = true;
+    clearTimeout(r.openTimer);
+    linkReport(conn).then(function (why) {
+      if (conn !== r.conn || conn.open) return;
       setStatus("lost");
-      retry("Step 3 of 3 failed: your TV answered, but the two couldn't link up across your networks. Putting the phone on the same Wi-Fi as the TV usually fixes it. Trying again…");
-    }
-  }, 15000);
+      $("pairWhy").textContent = "Details: " + why;
+      retry(
+        why.indexOf("answered") === 0
+          ? "Step 3 of 3 failed: your TV answered, but the two couldn't reach each other. With both on the same Wi-Fi, the latest NostalGem TV app links directly. Guest Wi-Fi, VPNs and \"AP isolation\" on a router block it. Trying again…"
+          : "Step 3 of 3 failed: the TV didn't answer. Is NostalGem still on, with the phone remote turned on? Trying again…"
+      );
+    });
+  };
+  clearTimeout(r.openTimer);
+  r.openTimer = setTimeout(fail, 20000);
+  conn.on("iceStateChanged", function (st) {
+    if (conn !== r.conn || conn.open) return;
+    if (st === "checking") $("pairMsg").textContent = "Step 3 of 3: your TV answered. Finding a way through…";
+    else if (st === "failed") fail();
+  });
   conn.on("open", function () {
     if (conn !== r.conn) return;
     clearTimeout(r.openTimer);
