@@ -21,6 +21,16 @@ try {
   say("net", "broker unreachable: " + e.message);
 }
 
+// The TV app fetches the published lineup from another origin, so Pages must allow that (CORS).
+try {
+  const r = await fetch(site + "data/lineup.json", { headers: { origin: "https://appassets.androidplatform.net" } });
+  const body = await r.json();
+  say("net", `published lineup → HTTP ${r.status}, access-control-allow-origin: ${r.headers.get("access-control-allow-origin")}, format ${body.format || 1}, built ${body.built}, ${body.channels.length} channels`);
+  if (r.headers.get("access-control-allow-origin") !== "*") say("net", "WARNING: the TV app can't read the published lineup (no CORS)");
+} catch (e) {
+  say("net", "published lineup: " + e.message);
+}
+
 const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gesture-required"] });
 const debug = { debug: 3 };
 const tvCtx = await browser.newContext({ viewport: { width: 1280, height: 720 } });

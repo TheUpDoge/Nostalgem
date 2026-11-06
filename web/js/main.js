@@ -11,13 +11,17 @@ import { Guide } from "./ui/guide.js";
 import { Menu } from "./ui/menu.js";
 import { Dialog } from "./ui/dialog.js";
 import * as V from "./ui/views.js";
-import { TvLink, makeCode, cleanCode, remoteUrl, prettyCode, qrSvg, loadScript } from "./link.js";
+import { TvLink, makeCode, cleanCode, remoteUrl, prettyCode, qrSvg, loadScript, PAGES_BASE } from "./link.js";
+import { loadLineup, builtAt } from "./lineup.js";
 import { pad2, escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder } from "./util.js";
 
-const VERSION = "1.1.0";
+const VERSION = "1.2.0";
 const NAME = "NostalGem";
 const params = new URLSearchParams(window.location.search);
 const ANDROID = params.get("tv") === "android";
+// The TV app's own lineup is as old as the app; the published one is rebuilt daily, so the app asks for it.
+const LIVE_LINEUP = ANDROID ? PAGES_BASE + "data/lineup.json" : "";
+const LINEUP_RECHECK = 3 * 3600 * 1000; // coming back to the app after this long: look for a newer lineup
 
 const DEFAULTS = { crt: "light", fit: "contain", cc: "off", staticFx: "sound", bug: true, clock24: false, surf: "all", phone: false };
 const SLEEP_STEPS = [0, 15, 30, 45, 60, 90, 120];
@@ -71,6 +75,8 @@ const app = {
   ticks: 0,
   phones: 0,
   pairOpen: false,
+  lineupSource: "",
+  lineupCheckedAt: 0,
   calling: "",
 };
 const s = app.s;
@@ -1294,6 +1300,7 @@ function showAbout() {
       "Channels 50 and up air official uploads from the studios' own <b>YouTube</b> channels, in YouTube's player.<br><br>" +
       "A program that won't play is skipped on this TV for a day. Lineup built " +
       esc(built) +
+      (app.lineupSource === "web" ? " (fresh from the web)" : app.lineupSource === "saved" ? " (saved copy; offline)" : "") +
       ". Version " +
       VERSION +
       ".",
@@ -1562,6 +1569,23 @@ function resume() {
   if (!app.suspended) return;
   app.suspended = false;
   if (app.state === "on" && current()) tuneTo(current(), { quiet: true });
+  refreshLineup();
+}
+
+// Back in the app after a while: if the website has a newer lineup, switch to it now, while the viewer
+// is just settling in. A late answer is kept for the next start instead of interrupting a program.
+function refreshLineup() {
+  if (!LIVE_LINEUP || !app.lineup || Date.now() - app.lineupCheckedAt < LINEUP_RECHECK) return;
+  app.lineupCheckedAt = Date.now();
+  const asked = Date.now();
+  loadLineup({ bundled: "data/lineup.json", live: LIVE_LINEUP })
+    .then(function (got) {
+      if (!got || builtAt(got.lineup) <= builtAt(app.lineup) || Date.now() - asked > 15000 || app.suspended) return;
+      swapLineup(got.lineup, got.source);
+    })
+    .catch(function () {
+      /* keep the lineup we have */
+    });
 }
 document.addEventListener("visibilitychange", function () {
   if (document.hidden) {
@@ -1598,6 +1622,7 @@ window.NP = {
       channels: app.channels.length,
       overlay: dialog.isOpen ? "dialog" : menu.isOpen ? "menu" : guide.isOpen ? "guide" : "",
       phone: { on: s.phone, status: link.status, phones: link.phones(), code: link.code },
+      lineup: { source: app.lineupSource, built: app.lineup ? app.lineup.built : "" },
     };
   },
 };
@@ -1642,6 +1667,41 @@ function tick() {
   link.tick(now);
 }
 
+// ---------- lineup ----------
+function applyLineup(lineup, source) {
+  app.lineup = lineup;
+  app.lineupSource = source || "";
+  app.lineupCheckedAt = Date.now();
+  app.about = Object.assign({}, lineup.about || {});
+  const customs = load("custom", []);
+  customs.forEach(function (c) {
+    Object.assign(app.about, c.about || {});
+  });
+  app.channels = lineup.channels.concat(
+    customs.map(function (c) {
+      return Object.assign({}, c, { custom: true });
+    })
+  );
+  app.channels.sort(chOrder);
+  app.timelines = {};
+}
+
+// A newer lineup while running: same channel if it still exists, and the remote's lists catch up.
+function swapLineup(lineup, source) {
+  const cur = current();
+  const prev = app.channels[app.last];
+  applyLineup(lineup, source);
+  const at = function (ch) {
+    if (!ch) return -1;
+    for (let i = 0; i < app.channels.length; i++) if (app.channels[i].slug === ch.slug) return i;
+    return -1;
+  };
+  app.idx = Math.max(0, at(cur));
+  app.last = at(prev);
+  link.channelsChanged();
+  if (app.state === "on" && !app.suspended && current()) tuneTo(current(), { quiet: true });
+}
+
 // ---------- boot ----------
 function wait(ms) {
   return new Promise(function (r) {
@@ -1655,30 +1715,16 @@ async function boot() {
   tv.classList.add("hide-cursor");
   const status = document.querySelector(".boot-status");
   const t0 = Date.now();
-  let lineup = null;
-  while (!lineup) {
-    try {
-      const r = await fetch("data/lineup.json", { cache: "no-cache" });
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      lineup = await r.json();
-    } catch (e) {
+  let got = null;
+  while (!got) {
+    got = await loadLineup({ bundled: "data/lineup.json", live: LIVE_LINEUP });
+    if (!got) {
       status.textContent = "NO SIGNAL · RETRYING";
       await wait(5000);
       status.textContent = "TUNING IN…";
     }
   }
-  app.lineup = lineup;
-  app.about = Object.assign({}, lineup.about || {});
-  const customs = load("custom", []);
-  customs.forEach(function (c) {
-    Object.assign(app.about, c.about || {});
-  });
-  app.channels = lineup.channels.concat(
-    customs.map(function (c) {
-      return Object.assign({}, c, { custom: true });
-    })
-  );
-  app.channels.sort(chOrder);
+  applyLineup(got.lineup, got.source);
   const asked = (params.get("ch") || "").replace(/[^0-9]/g, "").replace(/^0+(?=\d)/, "");
   const lastSlug = load("last", "");
   const start =

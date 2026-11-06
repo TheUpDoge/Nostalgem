@@ -156,6 +156,7 @@ if (!summary.length && previous && channels.length === previous.channels.length)
 
 const lineup = {
   name: "NOSTALGEM",
+  format: 2, // web/js/lineup.js LINEUP_FORMAT: 2 = YouTube programs, live streams, sub-channels
   built: new Date().toISOString(),
   seed,
   gap: config.gapSeconds || 8,

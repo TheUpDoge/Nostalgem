@@ -125,7 +125,7 @@ try {
   for (const c of lineup.channels) c.offset = 0;
   // A YouTube channel whose first video refuses to embed, so the tuner has to skip it.
   lineup.channels.push({
-    number: 60,
+    number: 99,
     sub: 1,
     slug: "yt-test",
     name: "Test Toons",
@@ -139,8 +139,8 @@ try {
       { id: "yt:mecha000001", f: "yt", t: "Test Mecha", d: 12 },
     ],
   });
-  // …and a second sub-channel under the same number, 60-2.
-  lineup.channels.push({ number: 60, sub: 2, slug: "yt-test-2", name: "Test Magic", tagline: "Sub-channel test", icon: "✨", color: "#ff71ce", kind: "video", offset: 0, items: [{ id: "yt:magic000001", f: "yt", t: "Test Magic", d: 12 }] });
+  // …and a second sub-channel under the same number, 99-2.
+  lineup.channels.push({ number: 99, sub: 2, slug: "yt-test-2", name: "Test Magic", tagline: "Sub-channel test", icon: "✨", color: "#ff71ce", kind: "video", offset: 0, items: [{ id: "yt:magic000001", f: "yt", t: "Test Magic", d: 12 }] });
   const fakeYouTube = await readFile(join(fixtures, "fake-youtube.js"), "utf8");
   await page.route("https://www.youtube.com/iframe_api", (r) => r.fulfill({ status: 200, contentType: "text/javascript", body: fakeYouTube }));
   await page.route(base + "/data/lineup.json", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(lineup) }));
@@ -262,13 +262,13 @@ try {
   check(!st.shifted, "L goes back to live");
 
   // A YouTube channel: the first video won't embed and is skipped; the next one joins in progress.
-  await key("6", 120);
-  await key("0", 300);
-  check((await page.textContent("#osd")).includes("60-"), "typing 6 0 waits for a sub-channel digit (shows CH 60-)");
+  await key("9", 120);
+  await key("9", 300);
+  check((await page.textContent("#osd")).includes("99-"), "typing 9 9 waits for a sub-channel digit (shows CH 99-)");
   await page.waitForTimeout(1700); // no third digit: the first sub-channel
   await page.waitForFunction(() => window.NP.state().program === "Test Mecha" && window.NP.state().mode === "playing", null, { timeout: 8000 }).catch(() => {});
   st = await state();
-  check(st.label === "60-1" && st.mode === "playing" && st.program === "Test Mecha", `6 0 tunes the first sub-channel, 60-1, and its YouTube video plays (${st.label} ${st.mode}: ${st.program})`);
+  check(st.label === "99-1" && st.mode === "playing" && st.program === "Test Mecha", `9 9 tunes the first sub-channel, 99-1, and its YouTube video plays (${st.label} ${st.mode}: ${st.program})`);
   const ytLog = await page.evaluate(() => (window.__yt ? window.__yt.log : []));
   check(ytLog.some((l) => l.id === "badvideo001") && ytLog.some((l) => l.id === "mecha000001"), "a video that won't embed is skipped (" + ytLog.map((l) => l.id).join(", ") + ")");
   const mecha = ytLog.filter((l) => l.id === "mecha000001").pop();
@@ -284,16 +284,16 @@ try {
   await shot("4b-youtube");
   if (await page.isVisible("#banner")) await key("Enter", 300);
   await page.waitForTimeout(2100);
-  check((await page.textContent("#bug")).includes("60-1"), "the channel logo shows 60-1");
+  check((await page.textContent("#bug")).includes("99-1"), "the channel logo shows 99-1");
   await key("ArrowUp", 900);
-  check((await state()).label === "60-2", `▲ from 60-1 goes to 60-2 (got ${(await state()).label})`);
-  await key("6", 100);
-  await key("0", 100);
+  check((await state()).label === "99-2", `▲ from 99-1 goes to 99-2 (got ${(await state()).label})`);
+  await key("9", 100);
+  await key("9", 100);
   await key("1", 900);
-  check((await state()).label === "60-1", `typing 6 0 1 tunes 60-1 at once (got ${(await state()).label})`);
+  check((await state()).label === "99-1", `typing 9 9 1 tunes 99-1 at once (got ${(await state()).label})`);
   await key("ArrowLeft", 500);
   const rowLabels = await page.$$eval(".g-row", (r) => r.map((x) => x.textContent));
-  check(rowLabels.some((t) => t.includes("60-1")) && rowLabels.some((t) => t.includes("60-2")), "the guide lists 60-1 and 60-2");
+  check(rowLabels.some((t) => t.includes("99-1")) && rowLabels.some((t) => t.includes("99-2")), "the guide lists 99-1 and 99-2");
   await shot("4c-guide-subchannels");
   await key("Escape", 300);
   await key("4", 1500);
@@ -450,6 +450,37 @@ try {
   });
   check(fits, "guide rows fit a 960x540 TV viewport");
   await key("Escape", 200);
+
+  // The TV app (?tv=android) asks the website for the daily lineup, keeps a copy, and falls back to it
+  // (or to the lineup inside the APK) when offline.
+  const published = JSON.parse(JSON.stringify(lineup));
+  published.built = new Date(Date.parse(lineup.built || "2026-01-01T00:00:00Z") + 86400000).toISOString();
+  published.format = 2;
+  published.channels.push(Object.assign({}, published.channels[0], { number: 29, slug: "fresh-from-web", name: "Fresh From The Web" }));
+  const appPage = async (liveRoute) => {
+    const p = await ctx.newPage();
+    p.on("pageerror", (e) => errors.push("app: " + e.message));
+    await p.route(/^https:\/\/archive\.org\//, archive);
+    await p.route(base + "/data/lineup.json", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(lineup) }));
+    await p.route(/^https:\/\/theupdoge\.github\.io\/Nostalgem\/data\/lineup\.json/, liveRoute);
+    await p.goto(base + "/?tv=android&ch=1", { waitUntil: "load" });
+    await p.waitForFunction(() => window.NP && window.NP.state().app === "on", null, { timeout: 15000 });
+    return p;
+  };
+  let tvApp = await appPage((r) => r.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify(published) }));
+  const viaWeb = await tvApp.evaluate(() => window.NP.state());
+  await tvApp.close();
+  tvApp = await appPage((r) => r.abort());
+  const viaSaved = await tvApp.evaluate(() => window.NP.state());
+  await tvApp.evaluate(() => caches.delete("ng-lineup"));
+  await tvApp.close();
+  tvApp = await appPage((r) => r.abort());
+  const viaApp = await tvApp.evaluate(() => window.NP.state());
+  await tvApp.close();
+  check(viaWeb.lineup.source === "web" && viaWeb.lineup.built === published.built, `the TV app uses the published lineup (${viaWeb.lineup.source}, built ${viaWeb.lineup.built})`);
+  check(viaWeb.channels === viaApp.channels + 1, `…which has the channel the app's own lineup lacks (${viaWeb.channels} vs ${viaApp.channels})`);
+  check(viaSaved.lineup.source === "saved" && viaSaved.channels === viaWeb.channels, `offline, it uses the copy it saved (${viaSaved.lineup.source}, ${viaSaved.channels} channels)`);
+  check(viaApp.lineup.source === "bundled", `with no copy, the lineup inside the app (${viaApp.lineup.source})`);
 
   check(errors.length === 0, "no script errors" + (errors.length ? ": " + errors.join(" | ") : ""));
 } finally {

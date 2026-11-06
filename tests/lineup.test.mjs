@@ -3,6 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { compileExclude } from "../web/js/archive.js";
+import { LINEUP_FORMAT } from "../web/js/lineup.js";
 
 const read = (p) => JSON.parse(readFileSync(new URL("../web/data/" + p, import.meta.url), "utf8"));
 const lineup = read("lineup.json");
@@ -20,6 +21,10 @@ test("every defined channel was built, with unique numbers", () => {
     const ok = d.youtube ? d.number >= 50 && d.number < 100 : d.number > 0 && d.number < 30;
     assert.ok(ok, `${d.slug}: CH 1-29 is the Archive lineup, 50+ is YouTube; 30-49 is for channels viewers add`);
   }
+});
+
+test("the app can read this lineup (format)", () => {
+  assert.ok((lineup.format || 1) <= LINEUP_FORMAT, `lineup format ${lineup.format} needs a newer app than ${LINEUP_FORMAT}`);
 });
 
 test("plenty of Westerns", () => {

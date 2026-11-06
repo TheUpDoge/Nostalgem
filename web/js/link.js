@@ -14,7 +14,8 @@
 
 export const PEER_PREFIX = "nostalgem-";
 export const PROTOCOL = 1;
-export const PAGES_REMOTE = "https://theupdoge.github.io/Nostalgem/remote.html";
+export const PAGES_BASE = "https://theupdoge.github.io/Nostalgem/";
+export const PAGES_REMOTE = PAGES_BASE + "remote.html";
 
 // No 0/O, 1/I/L or U/V lookalikes, so a code read off a TV across the room is typed right.
 const ALPHABET = "23456789ABCDEFGHJKMNPQRSTWXYZ";

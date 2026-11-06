@@ -258,7 +258,10 @@ tests/                         node:test unit tests + a Playwright smoke test
   it exactly. The player corrects drift after buffering, waits out programs that run short, and reports
   files that won't play so they drop out of that channel for a day.
 - **The Android app** bundles `web/` into the APK and serves it from a private https origin through
-  `WebViewAssetLoader`, so it behaves exactly like the website. It adds the home-screen banner, keeps
+  `WebViewAssetLoader`, so it behaves exactly like the website. It asks the website for the latest
+  lineup (rebuilt daily) at start-up and when you come back to it after a few hours, keeps a copy for
+  when the internet is down, and falls back to the lineup inside the APK. A `format` number in the
+  lineup keeps an older app from loading a lineup it can't play. It adds the home-screen banner, keeps
   the screen on, and passes remote buttons the page can't see (CH±, media keys, Guide, Info,
   coloured keys, Back) to `window.NP`.
 - **The phone remote.** The TV registers with the free PeerJS broker as `nostalgem-<code>`; the phone
