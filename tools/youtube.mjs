@@ -71,12 +71,30 @@ export function cleanYtTitle(t) {
   s = s.replace(/^[\s🔴⏺●•]*((live|24\/7)\b[\s!]*)+[:|–-]\s*/i, "").replace(/^🔴\s*/, "");
   s = s.replace(/\s*[|｜]\s*(full episodes?|official|english (sub|dub)\w*|free anime|watch free)\b.*$/i, "");
   s = s.replace(/\s+[-–]\s+((updated )?full episodes?|official (video|upload))\s*$/i, "");
-  // Channel branding: "Featured: …", "… | He-Man Official | Masters of the Universe Official", "… -Official",
-  // "… | Ultra Series 60th Anniversary", "… FULL EPISODE".
+  // Channel branding: "Featured: …", "… -Official-", "… FULL EPISODE", and pipe-separated pieces like
+  // "He-Man Official | <title> | She-Ra Full Episodes | Cartoons for kids" or "| Ultra Series 60th Anniversary".
   s = s.replace(/^featured:\s*/i, "");
-  s = s.replace(/(\s*[|｜]\s*[^|｜]{0,40}\b(official|anniversary)\b[^|｜]*)+$/i, "");
-  s = s.replace(/\s*[-–]\s*official\s*$/i, "").replace(/\s+full episode\s*$/i, "");
+  s = s.replace(/\s*[-–]\s*official\s*[-–]?\s*$/i, "").replace(/\s+full episode\s*$/i, "");
+  s = dropBranding(s);
   return s.replace(/\s+/g, " ").replace(/^[\s|:–-]+|[\s|:–-]+$/g, "").trim();
+}
+
+const BRANDING = /\b(official|anniversary|full episodes?|for kids|retro cartoons?|kids cartoons?|cartoon universe)\b|^(hd|4k|1080p|720p|remastered)$/i;
+// "He-Man Official | The Rarest Gift of All | He-Man Full Episodes" → "He-Man: The Rarest Gift of All".
+function dropBranding(s) {
+  const parts = s.split(/\s*[|｜]\s*/);
+  if (parts.length < 2) return s;
+  while (parts.length > 1 && /\bofficial$/i.test(parts[0].trim()) && parts[0].length <= 40) parts.shift();
+  const kept = [parts[0]];
+  let show = "";
+  for (let i = 1; i < parts.length; i++) {
+    const part = parts[i].trim();
+    const m = /^(.{2,30}?)\s+full episodes?\b/i.exec(part);
+    if (m && !show) show = m[1];
+    if (part && !BRANDING.test(part)) kept.push(part);
+  }
+  const out = kept.join(" | ");
+  return show && out.toLowerCase().indexOf(show.toLowerCase()) < 0 ? show + ": " + out : out;
 }
 
 export function toProgram(v) {
@@ -203,6 +221,7 @@ export async function buildYouTubeChannel(def, ctx) {
   let spreadEvery = 0;
   let searched = 0;
   const seen = {};
+  const seenTitle = {}; // the same episode uploaded twice (an "HD" re-upload, say) airs once
   for (const src of def.youtube) {
     let ids;
     try {
@@ -238,6 +257,12 @@ export async function buildYouTubeChannel(def, ctx) {
         continue;
       }
       const p = toProgram(v);
+      const titleKey = p.t.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      if (!src.live && seenTitle[titleKey]) {
+        rejected["same title"] = (rejected["same title"] || 0) + 1;
+        continue;
+      }
+      seenTitle[titleKey] = 1;
       if (src.live) {
         // A live stream airs as a block of the schedule, like a stop on a cam tour.
         p.d = (def.blockMinutes || 20) * 60;

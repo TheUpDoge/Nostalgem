@@ -53,6 +53,10 @@ test("titles lose upload clutter but keep the episode", () => {
   assert.equal(cleanYtTitle("ASK This Old House | Smart Home Electronics (S14 E14) FULL EPISODE"), "ASK This Old House | Smart Home Electronics (S14 E14)");
   assert.equal(cleanYtTitle("Bob Ross - Mystic Mountain (Season 20 Episode 1)"), "Bob Ross - Mystic Mountain (Season 20 Episode 1)");
   assert.equal(cleanYtTitle("Official Secrets | The Spy Who Came In"), "Official Secrets | The Spy Who Came In", "a title that starts with the word stays");
+  assert.equal(cleanYtTitle('ULTRAMAN ARC Episode 01 "Arc to the Future" -Official-'), 'ULTRAMAN ARC Episode 01 "Arc to the Future"');
+  assert.equal(cleanYtTitle("He-Man Official | The Rarest Gift of All | He-Man Full Episodes"), "He-Man: The Rarest Gift of All");
+  assert.equal(cleanYtTitle("He-Man Official | Return of the Sea Hawke | She-Ra Full Episodes | Cartoons for kids |Retro Cartoons"), "She-Ra: Return of the Sea Hawke");
+  assert.equal(cleanYtTitle("Inspector Gadget 101 - Monster Lake | HD"), "Inspector Gadget 101 - Monster Lake");
 });
 
 test("YouTube program ids", () => {
@@ -201,4 +205,12 @@ test("each program notes where it can't play, for TVs abroad", async () => {
   const res = await buildYouTubeChannel({ slug: "r", youtube: [{ handle: "@r", order: "oldest" }] }, { yt });
   const byId = Object.fromEntries(res.items.map((p) => [p.id, p.r]));
   assert.deepEqual(byId, { "yt:r1": "+CAUS", "yt:r2": "-DE", "yt:r3": undefined });
+});
+
+test("the same episode uploaded twice airs once", async () => {
+  const mk = (id, title) => ok({ id, snippet: { title, liveBroadcastContent: "none", description: "" } });
+  const { yt } = fakeApi({ "@g": { videos: [mk("g2", "Inspector Gadget 101 - Monster Lake | HD"), mk("g1", "Inspector Gadget 101 - Monster Lake"), mk("g3", "Inspector Gadget 102 - Gadget at the Circus")] } });
+  const res = await buildYouTubeChannel({ slug: "g", youtube: [{ handle: "@g", order: "title" }] }, { yt });
+  assert.deepEqual(res.items.map((p) => p.t), ["Inspector Gadget 101 - Monster Lake", "Inspector Gadget 102 - Gadget at the Circus"]);
+  assert.equal(res.rejected["same title"], 1);
 });
