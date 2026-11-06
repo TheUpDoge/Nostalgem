@@ -8,7 +8,9 @@ const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
 
 const site = (process.argv[2] || "https://theupdoge.github.io/Nostalgem/").replace(/\/?$/, "/");
-const code = "LNK" + Math.random().toString(36).slice(2, 5).toUpperCase().replace(/[^2-9A-HJKMNP-TW-Z]/g, "Q").padEnd(3, "Q");
+const ABC = "23456789ABCDEFGHJKMNPQRSTWXYZ"; // the alphabet link.js uses (no 0/O, 1/I/L, U/V)
+let code = "";
+for (let i = 0; i < 6; i++) code += ABC[Math.floor(Math.random() * ABC.length)];
 const t0 = Date.now();
 const say = (who, msg) => console.log(`${((Date.now() - t0) / 1000).toFixed(1).padStart(5)}s ${who.padEnd(5)} ${msg}`);
 
