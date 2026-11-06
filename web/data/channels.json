@@ -163,9 +163,8 @@
       "number": 50, "sub": 2, "slug": "yt-anime-vault", "name": "Anime Vault", "tagline": "Classic and cult anime from the studios' own channels", "icon": "📼", "color": "#ff71ce", "kind": "video",
       "minMinutes": 18, "maxMinutes": 60, "maxItems": 300,
       "youtube": [
-        { "handle": "@NozomiEnt", "match": "episode", "exclude": "kickstarter|trailer|teaser|preview|announcement", "order": "title", "maxScan": 1200 },
-        { "handle": "@RetroCrush", "match": "episode|\\bep\\.? ?\\d|full movie", "exclude": "podcast|chat|cosplay|interview|review|reaction|ranking|explained|\\btop \\d", "order": "title", "maxScan": 1900 },
-        { "handle": "@Crunchyroll", "match": "episode \\d", "exclude": "watch party|recap|everything to know|limited time|reaction|livestream", "maxScan": 1500 }
+        { "handle": "@NozomiEnt", "match": "episode", "exclude": "kickstarter|trailer|teaser|preview|announcement|interview|guide to japan", "order": "title", "maxScan": 1200 },
+        { "handle": "@RetroCrush", "match": "episode|\\bep\\.? ?\\d|full movie|yu-gi-oh", "exclude": "podcast|chat|cosplay|interview|review|reaction|ranking|explained|\\btop \\d|guide to japan", "order": "title", "maxScan": 1900 }
       ]
     }
   ],
