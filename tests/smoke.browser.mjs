@@ -198,6 +198,23 @@ try {
     else await key("ArrowDown", 80);
   }
   check(crtFound, "menu reaches CRT effect with ▼");
+  // The menu refreshes every 2 s; it must not jump while it does (it used to snap to the top and slide back).
+  await page.waitForTimeout(400);
+  const steady = await page.evaluate(
+    () =>
+      new Promise((done) => {
+        const sc = document.querySelector("#menu .m-scroll");
+        const seen = new Set();
+        const t0 = performance.now();
+        (function look() {
+          const now = document.querySelector("#menu .m-scroll");
+          seen.add(now === sc ? getComputedStyle(now).transform : "replaced");
+          if (performance.now() - t0 < 4500) requestAnimationFrame(look);
+          else done(Array.from(seen));
+        })();
+      })
+  );
+  check(steady.length === 1 && steady[0] !== "none" && steady[0] !== "replaced", `the scrolled menu holds still while it refreshes (${steady.join(", ")})`);
   await key("ArrowRight", 200);
   check(await page.evaluate(() => document.getElementById("tv").classList.contains("crt-heavy")), "▶ on CRT effect turns it to Heavy");
   await key("ArrowLeft", 200);

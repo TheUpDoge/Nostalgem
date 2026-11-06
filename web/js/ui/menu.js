@@ -58,6 +58,7 @@ export class Menu {
     this.isOpen = false;
     this.root.hidden = true;
     this.root.innerHTML = "";
+    this.el = null;
     this.stack = [];
     this.onClose();
   }
@@ -117,6 +118,9 @@ export class Menu {
     return true;
   }
 
+  // Redraws in place: the menu refreshes every couple of seconds to keep its values current, so only
+  // the parts that changed are touched and the list keeps its scroll position (rebuilding it made the
+  // list snap to the top and slide back, a visible jolt).
   render() {
     const t = this.top();
     if (!t) return;
@@ -141,34 +145,60 @@ export class Menu {
         (v != null && v !== "" ? '<span class="v">' + esc(v) + "</span>" : it.sub ? '<span class="v">›</span>' : "") +
         "</div>";
     });
-    this.root.innerHTML =
-      '<div class="m-title">' +
-      esc(resolve(t.page.title)) +
-      "</div>" +
-      '<div class="m-sub">' +
-      esc(resolve(t.page.sub) || "") +
-      "</div>" +
-      '<div class="m-list"><div class="m-scroll">' +
-      html +
-      "</div></div>" +
-      '<div class="m-foot">' +
-      hintsHtml([
-        ["▲▼", "Move"],
-        ["◀▶", "Change"],
-        ["OK", "Select"],
-        ["Back", this.stack.length > 1 ? "Up" : "Close"],
-      ]) +
-      "</div>";
-    // Scroll so the focused row stays in view.
-    const listEl = this.root.querySelector(".m-list");
-    const scroller = this.root.querySelector(".m-scroll");
-    const focusEl = this.root.querySelector(".m-item.focus");
-    if (listEl && scroller && focusEl) {
-      const h = listEl.clientHeight;
+    const foot = hintsHtml([
+      ["▲▼", "Move"],
+      ["◀▶", "Change"],
+      ["OK", "Select"],
+      ["Back", this.stack.length > 1 ? "Up" : "Close"],
+    ]);
+    let el = this.el;
+    if (!el || !this.root.contains(el.scroll)) {
+      this.root.innerHTML =
+        '<div class="m-title"></div><div class="m-sub"></div>' +
+        '<div class="m-list"><div class="m-scroll"></div></div><div class="m-foot"></div>';
+      el = this.el = {
+        title: this.root.querySelector(".m-title"),
+        sub: this.root.querySelector(".m-sub"),
+        list: this.root.querySelector(".m-list"),
+        scroll: this.root.querySelector(".m-scroll"),
+        foot: this.root.querySelector(".m-foot"),
+        html: null,
+        foot0: null,
+        page: null,
+        shift: -1,
+      };
+    }
+    const title = resolve(t.page.title);
+    const sub = resolve(t.page.sub) || "";
+    if (el.title.textContent !== title) el.title.textContent = title;
+    if (el.sub.textContent !== sub) el.sub.textContent = sub;
+    if (el.html !== html) {
+      el.scroll.innerHTML = html;
+      el.html = html;
+    }
+    if (el.foot0 !== foot) {
+      el.foot.innerHTML = foot;
+      el.foot0 = foot;
+    }
+    // Scroll so the focused row stays in view. A new page jumps straight there; moving within a page glides.
+    const focusEl = el.scroll.querySelector(".m-item.focus");
+    const h = el.list.clientHeight;
+    let shift = 0;
+    if (focusEl) {
       const y = focusEl.offsetTop + focusEl.offsetHeight / 2;
-      const max = Math.max(0, scroller.offsetHeight - h);
-      const shift = Math.max(0, Math.min(max, y - h / 2));
-      scroller.style.transform = "translateY(" + -shift + "px)";
+      const max = Math.max(0, el.scroll.offsetHeight - h);
+      shift = Math.round(Math.max(0, Math.min(max, y - h / 2)));
+    }
+    const newPage = el.page !== t;
+    el.page = t;
+    if (shift !== el.shift || newPage) {
+      if (newPage) el.scroll.style.transition = "none";
+      el.scroll.style.transform = "translateY(" + -shift + "px)";
+      if (newPage) {
+        void el.scroll.offsetHeight; // apply the jump before turning the glide back on
+        el.scroll.style.transition = "";
+      }
+      el.shift = shift;
     }
   }
 }
