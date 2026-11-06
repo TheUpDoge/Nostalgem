@@ -62,7 +62,7 @@ export function rejectReason(v, opts) {
 }
 
 // "【Official】Mobile Suit Gundam Wing Ep. 1 | Full Episode (English Dub) [HD]" -> "Mobile Suit Gundam Wing Ep. 1"
-const TAG_WORDS = /\b(live|24\/7|official|full episodes?|english|eng|(w\/ ?)?sub(bed|titled|titles|s)?|dub(bed)?|hd|4k|1080p|720p|remaster(ed)?|free|anime|uncut|premiere|simulcast|cc|limited time)\b/i;
+const TAG_WORDS = /\b(live|24\/7|official|full episodes?|full movie|english|eng|(w\/ ?)?sub(bed|titled|titles|s)?|dub(bed)?|hd|4k|1080p|720p|remaster(ed)?|free|anime|uncut|premiere|simulcast|cc|limited time)\b/i;
 export function cleanYtTitle(t) {
   let s = String(t || "");
   s = s.replace(/[【\[(（]([^】\])）]{0,40})[】\])）]/g, function (all, inner) {
@@ -70,7 +70,12 @@ export function cleanYtTitle(t) {
   });
   s = s.replace(/^[\s🔴⏺●•]*((live|24\/7)\b[\s!]*)+[:|–-]\s*/i, "").replace(/^🔴\s*/, "");
   s = s.replace(/\s*[|｜]\s*(full episodes?|official|english (sub|dub)\w*|free anime|watch free)\b.*$/i, "");
-  s = s.replace(/\s+[-–]\s+(full episodes?|official (video|upload))\s*$/i, "");
+  s = s.replace(/\s+[-–]\s+((updated )?full episodes?|official (video|upload))\s*$/i, "");
+  // Channel branding: "Featured: …", "… | He-Man Official | Masters of the Universe Official", "… -Official",
+  // "… | Ultra Series 60th Anniversary", "… FULL EPISODE".
+  s = s.replace(/^featured:\s*/i, "");
+  s = s.replace(/(\s*[|｜]\s*[^|｜]{0,40}\b(official|anniversary)\b[^|｜]*)+$/i, "");
+  s = s.replace(/\s*[-–]\s*official\s*$/i, "").replace(/\s+full episode\s*$/i, "");
   return s.replace(/\s+/g, " ").replace(/^[\s|:–-]+|[\s|:–-]+$/g, "").trim();
 }
 

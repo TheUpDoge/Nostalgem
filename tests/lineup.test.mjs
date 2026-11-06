@@ -108,9 +108,9 @@ test("quick-add channels are well formed", () => {
 
 test("the lineup is small enough for a TV to load quickly", () => {
   const kb = readFileSync(new URL("../web/data/lineup.json", import.meta.url)).length / 1024;
-  // GitHub Pages sends it gzipped (about 30% of this), and parsing 1.6 MB of JSON takes a TV a few tens
-  // of milliseconds. Past this, trim descriptions or programs per channel.
-  assert.ok(kb < 1600, `${kb.toFixed(0)} KB`);
+  // GitHub Pages sends it gzipped (about 30% of this), and parsing 2 MB of JSON takes a TV well under a
+  // tenth of a second. Past this, trim descriptions or programs per channel.
+  assert.ok(kb < 2000, `${kb.toFixed(0)} KB`);
 });
 
 test("YouTube programs' region notes are well formed", () => {

@@ -45,6 +45,14 @@ test("titles lose upload clutter but keep the episode", () => {
   assert.equal(cleanYtTitle("After War Gundam X -Episode1(w/subtitles)"), "After War Gundam X -Episode1");
   assert.equal(cleanYtTitle("Speed Racer (Part 2)"), "Speed Racer (Part 2)");
   assert.equal(cleanYtTitle("Junji Ito Collection Full Series Watch Party (LIMITED TIME)"), "Junji Ito Collection Full Series Watch Party");
+  assert.equal(cleanYtTitle("MST3K: Alien From L.A. (FULL MOVIE)"), "MST3K: Alien From L.A.");
+  assert.equal(cleanYtTitle("He-Man takes the boat to safety | He-Man Official | Masters of the Universe Official"), "He-Man takes the boat to safety");
+  assert.equal(cleanYtTitle('Featured: Ultraman Ep.6 "The Coast Guard Command" | Ultra Series 60th Anniversary -Official'), 'Ultraman Ep.6 "The Coast Guard Command"');
+  assert.equal(cleanYtTitle('ULTRAMAN BLAZAR Episode 3 "The Name is Earth Garon" -Official'), 'ULTRAMAN BLAZAR Episode 3 "The Name is Earth Garon"');
+  assert.equal(cleanYtTitle("Unsolved Mysteries with Robert Stack - Season 12 Episode 8 - Updated Full Episode"), "Unsolved Mysteries with Robert Stack - Season 12 Episode 8");
+  assert.equal(cleanYtTitle("ASK This Old House | Smart Home Electronics (S14 E14) FULL EPISODE"), "ASK This Old House | Smart Home Electronics (S14 E14)");
+  assert.equal(cleanYtTitle("Bob Ross - Mystic Mountain (Season 20 Episode 1)"), "Bob Ross - Mystic Mountain (Season 20 Episode 1)");
+  assert.equal(cleanYtTitle("Official Secrets | The Spy Who Came In"), "Official Secrets | The Spy Who Came In", "a title that starts with the word stays");
 });
 
 test("YouTube program ids", () => {
