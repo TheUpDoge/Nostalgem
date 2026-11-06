@@ -3,6 +3,7 @@
 
 import { programsBetween } from "../schedule.js";
 import { thumbUrl } from "../archive.js";
+import { isYouTube, videoIdOf, ytThumb } from "../youtube.js";
 import { escapeHtml as esc, fmtClock, pad2, clamp } from "../util.js";
 import { programMeta, hintsHtml, LOGO } from "./views.js";
 
@@ -166,7 +167,7 @@ export class Guide {
       const more = cell && cell.progs.length > 1 ? " · one of " + cell.progs.length + " shorts this half hour" : "";
       detail =
         '<div class="g-thumb" style="background-image:url(\'' +
-        esc(thumbUrl(it.id)) +
+        esc(isYouTube(it) ? ytThumb(videoIdOf(it)) : thumbUrl(it.id)) +
         "')\"></div>" +
         '<div class="g-info"><div class="g-title">' +
         esc(it.t) +

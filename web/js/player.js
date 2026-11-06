@@ -8,6 +8,7 @@
 import { slotAt } from "./schedule.js";
 import { downloadUrl, corsUrl } from "./archive.js";
 import { srtToVtt, pickSubtitle, subtitleLabel } from "./captions.js";
+import { YtMedia, isYouTube, videoIdOf } from "./youtube.js";
 
 const TUNE_TIMEOUT = 25000; // no picture this long after tuning: give up on the file
 const STALL_TIMEOUT = 40000; // buffering this long mid-program: give up on the file
@@ -16,7 +17,9 @@ const RETRY_AFTER = 30000; // standby retry interval
 
 export class Player {
   constructor(video, hooks) {
-    this.v = video;
+    this.video = video;
+    this.v = video; // the element playing now: the <video>, or the YouTube player made to look like one
+    this.ytm = null;
     this.hooks = hooks || {};
     this.tl = null;
     this.slot = null;
@@ -36,23 +39,59 @@ export class Player {
     this.muted = false;
     this.fadeTimer = 0;
 
+    this.wire(video);
+  }
+
+  // Events count only from the element that is playing now.
+  wire(el) {
     const self = this;
-    video.addEventListener("loadedmetadata", function () {
-      self.onMeta();
+    el.addEventListener("loadedmetadata", function () {
+      if (self.v === el) self.onMeta();
     });
-    video.addEventListener("playing", function () {
-      self.onPlaying();
+    el.addEventListener("playing", function () {
+      if (self.v === el) self.onPlaying();
     });
-    video.addEventListener("waiting", function () {
+    el.addEventListener("waiting", function () {
+      if (self.v !== el) return;
       if (self.mode === "playing" && !self.waitingSince) self.waitingSince = Date.now();
       self.emit("buffering", true);
     });
-    video.addEventListener("error", function () {
-      self.onError();
+    el.addEventListener("error", function () {
+      if (self.v === el) self.onError();
     });
-    video.addEventListener("ended", function () {
-      self.onEnded();
+    el.addEventListener("ended", function () {
+      if (self.v === el) self.onEnded();
     });
+  }
+
+  youtube() {
+    if (!this.ytm) {
+      const host = this.hooks.ytHost;
+      this.ytm = new YtMedia(host);
+      this.wire(this.ytm);
+    }
+    return this.ytm;
+  }
+
+  // Switch between the <video> and the YouTube player, silencing the one going off screen.
+  useMedia(next) {
+    if (next === this.v) return;
+    const old = this.v;
+    try {
+      old.pause();
+    } catch (e) {
+      /* nothing loaded */
+    }
+    if (old.getAttribute("src")) {
+      old.removeAttribute("src");
+      try {
+        old.load();
+      } catch (e) {
+        /* already empty */
+      }
+    }
+    this.v = next;
+    this.video.hidden = next !== this.video;
   }
 
   emit(name, a, b) {
@@ -90,10 +129,10 @@ export class Player {
   }
 
   load(startAt) {
-    const v = this.v;
     const item = this.slot.item;
+    this.useMedia(isYouTube(item) && this.hooks.ytHost ? this.youtube() : this.video);
+    const v = this.v;
     const token = ++this.token;
-    const self = this;
     this.removeTrack();
     this.pendingSeek = true;
     this.loadStart = Date.now();
@@ -103,7 +142,8 @@ export class Player {
     v.muted = this.muted;
     this.setMode("tuning");
     // The media fragment starts the download near the live point instead of at 0:00.
-    v.src = downloadUrl(item.id, item.f) + (startAt > 2 ? "#t=" + Math.floor(startAt) : "");
+    const at = startAt > 2 ? "#t=" + Math.floor(startAt) : "";
+    v.src = isYouTube(item) ? "yt:" + videoIdOf(item) + at : downloadUrl(item.id, item.f) + at;
     this.tryPlay(token);
     this.applyCaptions(token);
   }
@@ -151,6 +191,7 @@ export class Player {
     this.waitingSince = 0;
     this.failures = [];
     this.emit("buffering", false);
+    if (this.v === this.ytm && this.ccWanted) this.ytm.setCaptions(true, this.ccLang);
     if (this.mode !== "playing") this.setMode("playing");
   }
 
@@ -321,6 +362,10 @@ export class Player {
   applyCaptions(token) {
     this.removeTrack();
     const item = this.slot && this.slot.item;
+    if (item && isYouTube(item)) {
+      if (this.ytm) this.ytm.setCaptions(this.ccWanted, this.ccLang);
+      return;
+    }
     if (!this.ccWanted || !item || !item.cc || !item.cc.length) return;
     const pick = pickSubtitle(item.cc, this.ccLang, this.ccStrict);
     if (!pick) return;

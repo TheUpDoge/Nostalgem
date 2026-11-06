@@ -123,6 +123,23 @@ try {
   // the epoch and freeze the clock 3 seconds in: every channel is then mid-program, on the air.
   const lineup = JSON.parse(await readFile(join(web, "data/lineup.json"), "utf8"));
   for (const c of lineup.channels) c.offset = 0;
+  // A YouTube channel whose first video refuses to embed, so the tuner has to skip it.
+  lineup.channels.push({
+    number: 60,
+    slug: "yt-test",
+    name: "Test Toons",
+    tagline: "YouTube test channel",
+    icon: "🤖",
+    color: "#05d9e8",
+    kind: "video",
+    offset: 0,
+    items: [
+      { id: "yt:badvideo001", f: "yt", t: "Won't Embed", d: 12 },
+      { id: "yt:mecha000001", f: "yt", t: "Test Mecha", d: 12 },
+    ],
+  });
+  const fakeYouTube = await readFile(join(fixtures, "fake-youtube.js"), "utf8");
+  await page.route("https://www.youtube.com/iframe_api", (r) => r.fulfill({ status: 200, contentType: "text/javascript", body: fakeYouTube }));
   await page.route(base + "/data/lineup.json", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(lineup) }));
   await page.clock.setFixedTime(new Date(Date.parse(lineup.epoch) + 3000));
   await page.goto(base + "/?ch=1", { waitUntil: "load" });
@@ -240,6 +257,28 @@ try {
   await key("l", 800);
   st = await state();
   check(!st.shifted, "L goes back to live");
+
+  // A YouTube channel: the first video won't embed and is skipped; the next one joins in progress.
+  await key("6", 120);
+  await key("0", 300);
+  await page.waitForFunction(() => window.NP.state().program === "Test Mecha" && window.NP.state().mode === "playing", null, { timeout: 8000 }).catch(() => {});
+  st = await state();
+  check(st.channel === 60 && st.mode === "playing" && st.program === "Test Mecha", `YouTube channel plays (${st.channel} ${st.mode}: ${st.program})`);
+  const ytLog = await page.evaluate(() => (window.__yt ? window.__yt.log : []));
+  check(ytLog.some((l) => l.id === "badvideo001") && ytLog.some((l) => l.id === "mecha000001"), "a video that won't embed is skipped (" + ytLog.map((l) => l.id).join(", ") + ")");
+  const mecha = ytLog.filter((l) => l.id === "mecha000001").pop();
+  check(mecha && mecha.start === 3, `the YouTube video joins in progress (starts at ${mecha && mecha.start}s, live point 3s)`);
+  check((await page.isVisible("#yt")) && !(await page.isVisible("#screen")), "the YouTube player is on screen instead of the <video>");
+  const vars = await page.evaluate(() => window.__yt.players[0].vars);
+  check(vars.origin === base && /^http/.test(vars.widget_referrer), "the embed says where it lives (origin and referrer)");
+  await key(" ", 400);
+  check((await state()).mode === "paused" && (await page.evaluate(() => window.__yt.players[0].state)) === 2, "pause pauses the YouTube video");
+  await key("l", 800);
+  st = await state();
+  check(!st.shifted && st.mode === "playing", "back to live on YouTube");
+  await shot("4b-youtube");
+  await key("4", 1500);
+  check((await page.isVisible("#screen")) && !(await page.isVisible("#yt")), "leaving YouTube puts the <video> back");
 
   // Add a channel from a search (the Archive is faked).
   await key("ArrowRight", 300);

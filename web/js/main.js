@@ -76,6 +76,7 @@ const s = app.s;
 
 const fx = new Static($("static"));
 const player = new Player($("screen"), {
+  ytHost: $("yt"),
   state: onPlayerState,
   program: onProgram,
   bad: onBad,
