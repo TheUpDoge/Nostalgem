@@ -9,8 +9,13 @@
 //
 // Prints a table and, on GitHub Actions, writes it to the job summary.
 
-import { appendFile } from "node:fs/promises";
+import { appendFile, readFile } from "node:fs/promises";
 import { makeYouTubeFetch, rejectReason, parseIsoDuration, cleanYtTitle, liveVideoIds } from "./youtube.mjs";
+import { compileExclude } from "../web/js/archive.js";
+
+// The same word filter the lineup builder applies to titles and descriptions.
+const config = JSON.parse(await readFile(new URL("../web/data/channels.json", import.meta.url), "utf8"));
+const wordFilter = compileExclude(config.exclude || []);
 
 const args = process.argv.slice(2);
 const opt = (name, d) => {
@@ -100,7 +105,15 @@ for (const t of targets) {
     const j = await yt("videos", { part: "snippet,contentDetails,status", id: ids.slice(i, i + 50).join(",") });
     for (const v of j.items || []) {
       if (match && !match.test(v.snippet.title)) continue;
-      const why = rejectReason(v, { minS: minMin * 60 });
+      let why = rejectReason(v, { minS: minMin * 60, maxS: 24 * 3600 });
+      const text = v.snippet.title + " " + (v.snippet.description || "").slice(0, 400);
+      const hit = !why && wordFilter && text.match(wordFilter);
+      if (hit) why = "word filter: " + hit[0].trim();
+      if (match) {
+        // Looking for something specific: say what happened to each match.
+        const d = parseIsoDuration(v.contentDetails.duration);
+        console.log(`  ${t} ${v.id} ${Math.round(d / 60)}m ${v.snippet.liveBroadcastContent} → ${why || "OK"} | ${v.snippet.title}`);
+      }
       if (why) reasons[why] = (reasons[why] || 0) + 1;
       else good.push({ t: cleanYtTitle(v.snippet.title), d: parseIsoDuration(v.contentDetails.duration) });
     }
