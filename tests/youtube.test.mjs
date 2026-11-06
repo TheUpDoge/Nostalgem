@@ -63,6 +63,8 @@ test("titles lose upload clutter but keep the episode", () => {
   assert.equal(cleanYtTitle("100 MINUTES of Teenage Mutant Ninja Turtles (1987) 📺 EVERY EPISODE MARATHON! #10 | TMNT"), "100 MINUTES of Teenage Mutant Ninja Turtles (1987) 📺 EVERY EPISODE MARATHON! #10");
   assert.equal(cleanYtTitle("Bewitched Goes Patriotic 🇺🇲 | Time Travel & Founding Fathers Moments | Bewitched"), "Bewitched Goes Patriotic 🇺🇲 | Time Travel & Founding Fathers Moments | Bewitched", "emoji stay where there's no branding");
   assert.equal(cleanYtTitle("THE DONNY & CLARENCE SHOW | EP01 | PRANKZ"), "THE DONNY & CLARENCE SHOW | EP01 | PRANKZ", "an episode name in capitals stays");
+  assert.equal(cleanYtTitle("The Quick Clone Syndrome | Men In Black: The Series | S2E02 | Throwback Toons", "Throwback Toons"), "The Quick Clone Syndrome | Men In Black: The Series | S2E02", "the uploader's own name goes");
+  assert.equal(cleanYtTitle("Throwback Toons | Best Of", "Throwback Toons"), "Throwback Toons | Best Of", "but not when it's the title itself");
   assert.equal(cleanYtTitle("Treasure of the Depths! | The Adventures of Flash Gordon | S1E18"), "Treasure of the Depths! | The Adventures of Flash Gordon | S1E18", "so does an episode number");
 });
 

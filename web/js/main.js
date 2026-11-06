@@ -290,8 +290,15 @@ function surf(dir) {
 // Number entry. Channels are 1–2 digits; a sub-channel adds one more, so 5 0 1 is CH 50-1. The TV tunes
 // as soon as no longer number could follow, otherwise after a short pause. 5 0 alone, on a channel that
 // only has sub-channels, goes to the first of them.
+// Numbers are typed like a cable box: 5 0 waits a beat for a sub-channel, 5 0 1 tunes 50-1, and where
+// there's a 60-10, 6 0 1 waits a beat for the 0.
+function typedLabel(typed) {
+  if (typed.length === 1) return typed + "-";
+  if (typed.length === 2) return pad2(Number(typed)) + "-";
+  return typed.slice(0, 2) + "-" + typed.slice(2);
+}
 function digit(n) {
-  app.digits = (app.digits + String(n)).slice(-3);
+  app.digits = (app.digits + String(n)).slice(-4);
   const typed = app.digits;
   clearTimeout(app.digitTimer);
   const exact = channelForDigits(typed, false);
@@ -299,11 +306,8 @@ function digit(n) {
     const k = chKey(c);
     return k.length > typed.length && k.indexOf(typed) === 0;
   });
-  if (longer) {
-    const shown = typed.length === 1 ? typed + "-" : typed.length === 2 ? pad2(Number(typed)) + "-" : typed;
-    V.osd("CH " + shown, "", 2500);
-  }
-  if ((exact && !longer) || typed.length >= 3 || (!exact && !longer)) commitDigits();
+  if (longer) V.osd("CH " + typedLabel(typed), "", 2500);
+  if ((exact && !longer) || typed.length >= 4 || (!exact && !longer)) commitDigits();
   else app.digitTimer = setTimeout(commitDigits, 1600);
 }
 
@@ -328,7 +332,7 @@ function commitDigits() {
     closeOverlays();
     tuneTo(ch);
   } else {
-    V.osd("CH " + (typed.length > 2 ? typed.slice(0, 2) + "-" + typed.slice(2) : pad2(Number(typed))), "NO SIGNAL", 2000);
+    V.osd("CH " + (typed.length > 2 ? typedLabel(typed) : pad2(Number(typed))), "NO SIGNAL", 2000);
     staticBurst(500);
   }
 }

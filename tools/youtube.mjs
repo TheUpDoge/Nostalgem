@@ -63,7 +63,8 @@ export function rejectReason(v, opts) {
 
 // "【Official】Mobile Suit Gundam Wing Ep. 1 | Full Episode (English Dub) [HD]" -> "Mobile Suit Gundam Wing Ep. 1"
 const TAG_WORDS = /\b(live|24\/7|official|full episodes?|full movie|english|eng|(w\/ ?)?sub(bed|titled|titles|s)?|dub(bed)?|hd|4k|1080p|720p|remaster(ed)?|free|anime|uncut|premiere|simulcast|cc|limited time)\b/i;
-export function cleanYtTitle(t) {
+// channel: the uploader's name, dropped where it's tacked on as a piece of the title ("… | Throwback Toons").
+export function cleanYtTitle(t, channel) {
   let s = String(t || "");
   s = s.replace(/[【\[(（]([^】\])）]{0,40})[】\])）]/g, function (all, inner) {
     return TAG_WORDS.test(inner) ? " " : all;
@@ -77,7 +78,7 @@ export function cleanYtTitle(t) {
   s = s.replace(/\s*[-–]\s*official\s*[-–]?\s*$/i, "").replace(/\s+full episode\s*$/i, "");
   // Some channels separate the pieces with emoji instead ("He-Man Official ❄️Song of Celice ❄️He-Man Full Episode").
   if (/\b(official|full episodes?|for kids)\b/i.test(s)) s = s.replace(/\s*(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|\uFE0F|\u200D)+\s*/gu, " | ");
-  s = dropBranding(s);
+  s = dropBranding(s, channel);
   return s.replace(/\s+/g, " ").replace(/^[\s|:–-]+|[\s|:–-]+$/g, "").trim();
 }
 
@@ -93,7 +94,8 @@ function initials(text) {
 
 const BRANDING = /\b(official|anniversary|full episodes?|for kids|retro cartoons?|kids cartoons?|cartoon universe)\b|^(hd|4k|1080p|720p|remastered)$/i;
 // "He-Man Official | The Rarest Gift of All | He-Man Full Episodes" → "He-Man: The Rarest Gift of All".
-function dropBranding(s) {
+function dropBranding(s, channel) {
+  const own = String(channel || "").toLowerCase().trim();
   const parts = s.split(/\s*[|｜]\s*/);
   if (parts.length < 2) return s;
   while (parts.length > 1 && /\bofficial$/i.test(parts[0].trim()) && parts[0].length <= 40) parts.shift();
@@ -104,7 +106,7 @@ function dropBranding(s) {
     // "He-Man Full Episode", "She-Ra Episodes": which show it is, not part of the title.
     const m = /^(.{2,30}?)\s+(full\s+)?episodes?$/i.exec(part) || /^(.{2,30}?)\s+full episodes?\b/i.exec(part);
     if (m && !show) show = m[1];
-    if (m || !part || BRANDING.test(part)) continue;
+    if (m || !part || BRANDING.test(part) || (own && part.toLowerCase() === own)) continue;
     // The show's initials at the very end: "Teenage Mutant Ninja Turtles (1987) … MARATHON! | TMNT".
     if (i === parts.length - 1 && /^[A-Z]{2,6}$/.test(part) && initials(kept[0]).indexOf(part) >= 0) continue;
     kept.push(part);
@@ -115,7 +117,7 @@ function dropBranding(s) {
 
 export function toProgram(v) {
   const sn = v.snippet || {};
-  const p = { id: "yt:" + v.id, f: "yt", t: cleanYtTitle(sn.title) || sn.title || v.id, d: parseIsoDuration(v.contentDetails.duration) };
+  const p = { id: "yt:" + v.id, f: "yt", t: cleanYtTitle(sn.title, sn.channelTitle) || sn.title || v.id, d: parseIsoDuration(v.contentDetails.duration) };
   // Where it can't play (web/js/regions.js), so a TV abroad can leave it out of the schedule.
   const r = packRegion(v.contentDetails.regionRestriction);
   if (r) p.r = r;

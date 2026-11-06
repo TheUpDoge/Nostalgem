@@ -146,6 +146,8 @@ try {
   const blocked = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({ id: "yt:badregion00" + n, f: "yt", t: "Blocked " + n, d: 12 }));
   lineup.channels.push({ number: 99, sub: 3, slug: "yt-test-3", name: "Test Locked", tagline: "Region lock test", icon: "🔒", color: "#b967ff", kind: "video", offset: 0, items: blocked });
   lineup.channels.push({ number: 99, sub: 4, slug: "yt-test-4", name: "Test Refused", tagline: "Embed refusal test", icon: "⛔", color: "#ff2a6d", kind: "video", offset: 0, items: [{ id: "yt:cfgvideo0001", f: "yt", t: "Refused", d: 12 }] });
+  // 99-10: a two-digit sub-channel, so 9 9 1 has to wait a beat for a possible 0.
+  lineup.channels.push({ number: 99, sub: 10, slug: "yt-test-10", name: "Test Ten", tagline: "Two-digit sub-channel test", icon: "🔟", color: "#05d9e8", kind: "video", offset: 0, items: [{ id: "yt:tenvideo0001", f: "yt", t: "Test Ten", d: 12 }] });
   const fakeYouTube = await readFile(join(fixtures, "fake-youtube.js"), "utf8");
   await page.route("https://www.youtube.com/iframe_api", (r) => r.fulfill({ status: 200, contentType: "text/javascript", body: fakeYouTube }));
   await page.route(base + "/data/lineup.json", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(lineup) }));
@@ -295,8 +297,15 @@ try {
   check((await state()).label === "99-2", `▲ from 99-1 goes to 99-2 (got ${(await state()).label})`);
   await key("9", 100);
   await key("9", 100);
-  await key("1", 900);
-  check((await state()).label === "99-1", `typing 9 9 1 tunes 99-1 at once (got ${(await state()).label})`);
+  await key("1", 100);
+  await key("0", 900);
+  check((await state()).label === "99-10", `typing 9 9 1 0 tunes the two-digit sub-channel 99-10 (got ${(await state()).label})`);
+  await key("9", 100);
+  await key("9", 100);
+  await key("1", 600);
+  check((await page.textContent("#osd")).includes("99-1"), "typing 9 9 1 waits a beat for a possible 99-10 (shows CH 99-1)");
+  await page.waitForTimeout(1500);
+  check((await state()).label === "99-1", `…then tunes 99-1 (got ${(await state()).label})`);
   await key("ArrowLeft", 500);
   const rowLabels = await page.$$eval(".g-row", (r) => r.map((x) => x.textContent));
   check(rowLabels.some((t) => t.includes("99-1")) && rowLabels.some((t) => t.includes("99-2")), "the guide lists 99-1 and 99-2");
