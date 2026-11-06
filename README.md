@@ -195,6 +195,10 @@ sources instead of Archive `sources`:
 ]
 ```
 
+Channels can share a number as **sub-channels**, like digital TV: give them the same `number` and a
+`sub` (1, 2, …) and they show as 50-1, 50-2. On the remote, 5 0 1 tunes 50-1; 5 0 on its own goes to
+the first one after a moment.
+
 Only public, embeddable videos that aren't age-restricted, live, Shorts or blocked in the US go on the
 air. Building them needs a YouTube Data API key: add it as the repository secret `YOUTUBE_API_KEY`
 (Settings ▸ Secrets and variables ▸ Actions) and run **Actions ▸ Rebuild lineup**. That also runs every
