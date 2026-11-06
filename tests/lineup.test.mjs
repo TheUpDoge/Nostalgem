@@ -77,8 +77,12 @@ test("nothing excluded made it on the air", () => {
   const words = compileExclude(lineup.exclude);
   const files = compileExclude(lineup.excludeFiles);
   for (const c of lineup.channels) {
+    // Phrases a YouTube source "allow"s (an official channel's own "Full Series" watch party).
+    const allowed = ((defs[c.slug] && defs[c.slug].youtube) || []).filter((s) => s.allow).map((s) => s.allow);
+    const allow = allowed.length ? new RegExp(allowed.join("|"), "gi") : null;
     for (const p of c.items) {
-      assert.ok(!words.test(p.t + " " + (p.e || "")), `${c.slug}: "${p.t} ${p.e || ""}"`);
+      const text = p.t + " " + (p.e || "");
+      assert.ok(!words.test(allow ? text.replace(allow, " ") : text), `${c.slug}: "${text}"`);
       assert.ok(!files.test(p.f), `${c.slug}: ${p.f}`);
       for (const s of p.cc || []) assert.ok(!files.test(s[0]), `${c.slug}: ${s[0]}`);
     }

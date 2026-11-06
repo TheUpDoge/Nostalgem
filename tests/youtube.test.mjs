@@ -44,6 +44,7 @@ test("titles lose upload clutter but keep the episode", () => {
   assert.equal(cleanYtTitle("Captain Harlock (Remastered)"), "Captain Harlock");
   assert.equal(cleanYtTitle("After War Gundam X -Episode1(w/subtitles)"), "After War Gundam X -Episode1");
   assert.equal(cleanYtTitle("Speed Racer (Part 2)"), "Speed Racer (Part 2)");
+  assert.equal(cleanYtTitle("Junji Ito Collection Full Series Watch Party (LIMITED TIME)"), "Junji Ito Collection Full Series Watch Party");
 });
 
 test("YouTube program ids", () => {

@@ -61,7 +61,7 @@ export function rejectReason(v, opts) {
 }
 
 // "【Official】Mobile Suit Gundam Wing Ep. 1 | Full Episode (English Dub) [HD]" -> "Mobile Suit Gundam Wing Ep. 1"
-const TAG_WORDS = /\b(live|24\/7|official|full episodes?|english|eng|(w\/ ?)?sub(bed|titled|titles|s)?|dub(bed)?|hd|4k|1080p|720p|remaster(ed)?|free|anime|uncut|premiere|simulcast|cc)\b/i;
+const TAG_WORDS = /\b(live|24\/7|official|full episodes?|english|eng|(w\/ ?)?sub(bed|titled|titles|s)?|dub(bed)?|hd|4k|1080p|720p|remaster(ed)?|free|anime|uncut|premiere|simulcast|cc|limited time)\b/i;
 export function cleanYtTitle(t) {
   let s = String(t || "");
   s = s.replace(/[【\[(（]([^】\])）]{0,40})[】\])）]/g, function (all, inner) {
