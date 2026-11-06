@@ -5,6 +5,7 @@
 //   YOUTUBE_API_KEY=… node tools/yt-probe.mjs @GundamInfo @SomeChannel UCxxxx…  [--min 18] [--scan 500]
 //   … ?Cleetus_McFarland        search channels by name (underscores for spaces) and list the top matches
 //   … --live @exploreorg        list what each channel is streaming live right now
+//   … --match "junji ito|uzumaki"  only count uploads whose title matches (case-insensitive)
 //
 // Prints a table and, on GitHub Actions, writes it to the job summary.
 
@@ -22,6 +23,8 @@ const opt = (name, d) => {
 const liveMode = args.indexOf("--live") >= 0;
 if (liveMode) args.splice(args.indexOf("--live"), 1);
 const minMin = Number(opt("min", "18"));
+const matchText = opt("match", "");
+const match = matchText ? new RegExp(matchText, "i") : null;
 const scan = Number(opt("scan", "500"));
 const targets = args.join(" ").split(/[\s,]+/).filter(Boolean);
 const yt = makeYouTubeFetch(process.env.YOUTUBE_API_KEY || "");
@@ -96,6 +99,7 @@ for (const t of targets) {
   for (let i = 0; i < ids.length; i += 50) {
     const j = await yt("videos", { part: "snippet,contentDetails,status", id: ids.slice(i, i + 50).join(",") });
     for (const v of j.items || []) {
+      if (match && !match.test(v.snippet.title)) continue;
       const why = rejectReason(v, { minS: minMin * 60 });
       if (why) reasons[why] = (reasons[why] || 0) + 1;
       else good.push({ t: cleanYtTitle(v.snippet.title), d: parseIsoDuration(v.contentDetails.duration) });

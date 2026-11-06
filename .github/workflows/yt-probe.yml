@@ -15,6 +15,9 @@ on:
       scan:
         description: "Uploads to check per channel"
         default: "500"
+      match:
+        description: "Only count uploads whose title matches this (regex, optional)"
+        default: ""
       live:
         description: "List live streams instead of uploads"
         type: boolean
@@ -38,4 +41,5 @@ jobs:
           MIN: ${{ github.event.inputs.min_minutes }}
           SCAN: ${{ github.event.inputs.scan }}
           LIVE: ${{ github.event.inputs.live }}
-        run: node tools/yt-probe.mjs $CHANNELS --min "$MIN" --scan "$SCAN" $([ "$LIVE" = "true" ] && echo --live)
+          MATCH: ${{ github.event.inputs.match }}
+        run: node tools/yt-probe.mjs $CHANNELS --min "$MIN" --scan "$SCAN" $([ "$LIVE" = "true" ] && echo --live) ${MATCH:+--match "$MATCH"}
