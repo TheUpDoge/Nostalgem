@@ -1,0 +1,71 @@
+name: Rebuild lineup
+
+# Rebuilds web/data/lineup.json and commits it. YouTube channels need the repository secret
+# YOUTUBE_API_KEY (Settings → Secrets and variables → Actions); without it they keep their programs.
+# Runs weekly for YouTube channels (new uploads, removed videos), or on demand from the Actions tab.
+
+on:
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: "What to rebuild"
+        type: choice
+        options: [youtube, everything, only]
+        default: youtube
+      only:
+        description: "With scope 'only': channel slugs, comma separated"
+        required: false
+        default: ""
+      seed:
+        description: "Reshuffle seed (optional)"
+        required: false
+        default: ""
+  schedule:
+    - cron: "17 9 * * 1" # Mondays 09:17 UTC
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: lineup
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Build the lineup
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          SCOPE: ${{ github.event.inputs.scope || 'youtube' }}
+          ONLY: ${{ github.event.inputs.only }}
+          SEED: ${{ github.event.inputs.seed }}
+        run: |
+          args=()
+          case "$SCOPE" in
+            youtube) args+=(--youtube-only) ;;
+            only) args+=(--only "$ONLY") ;;
+          esac
+          if [ -n "$SEED" ]; then args+=(--seed "$SEED"); fi
+          if [ -z "$YOUTUBE_API_KEY" ]; then echo "::warning::No YOUTUBE_API_KEY secret: YouTube channels keep their programs."; fi
+          node tools/build-lineup.mjs "${args[@]}"
+      - name: Check the lineup
+        run: npm test
+      - name: Commit and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet -- web/data/lineup.json; then echo "No changes."; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add web/data/lineup.json
+          git commit -m "Rebuild lineup (${{ github.event.inputs.scope || 'youtube' }})"
+          git push
+          # A push made with this token doesn't start other workflows, so ask for the site deploy directly.
+          gh workflow run web.yml --ref "${GITHUB_REF_NAME}"

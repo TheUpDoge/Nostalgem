@@ -1,0 +1,211 @@
+// YouTube Data API v3 client for the lineup builder. Turns official channels and playlists into programs:
+//
+//   "youtube": [
+//     { "handle": "@GundamInfo", "match": "episode|ep\\.? ?\\d", "exclude": "trailer|teaser|pv", "order": "oldest" },
+//     { "playlist": "PLxxxxxxxx", "order": "playlist" },
+//     { "channelId": "UCxxxxxxxx" }
+//   ]
+//
+// Every video is checked before it goes on the air: public, embeddable, not age-restricted, not blocked
+// in the region (US unless "region" says otherwise), not live or upcoming, and long enough not to be a
+// Short. A source's videos air in order ("playlist" order, or "oldest" upload first) or shuffled; several
+// sources take turns, like shows in a block.
+//
+// The key: YOUTUBE_API_KEY in the environment (GitHub Actions secret), sent as X-Goog-Api-Key. In a
+// session whose network adds the key itself, it can be left unset.
+
+import { cleanText, compileExclude } from "../web/js/archive.js";
+import { hash32, mulberry32, shuffle } from "../web/js/util.js";
+
+const API = "https://www.googleapis.com/youtube/v3/";
+
+export function parseIsoDuration(s) {
+  const m = /^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?)?$/.exec(String(s || ""));
+  if (!m) return 0;
+  return Math.round((+m[1] || 0) * 86400 + (+m[2] || 0) * 3600 + (+m[3] || 0) * 60 + (+m[4] || 0));
+}
+
+// Why a video can't air, or "" when it can.
+export function rejectReason(v, opts) {
+  const o = opts || {};
+  const region = o.region || "US";
+  if (!v || !v.id) return "missing";
+  const st = v.status || {};
+  const cd = v.contentDetails || {};
+  const sn = v.snippet || {};
+  if (st.privacyStatus && st.privacyStatus !== "public") return "not public";
+  if (st.uploadStatus && st.uploadStatus !== "processed") return "still processing";
+  if (st.embeddable === false) return "embedding off";
+  if (st.madeForKids && o.allowKids === false) return "made for kids";
+  if (sn.liveBroadcastContent && sn.liveBroadcastContent !== "none") return "live or upcoming";
+  if (cd.contentRating && cd.contentRating.ytRating === "ytAgeRestricted") return "age-restricted";
+  const rr = cd.regionRestriction;
+  if (rr) {
+    if (rr.blocked && rr.blocked.indexOf(region) >= 0) return "blocked in " + region;
+    if (rr.allowed && rr.allowed.indexOf(region) < 0) return "not available in " + region;
+  }
+  const d = parseIsoDuration(cd.duration);
+  if (!d) return "no duration";
+  if (d < (o.minS || 0)) return "too short";
+  if (o.maxS && d > o.maxS) return "too long";
+  return "";
+}
+
+// "【Official】Mobile Suit Gundam Wing Ep. 1 | Full Episode (English Dub) [HD]" -> "Mobile Suit Gundam Wing Ep. 1"
+const TAG_WORDS = /\b(official|full episodes?|english|eng|sub(bed|titled|s)?|dub(bed)?|hd|4k|1080p|720p|remaster(ed)?|free|anime|uncut|premiere|simulcast|cc)\b/i;
+export function cleanYtTitle(t) {
+  let s = String(t || "");
+  s = s.replace(/[【\[(（]([^】\])）]{0,40})[】\])）]/g, function (all, inner) {
+    return TAG_WORDS.test(inner) ? " " : all;
+  });
+  s = s.replace(/\s*[|｜]\s*(full episodes?|official|english (sub|dub)\w*|free anime|watch free)\b.*$/i, "");
+  s = s.replace(/\s+[-–]\s+(full episodes?|official (video|upload))\s*$/i, "");
+  return s.replace(/\s+/g, " ").replace(/^[\s|:–-]+|[\s|:–-]+$/g, "").trim();
+}
+
+export function toProgram(v) {
+  const sn = v.snippet || {};
+  const p = { id: "yt:" + v.id, f: "yt", t: cleanYtTitle(sn.title) || sn.title || v.id, d: parseIsoDuration(v.contentDetails.duration) };
+  return p;
+}
+
+function regex(src) {
+  return src ? new RegExp(src, "i") : null;
+}
+
+export function makeYouTubeFetch(key) {
+  return async function ytFetch(path, params) {
+    const url = API + path + "?" + new URLSearchParams(params).toString();
+    let last;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      try {
+        const res = await fetch(url, { headers: key ? { "x-goog-api-key": key } : {} });
+        if (res.status === 403 || res.status === 400 || res.status === 404) {
+          const body = await res.text();
+          throw Object.assign(new Error("YouTube API " + res.status + ": " + body.slice(0, 300)), { fatal: true });
+        }
+        if (!res.ok) throw new Error("YouTube API HTTP " + res.status);
+        return await res.json();
+      } catch (e) {
+        last = e;
+        if (e.fatal) break;
+        await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
+      }
+    }
+    throw last;
+  };
+}
+
+async function uploadsPlaylist(src, yt) {
+  if (src.playlist) return src.playlist;
+  const params = { part: "contentDetails" };
+  if (src.channelId) params.id = src.channelId;
+  else if (src.handle) params.forHandle = src.handle.charAt(0) === "@" ? src.handle : "@" + src.handle;
+  else throw new Error("a youtube source needs handle, channelId or playlist");
+  const json = await yt("channels", params);
+  const ch = json.items && json.items[0];
+  if (!ch) throw new Error("no YouTube channel " + (src.handle || src.channelId));
+  return ch.contentDetails.relatedPlaylists.uploads;
+}
+
+async function playlistVideoIds(playlistId, max, yt) {
+  const ids = [];
+  let pageToken = "";
+  while (ids.length < max) {
+    const params = { part: "contentDetails", playlistId: playlistId, maxResults: "50" };
+    if (pageToken) params.pageToken = pageToken;
+    const json = await yt("playlistItems", params);
+    (json.items || []).forEach(function (it) {
+      if (it.contentDetails && it.contentDetails.videoId) ids.push(it.contentDetails.videoId);
+    });
+    pageToken = json.nextPageToken;
+    if (!pageToken) break;
+  }
+  return ids.slice(0, max);
+}
+
+async function videoDetails(ids, yt) {
+  const out = [];
+  for (let i = 0; i < ids.length; i += 50) {
+    const json = await yt("videos", { part: "snippet,contentDetails,status", id: ids.slice(i, i + 50).join(","), maxResults: "50" });
+    out.push.apply(out, json.items || []);
+  }
+  const byId = {};
+  out.forEach(function (v) {
+    byId[v.id] = v;
+  });
+  return ids
+    .map(function (id) {
+      return byId[id];
+    })
+    .filter(Boolean);
+}
+
+// A channel definition with "youtube" sources -> { items, about, searched, rejected }.
+// ctx: { yt (from makeYouTubeFetch), exclude: [...words], seed, log }
+export async function buildYouTubeChannel(def, ctx) {
+  const yt = ctx.yt;
+  const log = ctx.log || function () {};
+  const minS = (def.minMinutes != null ? def.minMinutes : 4) * 60;
+  const maxS = (def.maxMinutes || 240) * 60;
+  const maxItems = def.maxItems || 120;
+  const exclude = compileExclude((ctx.exclude || []).concat(def.exclude || []));
+  const rand = mulberry32(hash32(def.slug + "|" + (ctx.seed || "")));
+  const about = {};
+  const rejected = {};
+  const lists = [];
+  let searched = 0;
+  const seen = {};
+  for (const src of def.youtube) {
+    let ids;
+    try {
+      const pl = await uploadsPlaylist(src, yt);
+      ids = await playlistVideoIds(pl, src.maxScan || 300, yt);
+    } catch (e) {
+      log("  ! " + (src.handle || src.channelId || src.playlist) + ": " + e.message);
+      if (e.fatal && /API key|quota|forbidden|keyInvalid|accessNotConfigured/i.test(e.message)) throw e;
+      continue;
+    }
+    searched += ids.length;
+    const videos = await videoDetails(ids, yt);
+    const match = regex(src.match);
+    const skip = regex(src.exclude);
+    const list = [];
+    for (const v of videos) {
+      if (seen[v.id]) continue;
+      seen[v.id] = 1;
+      const why = rejectReason(v, { minS: src.minMinutes != null ? src.minMinutes * 60 : minS, maxS: maxS, region: def.region });
+      const title = (v.snippet && v.snippet.title) || "";
+      const reason = why || (match && !match.test(title) ? "no match" : "") || (skip && skip.test(title) ? "excluded" : "") || (exclude && exclude.test(title + " " + ((v.snippet && v.snippet.description) || "").slice(0, 400)) ? "filtered" : "");
+      if (reason) {
+        rejected[reason] = (rejected[reason] || 0) + 1;
+        continue;
+      }
+      const p = toProgram(v);
+      list.push(p);
+      const desc = cleanText(v.snippet.description || "", 170);
+      if (desc) about[p.id] = desc;
+    }
+    // Uploads come newest first. "oldest" airs a series from episode 1; "playlist" keeps the playlist's own order.
+    const order = src.order || "shuffle";
+    if (order === "oldest" && !src.playlist) list.reverse();
+    lists.push(order === "shuffle" ? shuffle(list, rand) : list);
+  }
+  // Sources take turns, a program each, like shows in a block.
+  const items = [];
+  for (let round = 0; items.length < maxItems; round++) {
+    let any = false;
+    for (const l of lists) {
+      if (round < l.length && items.length < maxItems) {
+        items.push(l[round]);
+        any = true;
+      }
+    }
+    if (!any) break;
+  }
+  const used = {};
+  items.forEach(function (p) {
+    if (about[p.id]) used[p.id] = about[p.id];
+  });
+  return { items: items, about: used, searched: searched, rejected: rejected };
+}

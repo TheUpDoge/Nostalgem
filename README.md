@@ -182,6 +182,24 @@ npm run lineup -- --seed spring-2027    # same programs, new running order
 That writes `web/data/lineup.json`, which is what the TV loads. Commit it and both the site and the
 app pick it up.
 
+### YouTube channels
+
+A channel can also air full episodes from **official** YouTube channels (the studio's or distributor's own
+uploads), played through YouTube's own embedded player. In `web/data/channels.json`, give it `youtube`
+sources instead of Archive `sources`:
+
+```json
+"youtube": [
+  { "handle": "@SomeOfficialChannel", "match": "episode|ep\\.? ?\\d", "exclude": "trailer|teaser", "order": "oldest" },
+  { "playlist": "PLxxxxxxxx", "order": "playlist" }
+]
+```
+
+Only public, embeddable videos that aren't age-restricted, live, Shorts or blocked in the US go on the
+air. Building them needs a YouTube Data API key: add it as the repository secret `YOUTUBE_API_KEY`
+(Settings ▸ Secrets and variables ▸ Actions) and run **Actions ▸ Rebuild lineup**. That also runs every
+Monday to pick up new uploads and drop removed ones. Locally: `YOUTUBE_API_KEY=… npm run lineup -- --youtube-only`.
+
 ### Run it locally
 
 ```sh

@@ -4,13 +4,18 @@
 //   node tools/build-lineup.mjs                      rebuild every channel
 //   node tools/build-lineup.mjs --only high-noon     rebuild one (or a comma list), keep the rest
 //   node tools/build-lineup.mjs --seed fall-2026     reshuffle the running order
+//   node tools/build-lineup.mjs --skip-youtube       keep YouTube channels as they are
+//   node tools/build-lineup.mjs --youtube-only       rebuild only YouTube channels, keep the rest
 //
-// Needs Node 18+ and network access to archive.org. No dependencies.
+// Needs Node 18+ and network access to archive.org. No dependencies. Channels with "youtube" sources
+// also need the YouTube Data API: set YOUTUBE_API_KEY (see tools/youtube.mjs). Without it they keep
+// the programs they had.
 
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildChannel } from "../web/js/archive.js";
+import { buildYouTubeChannel, makeYouTubeFetch } from "./youtube.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const CHANNELS = join(root, "web/data/channels.json");
@@ -26,6 +31,10 @@ const only = arg("only", "")
   .filter(Boolean);
 const concurrency = Number(arg("concurrency", "5"));
 const seed = arg("seed", "");
+const skipYouTube = process.argv.includes("--skip-youtube");
+const youTubeOnly = process.argv.includes("--youtube-only");
+const yt = makeYouTubeFetch(process.env.YOUTUBE_API_KEY || "");
+let youTubeDown = "";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -52,8 +61,8 @@ try {
 } catch {
   /* first build */
 }
-if (only.length && !previous) {
-  console.error("--only needs an existing lineup.json; run a full build first.");
+if ((only.length || youTubeOnly) && !previous) {
+  console.error("--only and --youtube-only need an existing lineup.json; run a full build first.");
   process.exit(1);
 }
 
@@ -74,18 +83,46 @@ for (const def of config.channels) {
     kind: def.kind || "video",
   };
   if (def.preferSubtitles) display.preferSubtitles = def.preferSubtitles;
-
-  if (only.length && !only.includes(def.slug)) {
+  if (def.sub) display.sub = def.sub;
+  if (def.offset != null) display.offset = def.offset;
+  const keep = () => {
     const kept = prevBySlug[def.slug];
-    if (kept) {
-      channels.push({ ...display, items: kept.items });
-      for (const p of kept.items) if (previous.about && previous.about[p.id]) about[p.id] = previous.about[p.id];
-    }
+    if (!kept) return false;
+    channels.push({ ...display, items: kept.items });
+    for (const p of kept.items) if (previous.about && previous.about[p.id]) about[p.id] = previous.about[p.id];
+    return true;
+  };
+
+  if ((only.length && !only.includes(def.slug)) || (youTubeOnly && !def.youtube)) {
+    keep();
+    continue;
+  }
+  if (def.youtube && (skipYouTube || youTubeDown)) {
+    if (!keep()) console.log(`CH ${def.number}${def.sub ? "-" + def.sub : ""} ${def.name}: left out (no YouTube access)`);
     continue;
   }
 
-  process.stdout.write(`CH ${String(def.number).padStart(2)} ${def.name.padEnd(18)} `);
+  process.stdout.write(`CH ${String(def.number).padStart(2)}${def.sub ? "-" + def.sub : "  "} ${def.name.padEnd(18)} `);
   const t0 = Date.now();
+  if (def.youtube) {
+    let built;
+    try {
+      built = await buildYouTubeChannel(def, { yt, exclude: config.exclude, seed, log: (m) => process.stdout.write("\n" + m) });
+    } catch (e) {
+      youTubeDown = e.message;
+      console.log(`\n   ⚠ YouTube API unavailable: ${e.message.slice(0, 160)}`);
+      if (!keep()) console.log("   left out until it can be built");
+      continue;
+    }
+    Object.assign(about, built.about);
+    channels.push({ ...display, items: built.items });
+    const hours = built.items.reduce((s, p) => s + p.d, 0) / 3600;
+    summary.push({ ch: def.number + (def.sub ? "-" + def.sub : ""), name: def.name, programs: built.items.length, hours: +hours.toFixed(1), searched: built.searched });
+    const why = Object.entries(built.rejected).map(([k, n]) => `${n} ${k}`).join(", ");
+    console.log(`${String(built.items.length).padStart(4)} programs  ${hours.toFixed(1).padStart(6)} h  ${((Date.now() - t0) / 1000).toFixed(0)}s${why ? "  (skipped: " + why + ")" : ""}`);
+    if (built.items.length < 8) console.warn(`   ⚠ only ${built.items.length} programs on ${def.slug}`);
+    continue;
+  }
   const built = await buildChannel(def, {
     fetchJson,
     exclude: config.exclude,
@@ -104,6 +141,11 @@ for (const def of config.channels) {
   summary.push({ ch: def.number, name: def.name, programs: built.items.length, hours: +hours.toFixed(1), subtitles: subs, autoCC: auto, searched: built.searched });
   console.log(`${String(built.items.length).padStart(4)} programs  ${hours.toFixed(1).padStart(6)} h  ${((Date.now() - t0) / 1000).toFixed(0)}s`);
   if (built.items.length < 8) console.warn(`   ⚠ only ${built.items.length} programs on ${def.slug}; widen its query`);
+}
+
+if (!summary.length && previous && channels.length === previous.channels.length) {
+  console.log("Nothing was rebuilt; lineup.json left as it is.");
+  process.exit(0);
 }
 
 const lineup = {
