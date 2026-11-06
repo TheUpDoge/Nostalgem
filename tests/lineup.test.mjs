@@ -41,6 +41,13 @@ test("every channel has enough to fill hours of air", () => {
   }
 });
 
+// A YouTube source may allow shorter videos than its channel does (a comedian's 3-minute sets).
+function minMinutes(def) {
+  const base = def.minMinutes || 0;
+  if (!def.youtube) return base;
+  return Math.min(base, ...def.youtube.map((s) => (s.minMinutes != null ? s.minMinutes : base)));
+}
+
 test("programs are playable and fit their channel", () => {
   for (const c of lineup.channels) {
     const def = defs[c.slug];
@@ -49,7 +56,7 @@ test("programs are playable and fit their channel", () => {
       assert.ok(p.id && p.f && p.t, `${c.slug}: program has id, file and title`);
       if (def.youtube) assert.ok(/^yt:[\w-]{11}$/.test(p.id) && p.f === "yt", `${c.slug}: ${p.id} is a YouTube video`);
       else assert.match(p.f, ext, `${c.slug}: ${p.f}`);
-      assert.ok(p.d >= (def.minMinutes || 0) * 60 - 1 && p.d <= (def.maxMinutes || 600) * 60 + 1, `${c.slug}: ${p.t} runs ${p.d}s`);
+      assert.ok(p.d >= minMinutes(def) * 60 - 1 && p.d <= (def.maxMinutes || 600) * 60 + 1, `${c.slug}: ${p.t} runs ${p.d}s`);
     }
   }
 });
