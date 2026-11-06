@@ -8,6 +8,7 @@
 //
 // A source with "live": true airs what the channel is broadcasting live right now, each stream as a
 // block of "blockMinutes" (default 20); "videos": [ids] names streams directly. Live channels rebuild daily.
+// "every": N spreads a source's programs through the channel, one after every N of the others.
 // order: "shuffle" (default), "oldest", "playlist", or "title" (series, then episode number).
 // Every video is checked before it goes on the air: public, embeddable, not age-restricted, not blocked
 // in the region (US unless "region" says otherwise), not live or upcoming, and long enough not to be a
@@ -179,6 +180,8 @@ export async function buildYouTubeChannel(def, ctx) {
   const about = {};
   const rejected = {};
   const lists = [];
+  const spread = []; // sources with "every": their programs go between the others'
+  let spreadEvery = 0;
   let searched = 0;
   const seen = {};
   for (const src of def.youtube) {
@@ -232,19 +235,42 @@ export async function buildYouTubeChannel(def, ctx) {
       list.sort(function (a, b) {
         return a.t.localeCompare(b.t, "en", { numeric: true, sensitivity: "base" });
       });
-    lists.push(order === "shuffle" ? shuffle(list, rand) : list);
+    const ordered = order === "shuffle" ? shuffle(list, rand) : list;
+    if (src.every > 0) {
+      spread.push(ordered);
+      spreadEvery = spreadEvery ? Math.min(spreadEvery, src.every) : src.every;
+    } else lists.push(ordered);
   }
   // Sources take turns, a program each, like shows in a block.
-  const items = [];
-  for (let round = 0; items.length < maxItems; round++) {
-    let any = false;
-    for (const l of lists) {
-      if (round < l.length && items.length < maxItems) {
-        items.push(l[round]);
-        any = true;
+  const takeTurns = function (ls, max) {
+    const out = [];
+    for (let round = 0; out.length < max; round++) {
+      let any = false;
+      for (const l of ls) {
+        if (round < l.length && out.length < max) {
+          out.push(l[round]);
+          any = true;
+        }
       }
+      if (!any) break;
     }
-    if (!any) break;
+    return out;
+  };
+  let items = takeTurns(lists, maxItems);
+  // "every": N puts one of that source's programs after every N of the others, repeating them as
+  // needed (live news between documentaries), so a source with two live streams isn't heard once a week.
+  const between = takeTurns(spread, Infinity);
+  if (between.length) {
+    if (!items.length) items = between;
+    else {
+      const mixed = [];
+      let k = 0;
+      items.forEach(function (p, i) {
+        mixed.push(p);
+        if ((i + 1) % spreadEvery === 0) mixed.push(between[k++ % between.length]);
+      });
+      items = mixed;
+    }
   }
   const used = {};
   items.forEach(function (p) {

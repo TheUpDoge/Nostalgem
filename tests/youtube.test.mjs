@@ -147,3 +147,25 @@ test("live streams: only what is on the air now, as schedule blocks", async () =
   assert.equal(res.items[0].d, 900);
   assert.equal(res.items[0].t, "Brown Bear Cam | Katmai");
 });
+
+test("every: live news between documentaries, repeating", async () => {
+  const vod = (id) => ({ id, snippet: { title: "Doc " + id, liveBroadcastContent: "none", description: "" }, contentDetails: { duration: "PT40M" }, status: { privacyStatus: "public", uploadStatus: "processed", embeddable: true } });
+  const live = (id) => ({ id, snippet: { title: "News " + id, liveBroadcastContent: "live", description: "" }, contentDetails: { duration: "P0D" }, status: { privacyStatus: "public", embeddable: true } });
+  const videos = {};
+  ["d1", "d2", "d3", "d4", "d5", "d6", "d7"].forEach((id) => (videos[id] = vod(id)));
+  videos.n1 = live("n1");
+  videos.n2 = live("n2");
+  const yt = async (path, params) => {
+    if (path === "channels") return { items: [{ id: "UC" + params.forHandle, contentDetails: { relatedPlaylists: { uploads: "UU" + params.forHandle } } }] };
+    if (path === "playlistItems") return { items: ["d1", "d2", "d3", "d4", "d5", "d6", "d7"].map((v) => ({ contentDetails: { videoId: v } })) };
+    if (path === "search") return { items: [{ id: { videoId: params.channelId === "UC@a" ? "n1" : "n2" } }] };
+    if (path === "videos") return { items: params.id.split(",").map((id) => videos[id]) };
+    throw new Error(path);
+  };
+  const def = { slug: "es", blockMinutes: 30, youtube: [{ handle: "@docs", order: "oldest" }, { handle: "@a", live: true, every: 3 }, { handle: "@b", live: true, every: 3 }] };
+  const res = await buildYouTubeChannel(def, { yt });
+  // Uploads come newest first, so "oldest" reverses them: d7 … d1.
+  assert.deepEqual(res.items.map((p) => p.t), ["Doc d7", "Doc d6", "Doc d5", "News n1", "Doc d4", "Doc d3", "Doc d2", "News n2", "Doc d1"]);
+  const onlyLive = await buildYouTubeChannel({ slug: "x", youtube: [{ handle: "@a", live: true, every: 2 }] }, { yt });
+  assert.deepEqual(onlyLive.items.map((p) => p.t), ["News n1"], "a channel of only spread sources still airs them");
+});
