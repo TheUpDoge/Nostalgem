@@ -103,13 +103,14 @@
 
       <!-- Search -->
       <section id="search" class="view" hidden>
-        <h2>Search the Archive</h2>
-        <p class="hint">Type what you'd like a channel of: a show, a star, a genre, a decade. The TV builds it and tunes in.</p>
+        <h2>Search</h2>
+        <p class="hint">Find a show on the TV's channels and watch it from the start, or have the TV build a whole new channel of it from the Internet Archive.</p>
         <form id="searchForm" class="search-form" autocomplete="off">
-          <input id="searchInput" type="search" enterkeyhint="go" spellcheck="false" placeholder="e.g. lone ranger" aria-label="Search words" />
+          <input id="searchInput" type="search" enterkeyhint="go" spellcheck="false" placeholder="e.g. junji ito, lone ranger" aria-label="Search words" />
+          <button type="submit" class="big" data-kind="find">🔎 Find a show</button>
           <div class="row two">
-            <button type="submit" class="big" data-kind="video">📡 TV channel</button>
-            <button type="submit" class="big alt" data-kind="audio">📻 Radio channel</button>
+            <button type="submit" class="big alt" data-kind="video">📡 New TV channel</button>
+            <button type="submit" class="big alt" data-kind="audio">📻 New radio channel</button>
           </div>
         </form>
         <p id="searchMsg" class="msg" role="status"></p>

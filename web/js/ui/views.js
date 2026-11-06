@@ -90,7 +90,7 @@ export function bannerHtml(d) {
   const item = d.slot ? d.slot.item : null;
   const badges = [];
   if (d.mode === "paused") badges.push('<span class="badge warn">PAUSED</span>');
-  else if (d.shifted) badges.push('<span class="badge warn">DELAYED</span>');
+  else if (d.shifted) badges.push('<span class="badge warn">' + (d.slot && d.slot.onDemand ? "ON DEMAND" : "DELAYED") + "</span>");
   else if (d.mode === "playing" || d.mode === "tuning") badges.push('<span class="badge live">LIVE</span>');
   if (d.ch.kind === "audio") badges.push('<span class="badge">RADIO</span>');
   if (d.cc) badges.push('<span class="badge">' + esc(d.ccLabel || "CC") + "</span>");

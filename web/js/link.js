@@ -7,6 +7,7 @@
 //   phone → TV  { t: "key", type, digit }        the same actions remote.js makes from key presses
 //               { t: "tune", slug }              tap a channel in the list
 //               { t: "search", text, kind }      build a channel from an Archive search ("video" | "audio")
+//               { t: "find", text }              find a show on the TV's channels (the TV lists them)
 //               { t: "hello", v }                sent once the channel opens
 //   TV → phone  { t: "state", ... }              what's on, sent whenever it changes
 //               { t: "channels", list }          the lineup with what's on each channel now
@@ -82,6 +83,10 @@ export function checkMessage(m) {
       const text = typeof m.text === "string" ? m.text.replace(/\s+/g, " ").trim().slice(0, 120) : "";
       if (text.length < 2) return null;
       return { t: "search", text: text, kind: m.kind === "audio" ? "audio" : "video" };
+    }
+    case "find": {
+      const text = typeof m.text === "string" ? m.text.replace(/\s+/g, " ").trim().slice(0, 80) : "";
+      return text.length < 2 ? null : { t: "find", text: text };
     }
     case "hello":
       return { t: "hello", v: Number(m.v) || 0 };

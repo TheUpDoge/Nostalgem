@@ -505,7 +505,8 @@ $("pairForm").addEventListener("submit", function (e) {
   pair(code);
 });
 
-let searchKind = "video";
+// Enter on the keyboard finds a show; the channel buttons build a new channel instead.
+let searchKind = "find";
 $("searchForm").addEventListener("click", function (e) {
   const b = e.target.closest && e.target.closest("[data-kind]");
   if (b) searchKind = b.getAttribute("data-kind");
@@ -514,9 +515,17 @@ $("searchForm").addEventListener("submit", function (e) {
   e.preventDefault();
   const text = $("searchInput").value.replace(/\s+/g, " ").trim();
   const kind = (e.submitter && e.submitter.getAttribute("data-kind")) || searchKind;
-  searchKind = "video";
+  searchKind = "find";
   if (text.length < 2) {
     $("searchMsg").textContent = "Type a few words first, like: hopalong cassidy";
+    return;
+  }
+  if (kind === "find") {
+    if (!send({ t: "find", text: text })) return;
+    buzz(16);
+    $("searchInput").blur();
+    $("searchMsg").textContent = "Look at the TV: pick one with ▲▼ and OK to watch it from the start.";
+    setTab("remote");
     return;
   }
   if (!send({ t: "search", text: text, kind: kind })) return;

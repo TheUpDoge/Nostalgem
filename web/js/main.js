@@ -1,6 +1,6 @@
 // NostalGem: the set itself. Wires the remote, the tuner, the guide, the menu and the screen together.
 
-import { makeTimeline, slotAt, programKey } from "./schedule.js";
+import { makeTimeline, slotAt, programKey, nextAiring, foldText } from "./schedule.js";
 import { Player } from "./player.js";
 import { Static } from "./static.js";
 import { actionFor, isTypingTarget, registerTvKeys } from "./remote.js";
@@ -125,8 +125,12 @@ const guide = new Guide($("guide"), {
       showBanner(6000);
       return;
     }
+    // A program later on: no need to wait for it.
+    if (prog && prog.startMs > now + 60000 && !prog.item.live) {
+      watchFromStart(ch, prog.item);
+      return;
+    }
     tuneTo(ch);
-    if (prog && prog.startMs > now + 60000) V.toast('"' + prog.item.t + '" starts at ' + fmtClock(new Date(prog.startMs), s.clock24), 4000);
   },
 });
 const menu = new Menu($("menu"), updateBug);
@@ -358,6 +362,120 @@ function onBad(item, info, stop) {
   app.timelines = {};
   const ch = current();
   if (ch && !stop) player.tune(timelineFor(ch), true);
+}
+
+// ---------- find a show, watch on demand ----------
+// Every program on every channel whose title has all the words typed (each as the start of a word),
+// on now first, then soonest. OK watches it from the start right away, off the schedule.
+const FIND_MAX = 40;
+function findShows(text) {
+  const words = foldText(text).split(" ").filter(Boolean);
+  if (!words.length) return [];
+  const now = Date.now();
+  const best = {};
+  app.channels.forEach(function (ch) {
+    const tl = timelineFor(ch);
+    tl.items.forEach(function (item, i) {
+      const hay = " " + foldText(item.t + " " + (item.e || "")) + " ";
+      for (let k = 0; k < words.length; k++) if (hay.indexOf(" " + words[k]) < 0) return;
+      const when = nextAiring(tl, i, now);
+      const key = programKey(item);
+      if (!when || (best[key] && (best[key].when.onNow || best[key].when.startMs <= when.startMs))) return;
+      best[key] = { ch: ch, item: item, when: when };
+    });
+  });
+  return Object.keys(best)
+    .map(function (k) {
+      return best[k];
+    })
+    .sort(function (a, b) {
+      return (b.when.onNow ? 1 : 0) - (a.when.onNow ? 1 : 0) || a.when.startMs - b.when.startMs;
+    })
+    .slice(0, FIND_MAX);
+}
+
+function airingText(w) {
+  if (w.onNow) return "on now";
+  const d = new Date(w.startMs);
+  const days = Math.round((new Date(d.toDateString()) - new Date(new Date().toDateString())) / 86400000);
+  const day = days === 0 ? "" : days === 1 ? "tomorrow " : d.toLocaleDateString(undefined, { weekday: "short" }) + " ";
+  return day + fmtClock(d, s.clock24);
+}
+
+function openFind(text) {
+  dialog.open({
+    title: "Find a show",
+    html:
+      "Type a title, or a word from one: <b>junji ito</b>, <b>lone ranger</b>, <b>popeye</b>, <b>space</b>. " +
+      "Every channel is searched, and you can watch what you find from the start right away.",
+    input: { placeholder: "What are you looking for?", value: text || "" },
+    buttons: [
+      {
+        label: "Find",
+        action: function (d) {
+          const t = d.value();
+          if (t.replace(/\s+/g, "").length < 2) {
+            d.status("Type a few letters first, like: popeye");
+            return;
+          }
+          if (!findShows(t).length) {
+            d.status("Nothing by that name on any channel. Try other words, or Menu ▸ Add a channel ▸ Search the Archive.");
+            return;
+          }
+          d.close();
+          showFound(t);
+        },
+      },
+      {
+        label: "Cancel",
+        action: function (d) {
+          d.close();
+        },
+      },
+    ],
+  });
+}
+
+function showFound(text) {
+  const found = findShows(text);
+  if (!found.length) {
+    V.toast('Nothing called "' + text + '" on any channel', 3500);
+    return;
+  }
+  hideBanner();
+  guide.close();
+  menu.open({
+    title: "Find: " + text,
+    sub: (found.length >= FIND_MAX ? "The first " + FIND_MAX : found.length) + " found · OK watches from the start",
+    items: function () {
+      return found.map(function (r) {
+        return {
+          label: r.item.t,
+          value: function () {
+            return "CH " + chLabel(r.ch) + " · " + (r.item.live ? "live" : airingText(r.when));
+          },
+          ok: function () {
+            watchFromStart(r.ch, r.item);
+            return "close";
+          },
+        };
+      });
+    },
+  });
+  updateBug();
+}
+
+function watchFromStart(ch, item) {
+  closeOverlays();
+  if (ch !== current()) tuneTo(ch, { quiet: true });
+  if (item.live) {
+    showBanner(6000);
+    return;
+  }
+  if (player.playFromStart(item)) {
+    showBanner(6000);
+    V.toast("▶ From the start: " + item.t + ". Menu ▸ Back to live returns to the schedule.", 4500);
+  }
 }
 
 // ---------- playback problems ----------
@@ -743,6 +861,14 @@ function rootPage() {
         },
       });
       list.push({ head: true, label: "Channels" });
+      list.push({
+        label: "🔎 Find a show",
+        sub: true,
+        ok: function () {
+          openFind("");
+          return "close";
+        },
+      });
       list.push({
         label: "Channel lineup",
         sub: true,
@@ -1232,6 +1358,10 @@ function phoneMessage(m) {
     phoneWake();
     closeOverlays();
     buildCustom(searchDef(m.text, m.kind));
+  } else if (m.t === "find") {
+    phoneWake();
+    closeOverlays();
+    showFound(m.text);
   }
 }
 

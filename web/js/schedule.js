@@ -86,3 +86,24 @@ export function programsBetween(tl, fromMs, toMs, limit) {
   }
   return out;
 }
+
+// When the program at timeline index i is on: now (onNow, startMs in the past) or next (startMs ahead).
+export function nextAiring(tl, i, nowMs) {
+  if (!tl || !tl.items[i] || !(tl.total > 0)) return null;
+  const p = loopPos(tl, nowMs);
+  const s = tl.starts[i];
+  const d = tl.items[i].d;
+  if (p >= s && p < s + d) return { startMs: nowMs - (p - s) * 1000, onNow: true };
+  const ahead = (((s - p) % tl.total) + tl.total) % tl.total;
+  return { startMs: nowMs + ahead * 1000, onNow: false };
+}
+
+// Words for matching titles: lower case, no accents or punctuation ("Señor Droopy!" → "senor droopy").
+export function foldText(s) {
+  return String(s || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}

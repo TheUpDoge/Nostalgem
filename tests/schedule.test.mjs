@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { makeTimeline, slotAt, programsBetween, programKey } from "../web/js/schedule.js";
+import { makeTimeline, slotAt, programsBetween, programKey, nextAiring, foldText } from "../web/js/schedule.js";
 
 const channel = {
   slug: "test",
@@ -74,4 +74,19 @@ test("programsBetween lists back-to-back programs for the guide", () => {
     ["a", "b", "c", "a"]
   );
   for (let i = 1; i < list.length; i++) assert.equal(list[i].startMs, list[i - 1].slotEndMs);
+});
+
+test("nextAiring: on now, or when it comes around next", () => {
+  // Loop: A 0–100 (+10 gap), B 110–160 (+10), C 170–370 (+10), total 380.
+  const at = (secs) => EPOCH + secs * 1000;
+  assert.deepEqual(nextAiring(tl, 0, at(30)), { startMs: at(0), onNow: true });
+  assert.deepEqual(nextAiring(tl, 1, at(30)), { startMs: at(110), onNow: false });
+  assert.deepEqual(nextAiring(tl, 0, at(105)), { startMs: at(380), onNow: false }, "in A's station break: A is next time around");
+  assert.deepEqual(nextAiring(tl, 2, at(400)), { startMs: at(380 + 170), onNow: false });
+  assert.equal(nextAiring(tl, 9, at(0)), null);
+});
+
+test("foldText for title search", () => {
+  assert.equal(foldText("Señor Droopy!"), "senor droopy");
+  assert.equal(foldText("  JUNJI ITO Collection: Full-Series  "), "junji ito collection full series");
 });

@@ -328,6 +328,29 @@ try {
   await shot("4e-problems");
   await key("Escape", 300);
 
+  // Find a show: every channel is searched, and OK plays it from the start, off the schedule.
+  await key("ArrowRight", 300);
+  for (let i = 0; i < 25; i++) {
+    const label = await page.textContent(".m-item.focus .l");
+    if (/Find a show/.test(label)) break;
+    await key("ArrowDown", 60);
+  }
+  await key("Enter", 300);
+  check((await state()).overlay === "dialog" && (await page.textContent("#dialog")).includes("Find a show"), "Menu ▸ Find a show opens a search");
+  await page.keyboard.type("mecha");
+  await key("Enter", 200); // to the Find button
+  await key("Enter", 400); // Find
+  check((await state()).overlay === "menu" && (await page.textContent("#menu")).includes("Test Mecha") && (await page.textContent("#menu")).includes("CH 99-1"), "it lists the program and its channel");
+  await shot("4f-find");
+  await key("Enter", 1500); // watch it
+  st = await state();
+  check(st.label === "99-1" && st.program === "Test Mecha" && st.shifted, `OK watches it from the start (${st.label} ${st.program}, shifted: ${st.shifted})`);
+  const onDemand = (await page.evaluate(() => window.__yt.log)).pop();
+  check(onDemand && onDemand.id === "mecha000001" && onDemand.start === 0, "…from 0:00 (" + JSON.stringify(onDemand) + ")");
+  check((await page.textContent("#banner")).includes("ON DEMAND"), "the banner says ON DEMAND");
+  await key("l", 800);
+  check(!(await state()).shifted, "L goes back to the schedule");
+
   await key("4", 1500);
   check((await page.isVisible("#screen")) && !(await page.isVisible("#yt")), "leaving YouTube puts the <video> back");
 
@@ -442,6 +465,12 @@ try {
   await phone.waitForTimeout(500);
   check((await phone.getAttribute("#chList .cur", "data-slug")) === fifth, "the phone highlights the channel that's on");
 
+  await tap('[data-tab="search"]', 200);
+  await phone.fill("#searchInput", "mecha");
+  await tap('#searchForm [data-kind="find"]', 700);
+  check((await state()).overlay === "menu" && (await page.textContent("#menu")).includes("Find: mecha"), "Find a show typed on the phone lists what it found on the TV");
+  check(await phone.isVisible("#remote"), "…and the phone switches to the remote to pick one");
+  await tap('[data-key="back"]', 300);
   await tap('[data-tab="search"]', 200);
   await phone.fill("#searchInput", "rodeo");
   await tap('#searchForm [data-kind="video"]', 2500);

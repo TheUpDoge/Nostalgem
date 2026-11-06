@@ -169,7 +169,8 @@ export class Player {
   // The viewer pressed something: browsers that blocked autoplay will now allow it.
   userGesture() {
     if (this.mode !== "gesture") return false;
-    this.syncToLive();
+    if (this.slot && this.slot.onDemand) this.load(0);
+    else this.syncToLive();
     return true;
   }
 
@@ -359,6 +360,19 @@ export class Player {
 
   goLive() {
     if (this.tl) this.syncToLive();
+  }
+
+  // On demand: one of this channel's programs from its start, off the schedule. It plays to the end (or
+  // until "Back to live"), and then the channel's schedule takes over again.
+  playFromStart(item) {
+    if (!this.tl || !item || item.live || !(item.d > 0)) return false;
+    const now = Date.now();
+    this.shifted = true;
+    this.retryAt = 0;
+    this.slot = { index: -1, item: item, into: 0, startMs: now, endMs: now + item.d * 1000, slotEndMs: now + item.d * 1000, inGap: false, next: null, onDemand: true };
+    this.emit("program", this.slot);
+    this.load(0);
+    return true;
   }
 
   restart() {

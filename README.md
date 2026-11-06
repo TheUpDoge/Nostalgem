@@ -153,6 +153,24 @@ rewriting in Roku's own language (BrightScript), which would be a separate proje
 | | M | Sound on / off |
 | | H | Help |
 
+### 🔎 Find a show, watch it now
+
+Every channel runs on a schedule, but you don't have to wait for a program. **Menu ▸ 🔎 Find a show**
+searches every channel's programs by title (*junji ito*, *lone ranger*, *popeye*) and lists where each
+one is on and when it airs next. Pick one to watch it **from the start, right now**; the banner says
+**ON DEMAND**, and when it ends (or **Menu ▸ Back to live**, or L) the channel's schedule carries on.
+In the TV guide, OK on a program later in the day does the same. The phone remote's Search tab finds
+shows too, with a real keyboard.
+
+### ⚠ When something won't play
+
+A program that can't play on your TV (removed from YouTube, blocked in your country, a damaged file,
+a live stream that ended) is skipped with a short note, and skipped on that TV for a day. If YouTube
+or the Internet Archive isn't reachable at all, the TV shows **PLEASE STAND BY** and names which one,
+and tries again every 30 seconds. **Menu ▸ ⚠ Playback problems** lists what didn't play and why. That
+is the place to look when a friend says "some channels didn't work". YouTube channels are checked
+daily for the US; abroad, some videos may be blocked (the **Lineup check** workflow shows how many).
+
 ### 📱 Phone remote
 
 Typing a search with a TV remote is no fun, so your phone can be the remote instead. On the TV, open
