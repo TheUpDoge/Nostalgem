@@ -35,8 +35,9 @@ test("every channel has enough to fill hours of air", () => {
   for (const c of lineup.channels) {
     const hours = c.items.reduce((s, p) => s + p.d, 0) / 3600;
     const yt = !!defs[c.slug].youtube;
-    assert.ok(c.items.length >= (yt ? 10 : 25), `${c.slug} has ${c.items.length} programs`);
-    assert.ok(hours >= (yt ? 3 : 5), `${c.slug} runs ${hours.toFixed(1)} h`);
+    const live = c.items.every((p) => p.live);
+    assert.ok(c.items.length >= (live ? 2 : yt ? 10 : 25), `${c.slug} has ${c.items.length} programs`);
+    assert.ok(hours >= (live ? 0.5 : yt ? 3 : 5), `${c.slug} runs ${hours.toFixed(1)} h`);
   }
 });
 

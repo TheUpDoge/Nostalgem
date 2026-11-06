@@ -67,7 +67,7 @@ export function programMeta(item) {
   const parts = [];
   if (item.e) parts.push(item.e);
   if (item.y) parts.push(String(item.y));
-  parts.push(fmtRuntime(item.d));
+  parts.push(item.live ? "● LIVE" : fmtRuntime(item.d));
   return parts.join(" · ");
 }
 

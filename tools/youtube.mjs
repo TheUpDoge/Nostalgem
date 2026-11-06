@@ -216,7 +216,7 @@ export async function buildYouTubeChannel(def, ctx) {
         p.live = 1;
       }
       list.push(p);
-      const desc = cleanText(v.snippet.description || "", 170);
+      const desc = def.about === false ? "" : cleanText(v.snippet.description || "", 170);
       if (desc) about[p.id] = desc;
     }
     // Uploads come newest first. "oldest" airs a series from episode 1; "playlist" keeps the playlist's own order.
