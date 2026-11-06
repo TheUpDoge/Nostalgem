@@ -60,7 +60,7 @@ YouTube's player) and rebuilt daily:
 |---|---|---|
 | 50-1, 50-2 | Mecha Hangar, Anime Vault | GUNDAM CHANNEL, Voltron; Nozomi Entertainment, RetroCrush |
 | 60-1 … 60-9 | Laugh Riot, The Workshop, Gearheads, Range Day, Great Outdoors, Passport & Plate, Dark Files, Game Room, VHS Late Show | Big Lez, MeatCanyon, Ze Frank, Hand Tool Rescue, Primitive Technology, Cleetus McFarland, Garage 54, Garand Thumb, AntsCanada, Bald and Bankrupt, Dark Docs, AVGN, brutalmoose, Retro Ryu, Orbital Bacon and more |
-| 70-1 … 70-5 | Cam Tour, Rail Cam, Launch Pad, Lo-Fi Radio, Vapor Lounge | **Live**: Monterey Bay Aquarium, EarthCam, Namibia, Virtual Railfan, NASA, NASASpaceflight, Lofi Girl, Chillhop, Ryan Celsius |
+| 70-1 … 70-7 | Cam Tour, Rail Cam, Launch Pad, Lo-Fi Radio, Vapor Lounge, World Desk, En Español | **Live**: Monterey Bay Aquarium, EarthCam, Namibia, Virtual Railfan, NASA, NASASpaceflight (plus weather-satellite loops), Lofi Girl, Chillhop, Ryan Celsius; NHK World, Nippon TV News 24, DW News, France 24; DW Español, France 24 Español and DW Documental's Spanish documentaries |
 | 80-1 … 80-6 | Sitcom Classics, After Hours, Stand-Up Stage, FilmRise TV, Midnight Movies, True Crime | I Dream of Jeannie, Married with Children, Bewitched, Adult Swim, Dropout, Funny Or Die, Comedy Central Stand-Up, FilmRise |
 | 90-1, 90-2 | Joe Rogan Experience, Pod Squad | PowerfulJRE; Unsubscribe, Underwhelming, Conan O'Brien Needs a Friend |
 
