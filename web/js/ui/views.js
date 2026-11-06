@@ -26,7 +26,14 @@ export const LOGO = '<div class="logo">NOSTAL<span class="gem">GEM</span></div>'
 
 // ---------- toast ----------
 let toastTimer = 0;
+const toastWatchers = [];
+export function onToast(fn) {
+  toastWatchers.push(fn);
+}
 export function toast(msg, ms) {
+  toastWatchers.forEach(function (fn) {
+    fn(msg);
+  });
   const t = $("toast");
   t.textContent = msg;
   t.hidden = false;

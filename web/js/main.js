@@ -11,14 +11,15 @@ import { Guide } from "./ui/guide.js";
 import { Menu } from "./ui/menu.js";
 import { Dialog } from "./ui/dialog.js";
 import * as V from "./ui/views.js";
+import { TvLink, makeCode, cleanCode, remoteUrl, prettyCode, qrSvg, loadScript } from "./link.js";
 import { pad2, escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32 } from "./util.js";
 
-const VERSION = "1.0.0";
+const VERSION = "1.1.0";
 const NAME = "NostalGem";
 const params = new URLSearchParams(window.location.search);
 const ANDROID = params.get("tv") === "android";
 
-const DEFAULTS = { crt: "light", fit: "contain", cc: "off", staticFx: "sound", bug: true, clock24: false, surf: "all" };
+const DEFAULTS = { crt: "light", fit: "contain", cc: "off", staticFx: "sound", bug: true, clock24: false, surf: "all", phone: false };
 const SLEEP_STEPS = [0, 15, 30, 45, 60, 90, 120];
 const STILL_AFTER = 4 * 3600 * 1000; // no button pressed for four hours: ask
 const STILL_GRACE = 2 * 60 * 1000; // then switch off two minutes later
@@ -68,6 +69,8 @@ const app = {
   exitArmedAt: 0,
   lastProgKey: "",
   ticks: 0,
+  phones: 0,
+  pairOpen: false,
 };
 const s = app.s;
 
@@ -426,6 +429,7 @@ function saveSettings() {
 function saveLists() {
   save("favs", Array.from(app.favs));
   save("hidden", Array.from(app.hidden));
+  link.channelsChanged();
 }
 
 // ---------- look ----------
@@ -635,6 +639,14 @@ function rootPage() {
           cycleSleep(1);
         },
       });
+      list.push({
+        label: "📱 Phone remote",
+        value: phoneValue,
+        ok: function () {
+          openPairing();
+          return "close";
+        },
+      });
       list.push({ head: true, label: "Channels" });
       list.push({
         label: "Channel lineup",
@@ -838,6 +850,7 @@ function nextNumber() {
 }
 
 function saveCustom() {
+  link.channelsChanged();
   const list = app.channels.filter(function (c) {
     return c.custom;
   });
@@ -924,6 +937,9 @@ function buildCustom(def) {
   dialog.open({
     title: "Building " + def.name,
     html: "Asking the Internet Archive for programs. This takes a few seconds.",
+    onClose: function () {
+      cancelled = true;
+    },
     buttons: [
       {
         label: "Cancel",
@@ -969,6 +985,7 @@ function buildCustom(def) {
       app.channels.push(ch);
       sortChannels();
       const saved = saveCustom();
+      cancelled = true; // done: closing the dialog now is not a cancel
       dialog.close();
       tuneTo(ch);
       V.toast("CH " + pad2(ch.number) + " " + ch.name + " is on the air" + (saved ? "" : " (couldn't save it on this TV)"), 4000);
@@ -976,6 +993,217 @@ function buildCustom(def) {
     .catch(function (err) {
       if (!cancelled) dialog.status("Couldn't reach the Archive (" + err.message + "). Try again in a moment.");
     });
+}
+
+// ---------- phone remote ----------
+// Menu ▸ Phone remote shows a QR code. The phone opens remote.html#CODE and talks to this TV directly
+// (see link.js). The code is kept, so a paired phone reconnects after the TV restarts; "New code"
+// locks out every phone paired before.
+function phoneCode() {
+  let code = cleanCode(load("phoneCode", ""));
+  if (!code) {
+    code = makeCode();
+    save("phoneCode", code);
+  }
+  return code;
+}
+
+const link = new TvLink({
+  code: phoneCode(),
+  vendorBase: "",
+  snapshot: phoneSnapshot,
+  channels: phoneChannels,
+  onMessage: phoneMessage,
+  onStatus: pairStatus,
+  onPhones: function (n) {
+    if (n > app.phones) V.toast("📱 Phone remote connected");
+    else if (n < app.phones && !n) V.toast("📱 Phone remote disconnected");
+    app.phones = n;
+    pairStatus();
+    if (menu.isOpen) menu.render();
+  },
+});
+V.onToast(function (text) {
+  if (link.phones()) link.send({ t: "toast", text: text });
+});
+
+function phoneValue() {
+  if (!s.phone) return "Off";
+  const n = link.phones();
+  return n ? n + (n === 1 ? " phone" : " phones") : prettyCode(link.code);
+}
+
+function phoneSnapshot() {
+  const ch = current();
+  const sl = player.slot;
+  const it = sl ? sl.item : null;
+  const paused = player.mode === "paused";
+  let now = null;
+  if (it) {
+    let start = sl.startMs;
+    let pos = -1;
+    if (player.shifted) {
+      const p = player.position();
+      const at = p ? p.at : 0;
+      if (paused) {
+        start = 0;
+        pos = Math.round(at);
+      } else start = Math.round((Date.now() - at * 1000) / 2000) * 2000;
+    }
+    now = { t: it.t, y: it.y || 0, d: it.d, start: start, pos: pos };
+  }
+  let dlg = null;
+  if (dialog.isOpen && dialog.spec && !app.pairOpen) {
+    const st = document.querySelector("#dialog .d-status");
+    dlg = { title: dialog.spec.title, status: st ? st.textContent : "" };
+  }
+  return {
+    app: app.state,
+    mode: player.mode,
+    paused: paused,
+    shifted: player.shifted,
+    muted: player.muted,
+    cc: ccValue(),
+    fav: ch ? app.favs.has(ch.slug) : false,
+    ch: ch ? { slug: ch.slug, number: ch.number, name: ch.name, icon: ch.icon || "", color: ch.color || "", kind: ch.kind || "video", tagline: ch.tagline || "" } : null,
+    now: now,
+    next: sl && sl.next ? sl.next.t : "",
+    overlay: dialog.isOpen ? "dialog" : menu.isOpen ? "menu" : guide.isOpen ? "guide" : "",
+    dialog: dlg,
+  };
+}
+
+function phoneChannels() {
+  const now = Date.now();
+  return visibleChannels().map(function (ch) {
+    const sl = slotAt(timelineFor(ch), now);
+    return {
+      slug: ch.slug,
+      number: ch.number,
+      name: ch.name,
+      icon: ch.icon || "",
+      color: ch.color || "",
+      kind: ch.kind || "video",
+      fav: app.favs.has(ch.slug),
+      now: sl ? sl.item.t : "",
+    };
+  });
+}
+
+// A phone's tap wakes the TV the way a button press does.
+function phoneWake() {
+  app.lastInput = Date.now();
+  if (app.stillShownAt) {
+    app.stillShownAt = 0;
+    restoreCard();
+  }
+  if (app.state === "off") {
+    app.state = "on";
+    V.hideCard();
+  }
+}
+
+function phoneMessage(m) {
+  if (app.state === "boot") return;
+  if (m.t === "key") {
+    if (m.type === "back") back();
+    else handleAction({ type: m.type, digit: m.digit });
+  } else if (m.t === "tune") {
+    const ch = app.channels.filter(function (c) {
+      return c.slug === m.slug;
+    })[0];
+    if (!ch) return;
+    phoneWake();
+    closeOverlays();
+    tuneTo(ch);
+  } else if (m.t === "search") {
+    phoneWake();
+    closeOverlays();
+    buildCustom(searchDef(m.text, m.kind));
+  }
+}
+
+function pairStatus() {
+  if (!app.pairOpen) return;
+  const n = link.phones();
+  const words = {
+    off: "Phone remote is off",
+    starting: "Getting a line to the pairing service…",
+    ready: n ? "📱 " + n + (n === 1 ? " phone" : " phones") + " connected" : "Ready. Waiting for your phone…",
+    retrying: "Can't reach the pairing service. Trying again…",
+    taken: "That code is busy. Choose New code.",
+    unsupported: "This TV's browser can't do phone remotes. Try the NostalGem app or a newer browser.",
+  };
+  dialog.status(words[link.status] || "");
+}
+
+function drawPairing() {
+  const url = remoteUrl(link.code, window.location, params.get("remote"));
+  const box = document.querySelector("#dialog .pair-qr");
+  const code = document.querySelector("#dialog .pair-code");
+  if (code) code.textContent = prettyCode(link.code);
+  loadScript("vendor/qrcode.js")
+    .then(function () {
+      if (app.pairOpen && box) box.innerHTML = qrSvg(url);
+    })
+    .catch(function () {
+      if (box) box.textContent = "No QR code; type the address instead.";
+    });
+}
+
+function openPairing() {
+  if (!s.phone) {
+    s.phone = true;
+    saveSettings();
+  }
+  link.start();
+  const url = remoteUrl(link.code, window.location, params.get("remote"));
+  const shown = url.replace(/^https?:\/\//, "").replace(/\.html#.*$/, "").replace(/#.*$/, "");
+  dialog.open({
+    title: "Phone remote",
+    html:
+      '<div class="pair"><div class="pair-qr"></div><div class="pair-info">' +
+      "Point your phone's camera at the code to use it as the remote: buttons, a channel list and a keyboard for searching." +
+      '<div class="pair-or">or open <b>' +
+      esc(shown) +
+      "</b> and enter</div>" +
+      '<div class="pair-code"></div>' +
+      '<div class="pair-note">Nothing to install. Phone and TV can be on different networks.</div>' +
+      "</div></div>",
+    buttons: [
+      {
+        label: "Done",
+        action: function (d) {
+          d.close();
+        },
+      },
+      {
+        label: "New code",
+        action: function () {
+          link.newCode(makeCode());
+          save("phoneCode", link.code);
+          drawPairing();
+          V.toast("New code. Phones paired before are disconnected.");
+        },
+      },
+      {
+        label: "Turn off",
+        action: function (d) {
+          s.phone = false;
+          saveSettings();
+          link.stop();
+          d.close();
+          V.toast("Phone remote off");
+        },
+      },
+    ],
+    onClose: function () {
+      app.pairOpen = false;
+    },
+  });
+  app.pairOpen = true;
+  drawPairing();
+  pairStatus();
 }
 
 // ---------- help & about ----------
@@ -994,6 +1222,7 @@ function showHelp() {
     ["Blue", "TV guide", "G"],
     ["", "Back to live after pausing", "L"],
     ["", "Sound on / off", "M"],
+    ["📱", "Use your phone as the remote: Menu ▸ Phone remote", ""],
   ];
   dialog.open({
     title: "Remote buttons",
@@ -1340,6 +1569,7 @@ window.NP = {
       program: it ? it.t : "",
       channels: app.channels.length,
       overlay: dialog.isOpen ? "dialog" : menu.isOpen ? "menu" : guide.isOpen ? "guide" : "",
+      phone: { on: s.phone, status: link.status, phones: link.phones(), code: link.code },
     };
   },
 };
@@ -1381,6 +1611,7 @@ function tick() {
     }
   }
   if (app.ticks % 4 === 0) updateBug();
+  link.tick(now);
 }
 
 // ---------- boot ----------
@@ -1443,6 +1674,7 @@ async function boot() {
   app.state = "on";
   tuneTo(start);
   setInterval(tick, 500);
+  if (s.phone) link.start();
 
   if ("serviceWorker" in navigator && window.location.protocol === "https:" && !ANDROID) {
     navigator.serviceWorker.register("sw.js").catch(function () {

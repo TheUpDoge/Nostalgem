@@ -110,7 +110,10 @@ async function archive(route) {
 const browser = await chromium.launch();
 const errors = [];
 try {
-  const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+  // One context for the TV and, later, the phone: the fake PeerJS links pages within a context.
+  const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
+  await ctx.addInitScript({ path: join(fixtures, "fake-peer.js") });
+  const page = await ctx.newPage();
   page.on("pageerror", (e) => errors.push(e.message));
   page.on("console", (m) => {
     if (m.type() === "error" && !/Failed to load resource/.test(m.text())) errors.push(m.text());
@@ -272,6 +275,96 @@ try {
   check((await state()).overlay === "dialog" && (await page.textContent("#dialog")).includes("Remote buttons"), "H shows the remote help");
   await key("Escape", 200);
   check((await state()).overlay === "", "Back closes help");
+
+  // Phone remote: pair through the menu, then drive the TV from a second page acting as the phone.
+  await key("ArrowRight", 300);
+  for (let i = 0; i < 25; i++) {
+    const label = await page.textContent(".m-item.focus .l");
+    if (/Phone remote/.test(label)) break;
+    await key("ArrowDown", 60);
+  }
+  await key("Enter", 400);
+  await page.waitForSelector("#dialog .pair-qr svg", { timeout: 5000 }).catch(() => {});
+  check(await page.isVisible("#dialog .pair-qr svg"), "Menu ▸ Phone remote shows a QR code");
+  await page.waitForFunction(() => window.NP.state().phone.status === "ready", null, { timeout: 5000 }).catch(() => {});
+  st = await state();
+  check(st.phone.on && st.phone.status === "ready", `the TV is waiting for a phone (${st.phone.status})`);
+  const shownCode = (await page.textContent("#dialog .pair-code")).replace("-", "");
+  check(shownCode === st.phone.code && /^[2-9A-Z]{6}$/.test(shownCode), `it shows the pairing code (${shownCode})`);
+  check((await page.textContent("#dialog")).includes("theupdoge.github.io/Nostalgem/remote"), "it shows the published remote's address");
+  await shot("8-pairing");
+
+  const phone = await ctx.newPage();
+  await phone.setViewportSize({ width: 390, height: 844 });
+  phone.on("pageerror", (e) => errors.push("phone: " + e.message));
+  phone.on("console", (m) => {
+    if (m.type() === "error" && !/Failed to load resource/.test(m.text())) errors.push("phone: " + m.text());
+  });
+  await phone.goto(base + "/remote.html#" + st.phone.code, { waitUntil: "load" });
+  const pst = () => phone.evaluate(() => window.NGRemote.state());
+  const tap = async (sel, wait) => {
+    await phone.click(sel);
+    await phone.waitForTimeout(wait == null ? 300 : wait);
+  };
+  await phone.waitForFunction(() => window.NGRemote.state().status === "connected", null, { timeout: 8000 }).catch(() => {});
+  check((await pst()).status === "connected", "the phone connects with the code from the QR link");
+  await page.waitForTimeout(300);
+  check((await page.textContent("#dialog .d-status")).includes("1 phone connected"), "the TV says a phone connected");
+  st = await state();
+  await phone.waitForFunction(() => window.NGRemote.state().tv && window.NGRemote.state().channels > 10, null, { timeout: 4000 }).catch(() => {});
+  check((await phone.textContent("#now .now-num")) === "CH " + String(st.channel).padStart(2, "0"), "the phone shows the channel that's on");
+  check((await phone.textContent("#now .now-title")).length > 2, "the phone shows the program title");
+  await shot("9-pairing-connected");
+  if (SHOTS) await phone.screenshot({ path: join(shotsDir, "p1-remote.png") });
+
+  await tap('[data-key="back"]');
+  check((await state()).overlay === "", "phone Back closes the TV's dialog");
+  const before = (await state()).channel;
+  await tap('[data-key="chup"]', 900);
+  st = await state();
+  check(st.channel !== before, `phone CH ▲ changes the channel (${before} → ${st.channel})`);
+  await phone.waitForTimeout(600);
+  check((await phone.textContent("#now .now-num")) === "CH " + String(st.channel).padStart(2, "0"), "the phone follows the new channel");
+  await tap("#padBtn", 150);
+  await tap('[data-digit="1"]', 120);
+  await tap('[data-digit="2"]', 900);
+  check((await state()).channel === 12, `phone number pad 1 2 tunes CH 12 (got ${(await state()).channel})`);
+  await tap('[data-key="right"]', 300);
+  check((await state()).overlay === "menu", "phone ▶ opens the TV menu");
+  await tap('[data-key="back"]', 300);
+
+  await tap('[data-tab="channels"]', 200);
+  const rowCount = await phone.$$eval("#chList [data-slug]", (r) => r.length);
+  check(rowCount >= 20, `the phone lists ${rowCount} channels`);
+  if (SHOTS) await phone.screenshot({ path: join(shotsDir, "p2-channels.png") });
+  const fifth = await phone.getAttribute("#chList li:nth-child(5) [data-slug]", "data-slug");
+  await tap('#chList [data-slug="' + fifth + '"]', 1000);
+  st = await state();
+  check(st.channel === 5, `tapping a channel on the phone tunes it (CH ${st.channel})`);
+  await phone.waitForTimeout(500);
+  check((await phone.getAttribute("#chList .cur", "data-slug")) === fifth, "the phone highlights the channel that's on");
+
+  await tap('[data-tab="search"]', 200);
+  await phone.fill("#searchInput", "rodeo");
+  await tap('#searchForm [data-kind="video"]', 2500);
+  st = await state();
+  check(st.channel >= 30 && /Rodeo/.test(st.name), `a search typed on the phone builds a channel on the TV (CH ${st.channel} ${st.name})`);
+  await phone.waitForTimeout(600);
+  check((await phone.textContent("#searchMsg")).includes("Now on CH " + st.channel), "the phone says where it landed");
+  if (SHOTS) await phone.screenshot({ path: join(shotsDir, "p3-search.png") });
+
+  await page.evaluate(() => window.__fakeBroker.dropAll());
+  await page.waitForTimeout(200);
+  check((await pst()).status !== "connected", "the phone notices when the link drops");
+  await phone.waitForFunction(() => window.NGRemote.state().status === "connected", null, { timeout: 8000 }).catch(() => {});
+  check((await pst()).status === "connected", "and reconnects by itself");
+  await tap('[data-tab="remote"]', 200);
+  await tap('[data-key="mute"]', 400);
+  check(await page.evaluate(() => document.getElementById("screen").muted), "phone mute works after reconnecting");
+  await tap('[data-key="mute"]', 300);
+  const phoneOverflow = await phone.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+  check(!phoneOverflow, "the phone remote has no sideways scrolling");
+  await phone.close();
 
   // Phone, held upright.
   await page.setViewportSize({ width: 390, height: 844 });

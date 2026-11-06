@@ -1269,3 +1269,52 @@ body {
     animation: none !important;
   }
 }
+
+/* ---------- phone remote pairing ---------- */
+.pair {
+  display: flex;
+  gap: 1.6rem;
+  align-items: center;
+  margin-top: 0.4rem;
+}
+.pair-qr {
+  flex: 0 0 15rem;
+  width: 15rem;
+  height: 15rem;
+  border-radius: 0.6rem;
+  overflow: hidden;
+  background: #fff;
+  color: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 0.9rem;
+  box-shadow: 0 0 0 0.25rem var(--violet), 0 0 2rem rgba(5, 217, 232, 0.45);
+}
+.pair-qr svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.pair-info {
+  flex: 1;
+  min-width: 0;
+}
+.pair-or {
+  margin-top: 1rem;
+  overflow-wrap: anywhere;
+}
+.pair-code {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 2.6rem;
+  letter-spacing: 0.14em;
+  color: var(--cyan);
+  text-shadow: 0 0 1rem rgba(5, 217, 232, 0.6);
+  margin: 0.3rem 0 0.6rem;
+}
+.pair-note {
+  font-size: 0.85rem;
+  color: var(--faint);
+}

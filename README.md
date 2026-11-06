@@ -132,6 +132,21 @@ rewriting in Roku's own language (BrightScript), which would be a separate proje
 | | M | Sound on / off |
 | | H | Help |
 
+### 📱 Phone remote
+
+Typing a search with a TV remote is no fun, so your phone can be the remote instead. On the TV, open
+**Menu ▸ 📱 Phone remote** and scan the QR code with your phone's camera (or open
+`theupdoge.github.io/Nostalgem/remote` and type the six-character code). You get a D-pad, CH ▲▼, a
+number pad, pause / live / mute, what's on now with a progress bar, a channel list you can tap, and a
+real keyboard for **Search the Archive**.
+
+- Nothing to install. To keep it handy, use your browser's **Add to Home Screen**; it opens like an app.
+- It works with the Android TV app, a TV's web browser, or a computer plugged into or casting to the TV.
+  Phone and TV don't need to be on the same Wi-Fi.
+- The TV keeps its code, so a paired phone reconnects by itself after the TV restarts. **New code** in
+  the same dialog disconnects every phone paired before; **Turn off** stops listening.
+- The QR code points at the GitHub Pages copy, so turn on Pages first: Settings ▸ Pages ▸ Source: **GitHub Actions**.
+
 ## Make it yours
 
 ### Add or change channels
@@ -190,6 +205,9 @@ web/
   js/player.js                 the tuner: joins in progress, skips dead files, stands by during outages
   js/archive.js                Internet Archive client: search, pick the best MP4/MP3, subtitles, filters
   js/remote.js                 keys from keyboards, TV browsers (webOS/Tizen codes) and the Android app
+  js/link.js                   phone remote pairing and messages (TV and phone side)
+  remote.html, js/phone.js     the phone remote page (an installable PWA)
+  vendor/                      PeerJS and a QR code generator, both MIT (see vendor/README.md)
   js/ui/                       banner, guide, menu, dialogs
   js/main.js                   wires it all together
   data/channels.json           channel definitions
@@ -208,6 +226,10 @@ tests/                         node:test unit tests + a Playwright smoke test
   `WebViewAssetLoader`, so it behaves exactly like the website. It adds the home-screen banner, keeps
   the screen on, and passes remote buttons the page can't see (CH±, media keys, Guide, Info,
   coloured keys, Back) to `window.NP`.
+- **The phone remote.** The TV registers with the free PeerJS broker as `nostalgem-<code>`; the phone
+  finds it there, and from then on the two talk directly over a WebRTC data channel (relayed through
+  PeerJS's TURN server when a network won't allow a direct link). The phone sends the same actions a
+  key press makes; the TV sends back what's on. Only whitelisted actions are accepted.
 - **Older TVs.** The app sticks to ES2018 (a test enforces it), ships its own fonts, and uses no frameworks.
 
 ## About the programming
