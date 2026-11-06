@@ -1,0 +1,35 @@
+name: Lineup check
+
+# Checks that every program in the lineup can still play: Archive items and files still exist and
+# aren't taken down or restricted; YouTube videos are still public, embeddable and not age-restricted.
+# Also reports what share of each YouTube channel other countries block. A report in the job summary;
+# nothing is changed. Uses about 60 of the YouTube API's 10,000 free daily units.
+
+on:
+  workflow_dispatch:
+    inputs:
+      regions:
+        description: "Countries to check YouTube channels for (ISO codes)"
+        default: "CA,GB,AU,DE,MX,IN,BR,PH"
+      only:
+        description: "Only these channel slugs, comma separated (optional)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check every program
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          REGIONS: ${{ github.event.inputs.regions }}
+          ONLY: ${{ github.event.inputs.only }}
+        run: node tools/check-lineup.mjs --youtube --regions "${REGIONS:-CA,GB,AU,DE,MX,IN,BR,PH}" ${ONLY:+--only "$ONLY"}
