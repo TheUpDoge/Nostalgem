@@ -113,13 +113,23 @@ function connect() {
     return;
   }
   dropPeer();
-  setStatus(r.state ? "lost" : "connecting");
+  setStatus(r.state ? "lost" : "connecting", "Step 1 of 3: reaching the pairing service…");
   peerClass("")
     .then(function (Peer) {
       const peer = new Peer(peerOptions());
       r.peer = peer;
+      // The pairing service should answer in a second or two.
+      clearTimeout(r.openTimer);
+      r.openTimer = setTimeout(function () {
+        if (peer === r.peer && !peer.open) {
+          setStatus("lost");
+          retry("Step 1 of 3 failed: this phone can't reach the pairing service (0.peerjs.com). Ad blockers, VPNs, Private DNS and some work or school Wi-Fi block it. Trying again…");
+        }
+      }, 12000);
       peer.on("open", function () {
         if (peer !== r.peer) return;
+        clearTimeout(r.openTimer);
+        $("pairMsg").textContent = "Step 2 of 3: calling your TV (" + prettyCode(r.code) + ")…";
         openConn(peer);
       });
       peer.on("error", function (err) {
@@ -157,7 +167,7 @@ function openConn(peer) {
   r.openTimer = setTimeout(function () {
     if (conn === r.conn && !conn.open) {
       setStatus("lost");
-      retry("The TV answered but the link didn't come up. Trying again…");
+      retry("Step 3 of 3 failed: your TV answered, but the two couldn't link up across your networks. Putting the phone on the same Wi-Fi as the TV usually fixes it. Trying again…");
     }
   }, 15000);
   conn.on("open", function () {

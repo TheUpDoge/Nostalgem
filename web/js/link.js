@@ -298,7 +298,13 @@ export class TvLink {
       self.conns.shift();
     }
     self.conns.push(conn);
+    if (!conn.open && self.o.onCalling) self.o.onCalling("calling");
+    const timer = setTimeout(function () {
+      if (!conn.open && self.o.onCalling) self.o.onCalling("failed");
+    }, 15000);
     const ready = function () {
+      clearTimeout(timer);
+      if (self.o.onCalling) self.o.onCalling("");
       self.phonesChanged();
       self.sendTo(conn, Object.assign({ t: "state", clock: Date.now() }, self.o.snapshot()));
       self.sendTo(conn, { t: "channels", list: self.o.channels() });

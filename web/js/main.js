@@ -71,6 +71,7 @@ const app = {
   ticks: 0,
   phones: 0,
   pairOpen: false,
+  calling: "",
 };
 const s = app.s;
 
@@ -1027,6 +1028,10 @@ const link = new TvLink({
   channels: phoneChannels,
   onMessage: phoneMessage,
   onStatus: pairStatus,
+  onCalling: function (what) {
+    app.calling = what;
+    pairStatus();
+  },
   onPhones: function (n) {
     if (n > app.phones) V.toast("📱 Phone remote connected");
     else if (n < app.phones && !n) V.toast("📱 Phone remote disconnected");
@@ -1147,7 +1152,11 @@ function pairStatus() {
     taken: "That code is busy. Choose New code.",
     unsupported: "This TV's browser can't do phone remotes. Try the NostalGem app or a newer browser.",
   };
-  dialog.status(words[link.status] || "");
+  let text = words[link.status] || "";
+  if (link.status === "ready" && app.calling === "calling") text = "📱 A phone is calling… linking up";
+  else if (link.status === "ready" && app.calling === "failed")
+    text = "📱 A phone called, but the link didn't come up. Try the phone on the same Wi-Fi as the TV.";
+  dialog.status(text);
 }
 
 function drawPairing() {
