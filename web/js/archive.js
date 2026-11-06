@@ -226,7 +226,8 @@ function textOf(o) {
     .replace(/[‘’]/g, "'");
 }
 
-const VIDEO_RANK = { "h.264": 0, "h.264 IA": 0, MPEG4: 1, "h.264 HD": 1, "512Kb MPEG4": 3 };
+// Lower is better. The tiny old 256Kb/64Kb copies come last, after the 512Kb ones.
+const VIDEO_RANK = { "h.264": 0, "h.264 IA": 0, MPEG4: 1, "h.264 HD": 1, "512Kb MPEG4": 3, "256Kb MPEG4": 4, "64Kb MPEG4": 5 };
 const AUDIO_RANK = { "VBR MP3": 0, "128Kbps MP3": 1, MP3: 1, "160Kbps MP3": 1, "192Kbps MP3": 1, "256Kbps MP3": 1, "320Kbps MP3": 1, "96Kbps MP3": 2, "64Kbps MP3": 2, "56Kbps MP3": 3, "48Kbps MP3": 3, "32Kbps MP3": 4, "24Kbps MP3": 4, "16Kbps MP3": 5 };
 
 function rankOf(f, kind) {
@@ -242,9 +243,11 @@ function rankOf(f, kind) {
   return r == null ? 2 : r;
 }
 
-// A derivative (foo.mp4 made from foo.avi) belongs with its original.
+// A derivative (foo.mp4 made from foo.avi) belongs with its original. Some uploaders add their own
+// smaller copies as originals too (foo_256kb.mp4, foo_64kb.mp4): those are the same program as well.
 function groupKey(f) {
-  return f.source === "original" || !f.original ? f.name : f.original;
+  const base = f.source === "original" || !f.original ? f.name : f.original;
+  return stripExt(base).replace(/_(64|128|256|512)kb$/i, "");
 }
 
 function stripExt(name) {

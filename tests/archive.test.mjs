@@ -159,3 +159,20 @@ test("URLs", () => {
   assert.equal(u.searchParams.get("rows"), "10");
   assert.equal(u.searchParams.get("output"), "json");
 });
+
+test("an episode uploaded in several sizes is one program", () => {
+  const files = [];
+  for (const ep of [1, 2]) {
+    const d = String(2360 + ep);
+    files.push({ name: `BBS.The.Documentary.ep${ep}.avi`, format: "DivX", source: "original", length: d });
+    files.push({ name: `BBS.The.Documentary.ep${ep}.ogv`, format: "Ogg Video", source: "derivative", original: `BBS.The.Documentary.ep${ep}.avi`, length: d });
+    files.push({ name: `BBS.The.Documentary.ep${ep}_256kb.mp4`, format: "256Kb MPEG4", source: "original", length: d });
+    files.push({ name: `BBS.The.Documentary.ep${ep}_512kb.mp4`, format: "512Kb MPEG4", source: "derivative", original: `BBS.The.Documentary.ep${ep}.avi`, length: d });
+    files.push({ name: `BBS.The.Documentary.ep${ep}_64kb.mp4`, format: "64Kb MPEG4", source: "original", length: d });
+  }
+  files.push({ name: "BBS.The.Documentary.ep1.en.srt", format: "SubRip", source: "original" });
+  const progs = pickPrograms({ metadata: { identifier: "BBS.The.Documentary", title: "BBS: The Documentary", year: "2005" }, files }, { kind: "video", minS: 600 });
+  assert.equal(progs.length, 2, progs.map((p) => p.f).join(", "));
+  assert.deepEqual(progs.map((p) => p.f), ["BBS.The.Documentary.ep1_512kb.mp4", "BBS.The.Documentary.ep2_512kb.mp4"]);
+  assert.ok(progs[0].cc && progs[0].cc[0][0] === "BBS.The.Documentary.ep1.en.srt", "subtitles still found");
+});

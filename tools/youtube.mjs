@@ -202,7 +202,12 @@ export async function buildYouTubeChannel(def, ctx) {
     for (const v of videos) {
       if (seen[v.id]) continue;
       seen[v.id] = 1;
-      const why = rejectReason(v, { minS: src.minMinutes != null ? src.minMinutes * 60 : minS, maxS: maxS, region: def.region, live: !!src.live });
+      const why = rejectReason(v, {
+        minS: src.minMinutes != null ? src.minMinutes * 60 : minS,
+        maxS: src.maxMinutes != null ? src.maxMinutes * 60 : maxS,
+        region: def.region,
+        live: !!src.live,
+      });
       const title = (v.snippet && v.snippet.title) || "";
       const reason = why || (match && !match.test(title) ? "no match" : "") || (skip && skip.test(title) ? "excluded" : "") || (exclude && exclude.test(title + " " + ((v.snippet && v.snippet.description) || "").slice(0, 400)) ? "filtered" : "");
       if (reason) {

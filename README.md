@@ -39,8 +39,14 @@ code, branding or look.
 | 21 | 👽 Radio From Space | *X Minus One*, *Dimension X* |
 | 22 | 📻 Comedy Radio | Jack Benny, *Our Miss Brooks*, Gildersleeve |
 | 23 | 💬 Subtítulos | Classic films with Spanish subtitles. ¡A practicar! |
+| 24 | 🪐 Space Cadets | *Space Patrol*, *Tom Corbett*, *Rocky Jones*, *Captain Video*, *Captain Z-Ro* |
+| 25 | 🌒 Twilight Hour | *One Step Beyond*, *Tales of Tomorrow*, *Lights Out* |
+| 26 | 🛸 Atomic Drive-In | 1950s sci-fi features, with drive-in intermission ads in between |
+| 27 | 📟 Dial-Up | *Net Cafe* (1996–2002) and *BBS: The Documentary* |
+| 28 | 🎷 Jukebox | Soundies, the 1940s music videos |
+| 29 | 💾 Netlabel Radio | Free, Creative Commons synthwave, chiptune and vaporwave |
 
-There are about 2,400 programs and 1,270 hours in all. From **Menu ▶ Add a channel** you can add more
+The Archive channels hold about 3,600 programs and 1,590 hours. From **Menu ▶ Add a channel** you can add more
 with one button (*Bonanza*, *The Lone Ranger*, Duke Westerns, Hopalong Cassidy, Swashbucklers,
 *Gunsmoke* radio, Popeye, Chaplin & Keaton, Méliès, Jack Benny, *Dragnet*, *X Minus One*), or type
 any search and get a channel of it: *the shadow*, *kung fu*, *jazz*, *collection:prelinger*.
