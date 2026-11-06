@@ -22,6 +22,7 @@
 
 import { cleanText, compileExclude } from "../web/js/archive.js";
 import { hash32, mulberry32, shuffle } from "../web/js/util.js";
+import { packRegion } from "../web/js/regions.js";
 
 const API = "https://www.googleapis.com/youtube/v3/";
 
@@ -76,6 +77,9 @@ export function cleanYtTitle(t) {
 export function toProgram(v) {
   const sn = v.snippet || {};
   const p = { id: "yt:" + v.id, f: "yt", t: cleanYtTitle(sn.title) || sn.title || v.id, d: parseIsoDuration(v.contentDetails.duration) };
+  // Where it can't play (web/js/regions.js), so a TV abroad can leave it out of the schedule.
+  const r = packRegion(v.contentDetails.regionRestriction);
+  if (r) p.r = r;
   return p;
 }
 

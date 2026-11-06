@@ -1,6 +1,7 @@
 // NostalGem: the set itself. Wires the remote, the tuner, the guide, the menu and the screen together.
 
 import { makeTimeline, slotAt, programKey, nextAiring, foldText } from "./schedule.js";
+import { guessCountry, playableIn } from "./regions.js";
 import { Player } from "./player.js";
 import { Static } from "./static.js";
 import { actionFor, isTypingTarget, registerTvKeys } from "./remote.js";
@@ -25,7 +26,7 @@ const ON_PAGES = window.location.href.indexOf(PAGES_BASE) === 0;
 const LIVE_LINEUP = ANDROID && !ON_PAGES ? PAGES_BASE + "data/lineup.json" : "";
 const LINEUP_RECHECK = 3 * 3600 * 1000; // coming back to the app after this long: look for a newer lineup
 
-const DEFAULTS = { crt: "light", fit: "contain", cc: "off", staticFx: "sound", bug: true, clock24: false, surf: "all", phone: false };
+const DEFAULTS = { crt: "light", fit: "contain", cc: "off", staticFx: "sound", bug: true, clock24: false, surf: "all", phone: false, region: "auto" };
 const SLEEP_STEPS = [0, 15, 30, 45, 60, 90, 120];
 const STILL_AFTER = 4 * 3600 * 1000; // no button pressed for four hours: ask
 const STILL_GRACE = 2 * 60 * 1000; // then switch off two minutes later
@@ -155,9 +156,63 @@ function surfList() {
   }
   return vis;
 }
+// Programs left out of the schedule: ones that wouldn't play on this TV lately, and YouTube programs
+// that can't play in this TV's country (regions.js).
 function badSet() {
-  if (!app.badSet) app.badSet = new Set(Object.keys(app.bad));
+  if (!app.badSet) {
+    const set = new Set(Object.keys(app.bad));
+    const cc = app.country;
+    const countries = app.lineup && app.lineup.countries;
+    if (cc)
+      app.channels.forEach(function (ch) {
+        ch.items.forEach(function (p) {
+          if (p.r && !playableIn(p.r, cc, countries)) set.add(programKey(p));
+        });
+      });
+    app.badSet = set;
+  }
   return app.badSet;
+}
+
+// Which country this TV is in: its time zone, else its language. "" when unknown or switched off.
+function tvCountry() {
+  if (s.region === "off") return "";
+  let tz = "";
+  try {
+    tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+  } catch (e) {
+    /* an old browser: the language may still say */
+  }
+  return guessCountry(tz, navigator.languages || [navigator.language]);
+}
+function countryName(cc) {
+  try {
+    if (typeof Intl.DisplayNames === "function") return new Intl.DisplayNames([navigator.language || "en"], { type: "region" }).of(cc) || cc;
+  } catch (e) {
+    /* falls through */
+  }
+  return cc;
+}
+// A YouTube channel with nothing that plays in this country.
+function blockedHere(ch) {
+  const cc = app.country;
+  const countries = app.lineup && app.lineup.countries;
+  return (
+    !!cc &&
+    ch.items.length > 0 &&
+    ch.items.every(function (p) {
+      return p.r && !playableIn(p.r, cc, countries);
+    })
+  );
+}
+function toggleRegion() {
+  s.region = s.region === "off" ? "auto" : "off";
+  saveSettings();
+  app.country = tvCountry();
+  app.badSet = null;
+  app.timelines = {};
+  const ch = current();
+  if (ch && app.state === "on") player.tune(timelineFor(ch));
 }
 function timelineFor(ch) {
   let tl = app.timelines[ch.slug];
@@ -327,7 +382,7 @@ function onPlayerState(mode, extra) {
     case "empty":
       fx.release();
       hideRadio();
-      app.emptyWhy = (extra && extra.why) || "";
+      app.emptyWhy = (extra && extra.why) || (ch && blockedHere(ch) ? "YouTube doesn't allow its videos in " + countryName(app.country) + "." : "");
       V.showCard("empty", V.emptyCard(ch, app.emptyWhy));
       break;
     case "gesture":
@@ -885,6 +940,16 @@ function rootPage() {
         ok: function () {
           menu.push(addPage());
         },
+      });
+      list.push({
+        label: "Leave out YouTube blocked here",
+        value: function () {
+          return s.region === "off" ? "No, try everything" : app.country ? "Yes · " + countryName(app.country) : "Yes (country unknown)";
+        },
+        cycle: true,
+        ok: toggleRegion,
+        left: toggleRegion,
+        right: toggleRegion,
       });
       list.push({
         label: "Surf with ▲▼",
@@ -1518,7 +1583,9 @@ function showAbout() {
       "Every channel is a 24/7 schedule set by the clock, so every TV tuned in sees the same thing at the same time.<br><br>" +
       "All programming streams from the <b>Internet Archive</b> (archive.org), a non-profit library. " +
       "Most of it is in the public domain or openly licensed. If you enjoy it, consider donating at <b>archive.org/donate</b>. " +
-      "Channels 50 and up air official uploads from the studios' own <b>YouTube</b> channels, in YouTube's player.<br><br>" +
+      "Channels 50 and up air official uploads from the studios' own <b>YouTube</b> channels, in YouTube's player." +
+      (app.country && app.country !== "US" ? " What YouTube doesn't allow in " + esc(countryName(app.country)) + " is left out of the schedule." : "") +
+      "<br><br>" +
       "A program that won't play is skipped on this TV for a day. Lineup built " +
       esc(built) +
       (app.lineupSource === "web" ? " (fresh from the web)" : app.lineupSource === "saved" ? " (saved copy; offline)" : "") +
@@ -1847,6 +1914,7 @@ window.NP = {
       phone: { on: s.phone, status: link.status, phones: link.phones(), code: link.code, lan: native.lan.length, calling: app.calling, why: app.callingWhy },
       tvApp: native.app,
       lineup: { source: app.lineupSource, built: app.lineup ? app.lineup.built : "" },
+      country: app.country,
     };
   },
 };
@@ -1894,6 +1962,8 @@ function tick() {
 // ---------- lineup ----------
 function applyLineup(lineup, source) {
   app.lineup = lineup;
+  app.country = tvCountry();
+  app.badSet = null;
   app.lineupSource = source || "";
   app.lineupCheckedAt = Date.now();
   app.about = Object.assign({}, lineup.about || {});

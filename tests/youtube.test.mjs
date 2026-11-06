@@ -186,3 +186,11 @@ test("allow: an official 'Full Series' watch party gets past the piracy words, n
   assert.deepEqual(res.items.map((p) => p.id), ["yt:w1"], "the other words still count");
   assert.equal(filterText(videos[0], /full series/gi).toLowerCase().indexOf("full series"), -1);
 });
+
+test("each program notes where it can't play, for TVs abroad", async () => {
+  const mk = (id, rr) => ok({ id, snippet: { title: "Ep " + id, liveBroadcastContent: "none", description: "" }, contentDetails: { duration: "PT24M", contentRating: {}, regionRestriction: rr } });
+  const { yt } = fakeApi({ "@r": { videos: [mk("r1", { allowed: ["US", "CA"] }), mk("r2", { blocked: ["DE"] }), mk("r3", undefined)] } });
+  const res = await buildYouTubeChannel({ slug: "r", youtube: [{ handle: "@r", order: "oldest" }] }, { yt });
+  const byId = Object.fromEntries(res.items.map((p) => [p.id, p.r]));
+  assert.deepEqual(byId, { "yt:r1": "+CAUS", "yt:r2": "-DE", "yt:r3": undefined });
+});

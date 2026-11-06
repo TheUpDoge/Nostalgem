@@ -112,3 +112,13 @@ test("the lineup is small enough for a TV to load quickly", () => {
   // of milliseconds. Past this, trim descriptions or programs per channel.
   assert.ok(kb < 1600, `${kb.toFixed(0)} KB`);
 });
+
+test("YouTube programs' region notes are well formed", () => {
+  for (const c of lineup.channels) {
+    for (const p of c.items) {
+      if (!p.r) continue;
+      assert.match(p.r, /^([+-]([A-Z]{2})*|\*[A-Za-z0-9+/]+=*)$/, `${c.slug}: ${p.t} r=${p.r}`);
+      if (p.r[0] === "*") assert.ok(lineup.countries && lineup.countries.length % 2 === 0, "a bitmap needs the lineup's country order");
+    }
+  }
+});

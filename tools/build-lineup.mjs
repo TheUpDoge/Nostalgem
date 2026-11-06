@@ -16,6 +16,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildChannel } from "../web/js/archive.js";
 import { buildYouTubeChannel, makeYouTubeFetch } from "./youtube.mjs";
+import { COUNTRIES } from "../web/js/tzcountry.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const CHANNELS = join(root, "web/data/channels.json");
@@ -166,6 +167,7 @@ const lineup = {
   excludeFiles: config.excludeFiles,
   maxYear: config.maxYear,
   extras: config.extras || [],
+  countries: COUNTRIES, // the order of the country bitmaps in YouTube programs' "r" (web/js/regions.js)
   channels,
   about,
 };

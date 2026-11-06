@@ -136,6 +136,7 @@ try {
     offset: 0,
     items: [
       { id: "yt:badvideo001", f: "yt", t: "Won't Embed", d: 12 },
+      { id: "yt:usblocked01", f: "yt", t: "Not Here Mecha", d: 12, r: "-USCA" },
       { id: "yt:mecha000001", f: "yt", t: "Test Mecha", d: 12 },
     ],
   });
@@ -275,6 +276,7 @@ try {
   check(st.label === "99-1" && st.mode === "playing" && st.program === "Test Mecha", `9 9 tunes the first sub-channel, 99-1, and its YouTube video plays (${st.label} ${st.mode}: ${st.program})`);
   const ytLog = await page.evaluate(() => (window.__yt ? window.__yt.log : []));
   check(ytLog.some((l) => l.id === "badvideo001") && ytLog.some((l) => l.id === "mecha000001"), "a video that won't embed is skipped (" + ytLog.map((l) => l.id).join(", ") + ")");
+  check(!ytLog.some((l) => l.id === "usblocked01"), "a video blocked in this TV's country is never even tried");
   const mecha = ytLog.filter((l) => l.id === "mecha000001").pop();
   check(mecha && mecha.start === 3, `the YouTube video joins in progress (starts at ${mecha && mecha.start}s, live point 3s)`);
   check((await page.isVisible("#yt")) && !(await page.isVisible("#screen")), "the YouTube player is on screen instead of the <video>");
@@ -341,6 +343,7 @@ try {
   await key("Enter", 200); // to the Find button
   await key("Enter", 400); // Find
   check((await state()).overlay === "menu" && (await page.textContent("#menu")).includes("Test Mecha") && (await page.textContent("#menu")).includes("CH 99-1"), "it lists the program and its channel");
+  check(!(await page.textContent("#menu")).includes("Not Here Mecha"), "a YouTube program blocked in this TV's country (" + (await state()).country + ") isn't on the schedule");
   await shot("4f-find");
   await key("Enter", 1500); // watch it
   st = await state();
