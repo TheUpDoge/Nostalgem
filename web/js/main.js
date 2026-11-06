@@ -942,9 +942,11 @@ function rootPage() {
         },
       });
       list.push({
-        label: "Leave out YouTube blocked here",
+        label: "Region-locked videos",
         value: function () {
-          return s.region === "off" ? "No, try everything" : app.country ? "Yes · " + countryName(app.country) : "Yes (country unknown)";
+          if (s.region === "off") return "Shown";
+          const name = app.country ? countryName(app.country) : "";
+          return "Hidden" + (name ? " · " + (name.length > 15 ? app.country : name) : "");
         },
         cycle: true,
         ok: toggleRegion,
