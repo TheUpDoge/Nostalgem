@@ -3,11 +3,13 @@
 // are episode-length videos that can air (public, embeddable, not age-restricted, not blocked in the US)?
 //
 //   YOUTUBE_API_KEY=… node tools/yt-probe.mjs @GundamInfo @SomeChannel UCxxxx…  [--min 18] [--scan 500]
+//   … ?Cleetus_McFarland        search channels by name (underscores for spaces) and list the top matches
+//   … --live @exploreorg        list what each channel is streaming live right now
 //
 // Prints a table and, on GitHub Actions, writes it to the job summary.
 
 import { appendFile } from "node:fs/promises";
-import { makeYouTubeFetch, rejectReason, parseIsoDuration, cleanYtTitle } from "./youtube.mjs";
+import { makeYouTubeFetch, rejectReason, parseIsoDuration, cleanYtTitle, liveVideoIds } from "./youtube.mjs";
 
 const args = process.argv.slice(2);
 const opt = (name, d) => {
@@ -17,6 +19,8 @@ const opt = (name, d) => {
   args.splice(i, 2);
   return v;
 };
+const liveMode = args.indexOf("--live") >= 0;
+if (liveMode) args.splice(args.indexOf("--live"), 1);
 const minMin = Number(opt("min", "18"));
 const scan = Number(opt("scan", "500"));
 const targets = args.join(" ").split(/[\s,]+/).filter(Boolean);
@@ -25,6 +29,36 @@ const yt = makeYouTubeFetch(process.env.YOUTUBE_API_KEY || "");
 const rows = [];
 const details = [];
 for (const t of targets) {
+  if (t.startsWith("?")) {
+    // Find a channel by name: 100 quota units.
+    const q = t.slice(1).replace(/_/g, " ");
+    const found = await yt("search", { part: "snippet", q: q, type: "channel", maxResults: "4" });
+    const ids = (found.items || []).map((it) => it.snippet.channelId);
+    const chans = ids.length ? (await yt("channels", { part: "snippet,statistics", id: ids.join(",") })).items || [] : [];
+    for (const c of chans) rows.push({ handle: c.snippet.customUrl || c.id, channel: c.snippet.title.slice(0, 32), country: c.snippet.country || "", videos: Number(c.statistics.videoCount), scanned: "search: " + q });
+    if (!chans.length) rows.push({ handle: t, channel: "(no search results)" });
+    continue;
+  }
+  if (liveMode) {
+    let ids = [];
+    try {
+      ids = await liveVideoIds(/^UC[\w-]{22}$/.test(t) ? { channelId: t } : { handle: t }, yt);
+    } catch (e) {
+      if (e.fatal && /API key|quota/i.test(e.message)) throw e;
+      rows.push({ handle: t, channel: "(" + e.message.slice(0, 40) + ")" });
+      continue;
+    }
+    const vids = ids.length ? (await yt("videos", { part: "snippet,contentDetails,status", id: ids.join(",") })).items || [] : [];
+    const ok = vids.filter((v) => !rejectReason(v, { live: true }));
+    const reasons = {};
+    for (const v of vids) {
+      const why = rejectReason(v, { live: true });
+      if (why) reasons[why] = (reasons[why] || 0) + 1;
+    }
+    rows.push({ handle: t, channel: (vids[0] && vids[0].snippet.channelTitle.slice(0, 32)) || "", videos: ids.length, airable: ok.length, noEmbed: reasons["embedding off"] || 0, blockedUS: (reasons["blocked in US"] || 0) + (reasons["not available in US"] || 0), ageGate: reasons["age-restricted"] || 0 });
+    details.push(`### ${t} — live now\n` + ok.map((v) => `- ${cleanYtTitle(v.snippet.title)} (${v.id})`).join("\n"));
+    continue;
+  }
   const params = { part: "snippet,contentDetails,statistics" };
   if (/^UC[\w-]{22}$/.test(t)) params.id = t;
   else params.forHandle = t.startsWith("@") ? t : "@" + t;

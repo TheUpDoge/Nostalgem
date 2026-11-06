@@ -593,7 +593,7 @@ function rootPage() {
             return "close";
           },
         });
-      if (it && watching)
+      if (it && watching && !it.live)
         list.push({
           label: "Start this program over",
           ok: function () {

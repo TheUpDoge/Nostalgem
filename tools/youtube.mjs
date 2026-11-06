@@ -6,6 +6,8 @@
 //     { "channelId": "UCxxxxxxxx" }
 //   ]
 //
+// A source with "live": true airs what the channel is broadcasting live right now, each stream as a
+// block of "blockMinutes" (default 20); "videos": [ids] names streams directly. Live channels rebuild daily.
 // order: "shuffle" (default), "oldest", "playlist", or "title" (series, then episode number).
 // Every video is checked before it goes on the air: public, embeddable, not age-restricted, not blocked
 // in the region (US unless "region" says otherwise), not live or upcoming, and long enough not to be a
@@ -35,16 +37,19 @@ export function rejectReason(v, opts) {
   const cd = v.contentDetails || {};
   const sn = v.snippet || {};
   if (st.privacyStatus && st.privacyStatus !== "public") return "not public";
-  if (st.uploadStatus && st.uploadStatus !== "processed") return "still processing";
+  if (!o.live && st.uploadStatus && st.uploadStatus !== "processed") return "still processing";
   if (st.embeddable === false) return "embedding off";
   if (st.madeForKids && o.allowKids === false) return "made for kids";
-  if (sn.liveBroadcastContent && sn.liveBroadcastContent !== "none") return "live or upcoming";
+  if (o.live) {
+    if (sn.liveBroadcastContent !== "live") return "not live now";
+  } else if (sn.liveBroadcastContent && sn.liveBroadcastContent !== "none") return "live or upcoming";
   if (cd.contentRating && cd.contentRating.ytRating === "ytAgeRestricted") return "age-restricted";
   const rr = cd.regionRestriction;
   if (rr) {
     if (rr.blocked && rr.blocked.indexOf(region) >= 0) return "blocked in " + region;
     if (rr.allowed && rr.allowed.indexOf(region) < 0) return "not available in " + region;
   }
+  if (o.live) return "";
   const d = parseIsoDuration(cd.duration);
   if (!d) return "no duration";
   if (d < (o.minS || 0)) return "too short";
@@ -53,12 +58,13 @@ export function rejectReason(v, opts) {
 }
 
 // "【Official】Mobile Suit Gundam Wing Ep. 1 | Full Episode (English Dub) [HD]" -> "Mobile Suit Gundam Wing Ep. 1"
-const TAG_WORDS = /\b(official|full episodes?|english|eng|(w\/ ?)?sub(bed|titled|titles|s)?|dub(bed)?|hd|4k|1080p|720p|remaster(ed)?|free|anime|uncut|premiere|simulcast|cc)\b/i;
+const TAG_WORDS = /\b(live|24\/7|official|full episodes?|english|eng|(w\/ ?)?sub(bed|titled|titles|s)?|dub(bed)?|hd|4k|1080p|720p|remaster(ed)?|free|anime|uncut|premiere|simulcast|cc)\b/i;
 export function cleanYtTitle(t) {
   let s = String(t || "");
   s = s.replace(/[【\[(（]([^】\])）]{0,40})[】\])）]/g, function (all, inner) {
     return TAG_WORDS.test(inner) ? " " : all;
   });
+  s = s.replace(/^[\s🔴⏺●•]*((live|24\/7)\b[\s!]*)+[:|–-]\s*/i, "").replace(/^🔴\s*/, "");
   s = s.replace(/\s*[|｜]\s*(full episodes?|official|english (sub|dub)\w*|free anime|watch free)\b.*$/i, "");
   s = s.replace(/\s+[-–]\s+(full episodes?|official (video|upload))\s*$/i, "");
   return s.replace(/\s+/g, " ").replace(/^[\s|:–-]+|[\s|:–-]+$/g, "").trim();
@@ -107,6 +113,24 @@ async function uploadsPlaylist(src, yt) {
   const ch = json.items && json.items[0];
   if (!ch) throw new Error("no YouTube channel " + (src.handle || src.channelId));
   return ch.contentDetails.relatedPlaylists.uploads;
+}
+
+// What a channel is broadcasting live right now (a search costs 100 of the 10,000 daily quota units).
+export async function liveVideoIds(src, yt) {
+  if (src.videos) return src.videos.slice();
+  let channelId = src.channelId;
+  if (!channelId) {
+    const json = await yt("channels", { part: "id", forHandle: src.handle.charAt(0) === "@" ? src.handle : "@" + src.handle });
+    const ch = json.items && json.items[0];
+    if (!ch) throw new Error("no YouTube channel " + src.handle);
+    channelId = ch.id;
+  }
+  const json = await yt("search", { part: "id", channelId: channelId, eventType: "live", type: "video", maxResults: "25" });
+  return (json.items || [])
+    .map(function (it) {
+      return it.id && it.id.videoId;
+    })
+    .filter(Boolean);
 }
 
 async function playlistVideoIds(playlistId, max, yt) {
@@ -160,8 +184,11 @@ export async function buildYouTubeChannel(def, ctx) {
   for (const src of def.youtube) {
     let ids;
     try {
-      const pl = await uploadsPlaylist(src, yt);
-      ids = await playlistVideoIds(pl, src.maxScan || 300, yt);
+      if (src.live) ids = await liveVideoIds(src, yt);
+      else {
+        const pl = await uploadsPlaylist(src, yt);
+        ids = await playlistVideoIds(pl, src.maxScan || 300, yt);
+      }
     } catch (e) {
       log("  ! " + (src.handle || src.channelId || src.playlist) + ": " + e.message);
       if (e.fatal && /API key|quota|forbidden|keyInvalid|accessNotConfigured/i.test(e.message)) throw e;
@@ -175,7 +202,7 @@ export async function buildYouTubeChannel(def, ctx) {
     for (const v of videos) {
       if (seen[v.id]) continue;
       seen[v.id] = 1;
-      const why = rejectReason(v, { minS: src.minMinutes != null ? src.minMinutes * 60 : minS, maxS: maxS, region: def.region });
+      const why = rejectReason(v, { minS: src.minMinutes != null ? src.minMinutes * 60 : minS, maxS: maxS, region: def.region, live: !!src.live });
       const title = (v.snippet && v.snippet.title) || "";
       const reason = why || (match && !match.test(title) ? "no match" : "") || (skip && skip.test(title) ? "excluded" : "") || (exclude && exclude.test(title + " " + ((v.snippet && v.snippet.description) || "").slice(0, 400)) ? "filtered" : "");
       if (reason) {
@@ -183,6 +210,11 @@ export async function buildYouTubeChannel(def, ctx) {
         continue;
       }
       const p = toProgram(v);
+      if (src.live) {
+        // A live stream airs as a block of the schedule, like a stop on a cam tour.
+        p.d = (def.blockMinutes || 20) * 60;
+        p.live = 1;
+      }
       list.push(p);
       const desc = cleanText(v.snippet.description || "", 170);
       if (desc) about[p.id] = desc;

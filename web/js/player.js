@@ -142,7 +142,8 @@ export class Player {
     v.muted = this.muted;
     this.setMode("tuning");
     // The media fragment starts the download near the live point instead of at 0:00.
-    const at = startAt > 2 ? "#t=" + Math.floor(startAt) : "";
+    // A live stream has no "into the program": it is joined wherever it is now.
+    const at = startAt > 2 && !item.live ? "#t=" + Math.floor(startAt) : "";
     v.src = isYouTube(item) ? "yt:" + videoIdOf(item) + at : downloadUrl(item.id, item.f) + at;
     this.tryPlay(token);
     this.applyCaptions(token);
@@ -169,7 +170,7 @@ export class Player {
   onMeta() {
     if (!this.pendingSeek || !this.slot) return;
     this.pendingSeek = false;
-    if (this.shifted) return;
+    if (this.shifted || this.slot.item.live) return;
     const v = this.v;
     const dur = v.duration;
     const target = (Date.now() - this.slot.startMs) / 1000;
@@ -203,6 +204,13 @@ export class Player {
 
   onEnded() {
     if (this.mode !== "playing") return;
+    if (this.slot && this.slot.item.live) {
+      // The broadcast is over: drop it for now and move on to the next stream.
+      const item = this.slot.item;
+      this.clear();
+      this.emit("bad", item, "ended");
+      return;
+    }
     if (this.shifted || !this.slot) {
       this.syncToLive();
       return;
@@ -280,7 +288,7 @@ export class Player {
             break;
           }
           const target = (now - this.slot.startMs) / 1000;
-          if (!v.seeking && v.readyState > 0 && target - v.currentTime > MAX_DRIFT) {
+          if (!this.slot.item.live && !v.seeking && v.readyState > 0 && target - v.currentTime > MAX_DRIFT) {
             try {
               v.currentTime = target;
             } catch (e) {
@@ -324,7 +332,7 @@ export class Player {
   }
 
   restart() {
-    if ((this.mode !== "playing" && this.mode !== "paused") || !this.slot) return false;
+    if ((this.mode !== "playing" && this.mode !== "paused") || !this.slot || this.slot.item.live) return false;
     this.shifted = true;
     try {
       this.v.currentTime = 0;
@@ -339,7 +347,7 @@ export class Player {
   position() {
     if (!this.slot) return null;
     const d = this.slot.item.d;
-    if (this.mode === "playing" || this.mode === "paused") {
+    if ((this.mode === "playing" || this.mode === "paused") && !this.slot.item.live) {
       const t = this.v.currentTime;
       if (isFinite(t) && t > 0) return { at: Math.min(t, d), d: d };
     }

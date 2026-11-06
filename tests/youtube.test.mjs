@@ -117,3 +117,33 @@ test("a missing channel is skipped, a bad key stops the build", async () => {
   };
   await assert.rejects(buildYouTubeChannel({ slug: "x", youtube: [{ handle: "@a" }] }, { yt: denied }), /API key/);
 });
+
+test("live streams: only what is on the air now, as schedule blocks", async () => {
+  const live = (id, title, extra) => ({
+    id,
+    snippet: { title, liveBroadcastContent: "live", description: "" },
+    contentDetails: { duration: "P0D" },
+    status: { privacyStatus: "public", uploadStatus: "uploaded", embeddable: true },
+    ...extra,
+  });
+  assert.equal(rejectReason(live("a", "Bear Cam"), { live: true }), "");
+  assert.equal(rejectReason(live("a", "Bear Cam", { snippet: { liveBroadcastContent: "none" } }), { live: true }), "not live now");
+  assert.equal(rejectReason(live("a", "Bear Cam", { status: { privacyStatus: "public", embeddable: false } }), { live: true }), "embedding off");
+  assert.notEqual(rejectReason(live("a", "Bear Cam"), {}), "", "a live stream is not a normal program");
+  const videos = { bears12345a: live("bears12345a", "🔴 LIVE: Brown Bear Cam | Katmai"), off1234567b: live("off1234567b", "Ended", { snippet: { liveBroadcastContent: "none" } }) };
+  const yt = async (path, params) => {
+    if (path === "channels") return { items: [{ id: "UCcams" }] };
+    if (path === "search") {
+      assert.equal(params.eventType, "live");
+      assert.equal(params.channelId, "UCcams");
+      return { items: [{ id: { videoId: "bears12345a" } }, { id: { videoId: "off1234567b" } }] };
+    }
+    if (path === "videos") return { items: params.id.split(",").map((id) => videos[id]) };
+    throw new Error(path);
+  };
+  const res = await buildYouTubeChannel({ slug: "cams", blockMinutes: 15, youtube: [{ handle: "@cams", live: true }] }, { yt });
+  assert.equal(res.items.length, 1);
+  assert.equal(res.items[0].live, 1);
+  assert.equal(res.items[0].d, 900);
+  assert.equal(res.items[0].t, "Brown Bear Cam | Katmai");
+});

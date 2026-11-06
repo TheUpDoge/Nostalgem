@@ -15,6 +15,10 @@ on:
       scan:
         description: "Uploads to check per channel"
         default: "500"
+      live:
+        description: "List live streams instead of uploads"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -33,4 +37,5 @@ jobs:
           CHANNELS: ${{ github.event.inputs.channels }}
           MIN: ${{ github.event.inputs.min_minutes }}
           SCAN: ${{ github.event.inputs.scan }}
-        run: node tools/yt-probe.mjs $CHANNELS --min "$MIN" --scan "$SCAN"
+          LIVE: ${{ github.event.inputs.live }}
+        run: node tools/yt-probe.mjs $CHANNELS --min "$MIN" --scan "$SCAN" $([ "$LIVE" = "true" ] && echo --live)
