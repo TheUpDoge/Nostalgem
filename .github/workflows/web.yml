@@ -1,0 +1,51 @@
+name: Web app
+
+on:
+  push:
+    branches: [main]
+    paths: ["web/**", "tests/**", "tools/**", "package.json", "package-lock.json", ".github/workflows/web.yml"]
+  pull_request:
+    paths: ["web/**", "tests/**", "tools/**", "package.json", "package-lock.json", ".github/workflows/web.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Schedule, remote, Archive, subtitle, lineup and TV-browser syntax tests
+        run: npm test
+      - name: Install a browser for the smoke test
+        run: npm install --no-save playwright@1.63.0 && npx playwright install --with-deps chromium
+      - name: Browser smoke test (remote control, guide, menu, radio, outage, phone and TV sizes)
+        run: npm run test:browser
+
+  # Publishes web/ to GitHub Pages from main. One-time setup: Settings → Pages → Source: GitHub Actions.
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+      - id: deployment
+        uses: actions/deploy-pages@v4

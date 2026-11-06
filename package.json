@@ -1,0 +1,15 @@
+{
+  "name": "nostalgem",
+  "private": true,
+  "type": "module",
+  "description": "Retro cable TV from the public domain: 24/7 channels of Westerns, serials, cartoons, noir and old-time radio from the Internet Archive. Static web app plus an Android TV / Google TV wrapper.",
+  "scripts": {
+    "start": "npx --yes serve@14.2.4 -l 8080 web",
+    "test": "node --test tests/*.test.mjs",
+    "test:browser": "node tests/smoke.browser.mjs",
+    "lineup": "node tools/build-lineup.mjs"
+  },
+  "devDependencies": {
+    "acorn": "8.14.0"
+  }
+}

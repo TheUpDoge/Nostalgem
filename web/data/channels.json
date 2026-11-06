@@ -1,0 +1,181 @@
+{
+  "version": 1,
+  "about": "Channel definitions. maxYear skips anything dated later (public-domain films are mostly pre-1978); null lifts it. tools/build-lineup.mjs turns these into lineup.json by asking the Internet Archive. Each source is an archive.org advanced-search query. kind: video (MP4) or audio (MP3, shown as radio). filesPerItem: how many episodes one archive item (a show or collection) may add. Minutes bound each program's length.",
+  "gapSeconds": 8,
+  "maxYear": 1977,
+  "exclude": [
+    "sex", "sexy", "sexual", "sexploitation", "exploitation", "nude", "nudes", "nudist", "nudity", "nudie",
+    "erotic", "erotica", "porn", "porno", "pornographic", "xxx", "adults only", "hentai", "nsfw", "fetish",
+    "striptease", "stripper", "strip tease", "burlesque", "bares", "molester", "lingerie", "playboy",
+    "rarbg", "yify", "yts", "brrip", "bdrip", "webrip", "web-dl", "hdrip", "dvdrip", "dvd rip", "bluray", "blu-ray", "bd rip",
+    "x265", "hevc", "complete series", "full series", "torrent",
+    "birth of a nation", "amos 'n' andy", "amos n andy", "amos and andy", "amos 'n andy",
+    "censored eleven", "censored 11", "coal black", "jungle jitters", "tin pan alley cats", "uncle tom's bungalow",
+    "sunday go to meetin' time", "clean pastures", "all this and rabbit stew", "goldilocks and the jivin' bears",
+    "angel puss", "hittin' the trail for hallelujah land", "nips the nips", "tokio jokio", "you're a sap, mr. jap",
+    "you're a sap mr. jap", "scrap the japs", "commando duck", "blackface", "minstrel",
+    "commentary", "trailer", "trailers", "fan animation", "fan film", "boys beware", "perversion for profit"
+  ],
+  "excludeFiles": ["yts", "yts.am", "yts.mx", "yify", "rarbg", "bluray", "blu-ray", "brrip", "bdrip", "webrip", "web-dl", "hdrip", "dvdrip", "eztv", "ettv", "amzn", "nf.web"],
+  "excludeDescription": ["nudity", "xxx", "porn", "sexploitation", "nsfw", "explicit", "softcore", "full frontal"],
+  "channels": [
+    {
+      "number": 1, "slug": "high-noon", "name": "High Noon", "tagline": "Western features, sunup to sundown",
+      "icon": "🌵", "color": "#ff9f1c", "kind": "video", "minMinutes": 45, "maxMinutes": 150, "maxItems": 90,
+      "sources": [{ "q": "collection:feature_films AND subject:western AND mediatype:movies", "rows": 140 }]
+    },
+    {
+      "number": 2, "slug": "singing-cowboys", "name": "Singing Cowboys", "tagline": "Roy Rogers, Gene Autry and Tex Ritter ride again",
+      "icon": "🎸", "color": "#f4d35e", "kind": "video", "minMinutes": 20, "maxMinutes": 120, "maxItems": 80, "filesPerItem": 6,
+      "sources": [{ "q": "mediatype:movies AND (subject:\"singing cowboy\" OR subject:\"gene autry\" OR subject:\"roy rogers\" OR subject:\"tex ritter\" OR title:\"gene autry\" OR title:\"roy rogers\" OR title:\"tex ritter\" OR subject:\"hopalong cassidy\" OR title:hopalong)", "rows": 90 }]
+    },
+    {
+      "number": 3, "slug": "trail-tv", "name": "Trail TV", "tagline": "The Lone Ranger, Bonanza, Kit Carson and more",
+      "icon": "🐎", "color": "#e76f51", "kind": "video", "minMinutes": 15, "maxMinutes": 70, "maxItems": 100, "filesPerItem": 5,
+      "sources": [
+        { "q": "collection:classic_tv AND subject:western", "rows": 120 },
+        { "q": "collection:classic_tv AND (title:\"lone ranger\" OR title:\"cisco kid\" OR title:\"annie oakley\" OR title:bonanza OR title:\"wild bill hickok\" OR title:\"kit carson\")", "rows": 60 }
+      ]
+    },
+    {
+      "number": 4, "slug": "campfire-radio", "name": "Campfire Radio", "tagline": "Gunsmoke, The Six Shooter, Fort Laramie",
+      "icon": "🔥", "color": "#ff5d8f", "kind": "audio", "minMinutes": 10, "maxMinutes": 65, "maxItems": 140, "filesPerItem": 14,
+      "sources": [{ "q": "collection:oldtimeradio AND subject:western", "rows": 60 }]
+    },
+    {
+      "number": 5, "slug": "cliffhangers", "name": "Cliffhangers", "tagline": "Saturday-matinee serials, one chapter at a time",
+      "icon": "💥", "color": "#ffd166", "kind": "video", "minMinutes": 12, "maxMinutes": 110, "maxItems": 90, "filesPerItem": 6,
+      "sources": [
+        { "q": "mediatype:movies AND subject:\"cliffhanger serial\"", "rows": 90 },
+        { "q": "collection:feature_films AND subject:serial", "rows": 60 }
+      ]
+    },
+    {
+      "number": 6, "slug": "midnight-noir", "name": "Midnight Noir", "tagline": "Shadows, dames and double crosses",
+      "icon": "🕵️", "color": "#8d99ae", "kind": "video", "minMinutes": 55, "maxMinutes": 140, "maxItems": 80,
+      "sources": [{ "q": "collection:Film_Noir AND mediatype:movies", "rows": 120 }]
+    },
+    {
+      "number": 7, "slug": "creature-feature", "exclude": ["naked", "massacre", "cannibal", "snuff", "gore"], "name": "Creature Feature", "tagline": "B-movie monsters and saucer men",
+      "icon": "🦇", "color": "#7bdff2", "kind": "video", "minMinutes": 55, "maxMinutes": 130, "maxItems": 80,
+      "sources": [{ "q": "collection:SciFi_Horror AND mediatype:movies", "rows": 130 }]
+    },
+    {
+      "number": 8, "slug": "saturday-morning", "name": "Saturday Morning", "tagline": "Popeye, Betty Boop, Superman and friends",
+      "icon": "📺", "color": "#ffafcc", "kind": "video", "minMinutes": 3, "maxMinutes": 30, "maxItems": 160, "filesPerItem": 10,
+      "sources": [
+        { "q": "collection:classic_cartoons AND mediatype:movies", "rows": 90 },
+        { "q": "collection:vintage_cartoons AND mediatype:movies", "rows": 60 }
+      ]
+    },
+    {
+      "number": 9, "slug": "silent-era", "name": "Silent Era", "tagline": "Chaplin, Keaton and the first movie stars",
+      "icon": "🎞️", "color": "#c9ada7", "kind": "video", "minMinutes": 8, "maxMinutes": 160, "maxItems": 90, "filesPerItem": 3,
+      "sources": [{ "q": "collection:silent_films AND mediatype:movies", "rows": 120 }]
+    },
+    {
+      "number": 10, "slug": "laugh-track", "name": "Laugh Track", "tagline": "Stooges, screwball and slapstick",
+      "icon": "😂", "color": "#fee440", "kind": "video", "minMinutes": 10, "maxMinutes": 120, "maxItems": 90, "filesPerItem": 5,
+      "sources": [{ "q": "collection:Comedy_Films AND mediatype:movies", "rows": 120 }]
+    },
+    {
+      "number": 11, "slug": "rerun-city", "name": "Rerun City", "tagline": "Fifties and sixties sitcoms on a loop",
+      "icon": "🛋️", "color": "#a0c4ff", "kind": "video", "minMinutes": 18, "maxMinutes": 35, "maxItems": 100, "filesPerItem": 5,
+      "sources": [
+        { "q": "collection:classic_tv_1950s AND subject:sitcom", "rows": 100 },
+        { "q": "collection:classic_tv AND (title:\"beverly hillbillies\" OR title:\"lucy show\" OR title:\"burns and allen\" OR title:\"life of riley\" OR title:\"petticoat junction\")", "rows": 40 }
+      ]
+    },
+    {
+      "number": 12, "slug": "game-night", "name": "Game Night", "tagline": "Panel shows and quiz shows, live from New York",
+      "icon": "🎲", "color": "#caffbf", "kind": "video", "minMinutes": 10, "maxMinutes": 40, "maxItems": 80, "filesPerItem": 4,
+      "sources": [{ "q": "collection:classic_tv AND (subject:\"game show\" OR subject:quiz OR subject:\"panel show\")", "rows": 100 }]
+    },
+    {
+      "number": 13, "slug": "hit-parade", "name": "Hit Parade", "tagline": "Variety hours, crooners and big bands",
+      "icon": "🎤", "color": "#bdb2ff", "kind": "video", "minMinutes": 10, "maxMinutes": 65, "maxItems": 80, "filesPerItem": 3,
+      "sources": [{ "q": "collection:classic_tv AND (subject:\"variety show\" OR subject:\"variety\" OR subject:music) AND mediatype:movies", "rows": 120 }]
+    },
+    {
+      "number": 14, "slug": "commercial-break", "maxYear": 1999, "name": "Commercial Break", "tagline": "Nothing but vintage ads. Yes, really.",
+      "icon": "💰", "color": "#ff70a6", "kind": "video", "minMinutes": 0.25, "maxMinutes": 15, "maxItems": 450, "filesPerItem": 30,
+      "exclude": ["variety hour", "brady bunch", "doblaje", "anime", "episode", "full show"],
+      "sources": [{ "q": "collection:classic_tv_commercials AND mediatype:movies AND (subject:commercial OR subject:commercials OR subject:advertising OR subject:advertisement OR subject:ads OR title:commercial OR title:commercials OR title:ad OR title:ads)", "rows": 160 }]
+    },
+    {
+      "number": 15, "slug": "ephemera", "name": "Ephemera", "tagline": "Classroom, industrial and duck-and-cover films",
+      "icon": "🧪", "color": "#70d6ff", "kind": "video", "minMinutes": 5, "maxMinutes": 40, "maxItems": 120,
+      "sources": [{ "q": "collection:prelinger AND mediatype:movies", "rows": 140 }]
+    },
+    {
+      "number": 16, "slug": "newsreel", "name": "Newsreel", "tagline": "The week in review, 1929 to 1967",
+      "icon": "🗞️", "color": "#e9ecef", "kind": "video", "minMinutes": 1, "maxMinutes": 25, "maxItems": 160,
+      "sources": [{ "q": "collection:universal_newsreels AND mediatype:movies", "rows": 180 }]
+    },
+    {
+      "number": 17, "slug": "mission-control", "maxYear": null, "name": "Mission Control", "tagline": "Mercury, Gemini, Apollo and the Shuttle",
+      "icon": "🚀", "color": "#4cc9f0", "kind": "video", "minMinutes": 4, "maxMinutes": 90, "maxItems": 100,
+      "sources": [{ "q": "collection:nasa AND mediatype:movies AND (title:apollo OR title:gemini OR title:mercury OR title:\"space shuttle\" OR title:skylab OR title:moon)", "rows": 140 }]
+    },
+    {
+      "number": 18, "slug": "byte-size", "maxYear": null, "name": "Byte Size", "tagline": "The Computer Chronicles, 1983–2002",
+      "icon": "💾", "color": "#3ddc97", "kind": "video", "minMinutes": 20, "maxMinutes": 35, "maxItems": 140,
+      "sources": [{ "q": "collection:computerchronicles AND mediatype:movies", "rows": 160 }]
+    },
+    {
+      "number": 19, "slug": "pixel-dreams", "maxYear": null, "name": "Pixel Dreams", "tagline": "Open-source animated shorts in HD",
+      "icon": "🌈", "color": "#f72585", "kind": "video", "minMinutes": 1.5, "maxMinutes": 30, "maxItems": 80,
+      "exclude": ["tutorial", "tutorials", "podcast", "modelling", "modeling", "timelapse", "time-lapse", "speed", "test", "demo", "demoreel", "reel", "making of", "tips", "course", "workshop", "lesson", "how to", "parts"],
+      "sources": [{ "q": "mediatype:movies AND subject:blender AND licenseurl:*creativecommons* AND (subject:animation OR subject:\"short film\" OR subject:\"open movie\" OR subject:\"animated short\" OR subject:short OR subject:cartoon)", "rows": 120 }]
+    },
+    {
+      "number": 20, "slug": "mystery-radio", "name": "Mystery Radio", "tagline": "Johnny Dollar, Dragnet and more whodunits",
+      "icon": "🔎", "color": "#9d4edd", "kind": "audio", "minMinutes": 10, "maxMinutes": 65, "maxItems": 140, "filesPerItem": 12,
+      "sources": [{ "q": "collection:oldtimeradio AND (subject:mystery OR subject:detective)", "rows": 50 }]
+    },
+    {
+      "number": 21, "slug": "radio-from-space", "name": "Radio From Space", "tagline": "X Minus One, Dimension X and more",
+      "icon": "👽", "color": "#80ffdb", "kind": "audio", "minMinutes": 10, "maxMinutes": 65, "maxItems": 120, "filesPerItem": 14,
+      "sources": [{ "q": "collection:oldtimeradio AND subject:\"science fiction\"", "rows": 40 }]
+    },
+    {
+      "number": 22, "slug": "comedy-radio", "name": "Comedy Radio", "tagline": "Jack Benny, Our Miss Brooks, Gildersleeve",
+      "icon": "📻", "color": "#ffc6ff", "kind": "audio", "minMinutes": 10, "maxMinutes": 45, "maxItems": 140, "filesPerItem": 12,
+      "sources": [{ "q": "collection:oldtimeradio AND subject:comedy", "rows": 50 }]
+    },
+    {
+      "number": 23, "slug": "subtitulos", "name": "Subtítulos", "tagline": "Classic films with Spanish subtitles. ¡A practicar!",
+      "icon": "💬", "color": "#06d6a0", "kind": "video", "minMinutes": 20, "maxMinutes": 170, "maxItems": 60, "preferSubtitles": "es",
+      "sources": [
+        { "q": "collection:feature_films AND (title:\"spanish subtitles\" OR title:\"subtitulos\" OR title:\"subtítulos\" OR title:vose)", "rows": 40 },
+        { "q": "mediatype:movies AND (subject:\"subtitulos en español\" OR subject:\"subtítulos en español\" OR subject:\"spanish subtitles\")", "rows": 60 }
+      ]
+    }
+  ],
+  "extras": [
+    { "slug": "bonanza", "name": "Bonanza", "tagline": "The Cartwrights of the Ponderosa", "icon": "🤠", "color": "#d62828", "kind": "video", "minMinutes": 40, "maxMinutes": 60, "maxItems": 40, "filesPerItem": 30,
+      "sources": [{ "q": "collection:classic_tv AND title:bonanza", "rows": 40 }] },
+    { "slug": "lone-ranger", "name": "The Lone Ranger", "tagline": "Hi-yo, Silver!", "icon": "🎭", "color": "#4361ee", "kind": "video", "minMinutes": 20, "maxMinutes": 35, "maxItems": 40, "filesPerItem": 30,
+      "sources": [{ "q": "collection:classic_tv AND title:\"lone ranger\"", "rows": 40 }] },
+    { "slug": "john-wayne", "name": "Duke Westerns", "tagline": "Early John Wayne oaters", "icon": "⭐", "color": "#f77f00", "kind": "video", "minMinutes": 45, "maxMinutes": 150, "maxItems": 40,
+      "sources": [{ "q": "mediatype:movies AND subject:western AND (subject:\"john wayne\" OR title:\"john wayne\")", "rows": 60 }] },
+    { "slug": "hopalong", "name": "Hopalong Cassidy", "tagline": "Bar 20's finest", "icon": "🐴", "color": "#bc6c25", "kind": "video", "minMinutes": 40, "maxMinutes": 100, "maxItems": 40, "filesPerItem": 20,
+      "sources": [{ "q": "mediatype:movies AND (title:hopalong OR subject:\"hopalong cassidy\")", "rows": 40 }] },
+    { "slug": "swashbucklers", "name": "Swashbucklers", "tagline": "Zorro, pirates and musketeers", "icon": "⚔️", "color": "#e63946", "kind": "video", "minMinutes": 40, "maxMinutes": 160, "maxItems": 30,
+      "sources": [{ "q": "mediatype:movies AND (subject:swashbuckler OR title:zorro OR title:musketeers OR subject:pirates) AND collection:feature_films", "rows": 50 }] },
+    { "slug": "gunsmoke-radio", "name": "Gunsmoke Radio", "tagline": "Marshal Dillon, Dodge City, 1952–1961", "icon": "🔫", "color": "#9c6644", "kind": "audio", "minMinutes": 15, "maxMinutes": 35, "maxItems": 60, "filesPerItem": 60,
+      "sources": [{ "q": "collection:oldtimeradio AND title:gunsmoke", "rows": 10 }] },
+    { "slug": "popeye", "name": "Popeye Show", "tagline": "I yam what I yam", "icon": "💪", "color": "#2a9d8f", "kind": "video", "minMinutes": 3, "maxMinutes": 20, "maxItems": 60,
+      "sources": [{ "q": "mediatype:movies AND title:popeye AND (collection:classic_cartoons OR collection:vintage_cartoons OR collection:animationandcartoons)", "rows": 80 }] },
+    { "slug": "chaplin", "name": "Chaplin & Keaton", "tagline": "Two geniuses of silent comedy", "icon": "🎩", "color": "#adb5bd", "kind": "video", "minMinutes": 8, "maxMinutes": 120, "maxItems": 40, "filesPerItem": 6,
+      "sources": [{ "q": "mediatype:movies AND (title:chaplin OR title:keaton OR subject:\"charlie chaplin\" OR subject:\"buster keaton\")", "rows": 60 }] },
+    { "slug": "melies", "name": "Méliès Magic", "tagline": "A Trip to the Moon and other marvels", "icon": "🌙", "color": "#ffd60a", "kind": "video", "minMinutes": 1, "maxMinutes": 30, "maxItems": 40, "filesPerItem": 40,
+      "sources": [{ "q": "mediatype:movies AND (title:melies OR title:méliès OR subject:melies OR subject:\"georges méliès\")", "rows": 30 }] },
+    { "slug": "jack-benny", "name": "Jack Benny Program", "tagline": "Well!", "icon": "🎻", "color": "#e9c46a", "kind": "audio", "minMinutes": 20, "maxMinutes": 35, "maxItems": 60, "filesPerItem": 60,
+      "sources": [{ "q": "collection:oldtimeradio AND title:\"jack benny\"", "rows": 10 }] },
+    { "slug": "dragnet-radio", "name": "Dragnet Radio", "tagline": "Just the facts", "icon": "🚓", "color": "#457b9d", "kind": "audio", "minMinutes": 20, "maxMinutes": 35, "maxItems": 60, "filesPerItem": 60,
+      "sources": [{ "q": "collection:oldtimeradio AND title:dragnet", "rows": 10 }] },
+    { "slug": "x-minus-one", "name": "X Minus One", "tagline": "Countdown for blastoff", "icon": "🛸", "color": "#48cae4", "kind": "audio", "minMinutes": 20, "maxMinutes": 35, "maxItems": 60, "filesPerItem": 60,
+      "sources": [{ "q": "collection:oldtimeradio AND (title:\"x minus one\" OR title:\"x-minus-one\")", "rows": 10 }] }
+  ]
+}

@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0d0221"/>
+      <stop offset="0.5" stop-color="#3b0f6e"/>
+      <stop offset="0.62" stop-color="#ff4f8b"/>
+    </linearGradient>
+    <linearGradient id="sun" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0.05" stop-color="#ffd319"/>
+      <stop offset="0.4" stop-color="#ff901f"/>
+      <stop offset="0.7" stop-color="#ff2975"/>
+      <stop offset="1" stop-color="#f222ff"/>
+    </linearGradient>
+    <mask id="stripes">
+      <rect width="512" height="512" fill="#fff"/>
+      <rect y="250" width="512" height="7" fill="#000"/>
+      <rect y="268" width="512" height="9" fill="#000"/>
+      <rect y="288" width="512" height="11" fill="#000"/>
+      <rect y="309" width="512" height="13" fill="#000"/>
+    </mask>
+    <clipPath id="round"><rect width="512" height="512" rx="112"/></clipPath>
+  </defs>
+  <g clip-path="url(#round)">
+    <rect width="512" height="512" fill="url(#sky)"/>
+    <circle cx="256" cy="228" r="148" fill="url(#sun)" mask="url(#stripes)"/>
+    <rect y="322" width="512" height="190" fill="#12032c"/>
+    <g stroke="#ff2ad4" stroke-width="3" fill="none" opacity="0.9">
+      <path d="M0 334H512M0 352H512M0 378H512M0 414H512M0 462H512"/>
+      <path d="M256 322V512M206 322L96 512M156 322L-64 512M306 322L416 512M356 322L576 512M106 322L-224 512M406 322L736 512"/>
+    </g>
+    <rect y="319" width="512" height="5" fill="#ff71ce"/>
+    <path fill="#12032c" stroke="#ff71ce" stroke-width="3" transform="translate(338 58) scale(1)" d="M0 264V165H-25Q-40 165-40 150V105Q-40 92-27 92Q-14 92-14 105V140H0V75Q0 60 15 60Q30 60 30 75V120H48V85Q48 72 61 72Q74 72 74 85V130Q74 145 59 145H30V264Z"/>
+  </g>
+</svg>

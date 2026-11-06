@@ -1,0 +1,17 @@
+{
+  "name": "NostalGem",
+  "short_name": "NostalGem",
+  "description": "Retro cable TV from the public domain: 24/7 channels of Westerns, serials, cartoons, noir, old-time radio and more.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0d0221",
+  "theme_color": "#0d0221",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
