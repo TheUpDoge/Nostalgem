@@ -1,0 +1,36 @@
+name: YouTube probe
+
+# Checks candidate channels for a YouTube lineup: how many uploads are episode-length and can air in
+# the US. Uses the YOUTUBE_API_KEY secret. Results are in the run's summary and log.
+
+on:
+  workflow_dispatch:
+    inputs:
+      channels:
+        description: "Handles (@name) or channel ids, separated by spaces"
+        required: true
+      min_minutes:
+        description: "Shortest video that counts as an episode"
+        default: "18"
+      scan:
+        description: "Uploads to check per channel"
+        default: "500"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Probe
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          CHANNELS: ${{ github.event.inputs.channels }}
+          MIN: ${{ github.event.inputs.min_minutes }}
+          SCAN: ${{ github.event.inputs.scan }}
+        run: node tools/yt-probe.mjs $CHANNELS --min "$MIN" --scan "$SCAN"
