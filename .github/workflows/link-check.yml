@@ -1,0 +1,25 @@
+name: Phone link check
+
+# Opens the published TV page and the phone remote in two browsers on a GitHub runner (real internet)
+# and checks that they pair through the public PeerJS broker. Prints what each side saw.
+
+on:
+  workflow_dispatch:
+    inputs:
+      site:
+        description: "Site to test"
+        default: "https://theupdoge.github.io/Nostalgem/"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save playwright@1.63.0 && npx playwright install --with-deps chromium
+      - run: node tests/live-link.mjs "${{ github.event.inputs.site }}"

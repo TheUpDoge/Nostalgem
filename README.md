@@ -207,7 +207,7 @@ Monday to pick up new uploads and drop removed ones. Locally: `YOUTUBE_API_KEY=â
 ### Run it locally
 
 ```sh
-npm install
+npm install               # once: the tests need acorn (a dev dependency)
 npm start                 # http://localhost:8080
 npm test                  # schedule, remote, Archive parsing, subtitles, lineup checks, TV-browser syntax
 npm i --no-save playwright@1.63.0 && npx playwright install chromium
