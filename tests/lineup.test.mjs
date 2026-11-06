@@ -9,12 +9,17 @@ const lineup = read("lineup.json");
 const config = read("channels.json");
 const defs = Object.fromEntries(config.channels.map((c) => [c.slug, c]));
 
+// YouTube channels need the API key to build, so until the first "Rebuild lineup" run they may be missing.
 test("every defined channel was built, with unique numbers", () => {
-  assert.equal(lineup.channels.length, config.channels.length);
-  const numbers = lineup.channels.map((c) => c.number);
+  for (const d of config.channels) if (!d.youtube) assert.ok(lineup.channels.some((c) => c.slug === d.slug), d.slug + " was built");
+  for (const c of lineup.channels) assert.ok(defs[c.slug], c.slug + " is defined in channels.json");
+  const numbers = lineup.channels.map((c) => c.number + "-" + (c.sub || 0));
   assert.equal(new Set(numbers).size, numbers.length);
   assert.equal(new Set(lineup.channels.map((c) => c.slug)).size, numbers.length);
-  for (const c of lineup.channels) assert.ok(c.number > 0 && c.number < 30, `${c.slug}: CH 1-29 is the house lineup; 30+ is for channels viewers add`);
+  for (const d of config.channels) {
+    const ok = d.youtube ? d.number >= 50 && d.number < 100 : d.number > 0 && d.number < 30;
+    assert.ok(ok, `${d.slug}: CH 1-29 is the Archive lineup, 50+ is YouTube; 30-49 is for channels viewers add`);
+  }
 });
 
 test("plenty of Westerns", () => {
@@ -29,8 +34,9 @@ test("plenty of Westerns", () => {
 test("every channel has enough to fill hours of air", () => {
   for (const c of lineup.channels) {
     const hours = c.items.reduce((s, p) => s + p.d, 0) / 3600;
-    assert.ok(c.items.length >= 25, `${c.slug} has ${c.items.length} programs`);
-    assert.ok(hours >= 5, `${c.slug} runs ${hours.toFixed(1)} h`);
+    const yt = !!defs[c.slug].youtube;
+    assert.ok(c.items.length >= (yt ? 10 : 25), `${c.slug} has ${c.items.length} programs`);
+    assert.ok(hours >= (yt ? 3 : 5), `${c.slug} runs ${hours.toFixed(1)} h`);
   }
 });
 
@@ -40,7 +46,8 @@ test("programs are playable and fit their channel", () => {
     const ext = c.kind === "audio" ? /\.mp3$/i : /\.mp4$/i;
     for (const p of c.items) {
       assert.ok(p.id && p.f && p.t, `${c.slug}: program has id, file and title`);
-      assert.match(p.f, ext, `${c.slug}: ${p.f}`);
+      if (def.youtube) assert.ok(/^yt:[\w-]{11}$/.test(p.id) && p.f === "yt", `${c.slug}: ${p.id} is a YouTube video`);
+      else assert.match(p.f, ext, `${c.slug}: ${p.f}`);
       assert.ok(p.d >= (def.minMinutes || 0) * 60 - 1 && p.d <= (def.maxMinutes || 600) * 60 + 1, `${c.slug}: ${p.t} runs ${p.d}s`);
     }
   }

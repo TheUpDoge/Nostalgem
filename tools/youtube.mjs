@@ -6,6 +6,7 @@
 //     { "channelId": "UCxxxxxxxx" }
 //   ]
 //
+// order: "shuffle" (default), "oldest", "playlist", or "title" (series, then episode number).
 // Every video is checked before it goes on the air: public, embeddable, not age-restricted, not blocked
 // in the region (US unless "region" says otherwise), not live or upcoming, and long enough not to be a
 // Short. A source's videos air in order ("playlist" order, or "oldest" upload first) or shuffled; several
@@ -189,6 +190,11 @@ export async function buildYouTubeChannel(def, ctx) {
     // Uploads come newest first. "oldest" airs a series from episode 1; "playlist" keeps the playlist's own order.
     const order = src.order || "shuffle";
     if (order === "oldest" && !src.playlist) list.reverse();
+    // "title": by series, then episode number ("Gundam SEED - Episode 2" before "Episode 10").
+    if (order === "title")
+      list.sort(function (a, b) {
+        return a.t.localeCompare(b.t, "en", { numeric: true, sensitivity: "base" });
+      });
     lists.push(order === "shuffle" ? shuffle(list, rand) : list);
   }
   // Sources take turns, a program each, like shows in a block.

@@ -150,6 +150,23 @@
         { "q": "collection:feature_films AND (title:\"spanish subtitles\" OR title:\"subtitulos\" OR title:\"subtítulos\" OR title:vose)", "rows": 40 },
         { "q": "mediatype:movies AND (subject:\"subtitulos en español\" OR subject:\"subtítulos en español\" OR subject:\"spanish subtitles\")", "rows": 60 }
       ]
+    },
+    {
+      "number": 50, "sub": 1, "slug": "yt-mecha", "name": "Mecha Hangar", "tagline": "Giant robots, official full episodes", "icon": "🤖", "color": "#05d9e8", "kind": "video",
+      "minMinutes": 18, "maxMinutes": 60, "maxItems": 400,
+      "youtube": [
+        { "handle": "@GundamInfo", "match": "episode|\\bep\\.? ?\\d", "exclude": "livestream|live stream|trailer|teaser|\\bPV\\b|recap|digest|interview|gunpla|making of|special program", "order": "title", "maxScan": 2100 },
+        { "handle": "@Voltron", "match": "defender of the universe", "exclude": "trailer|clip|compilation|scenes|every |toy", "order": "oldest", "maxScan": 200 }
+      ]
+    },
+    {
+      "number": 50, "sub": 2, "slug": "yt-anime-vault", "name": "Anime Vault", "tagline": "Classic and cult anime from the studios' own channels", "icon": "📼", "color": "#ff71ce", "kind": "video",
+      "minMinutes": 18, "maxMinutes": 60, "maxItems": 300,
+      "youtube": [
+        { "handle": "@NozomiEnt", "match": "episode", "exclude": "kickstarter|trailer|teaser|preview|announcement", "order": "title", "maxScan": 1200 },
+        { "handle": "@RetroCrush", "match": "episode|\\bep\\.? ?\\d|full movie", "exclude": "podcast|chat|cosplay|interview|review|reaction|ranking|explained|\\btop \\d", "order": "title", "maxScan": 1900 },
+        { "handle": "@Crunchyroll", "match": "episode \\d", "exclude": "watch party|recap|everything to know|limited time|reaction|livestream", "maxScan": 1500 }
+      ]
     }
   ],
   "extras": [

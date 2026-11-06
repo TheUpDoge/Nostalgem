@@ -1281,7 +1281,8 @@ function showAbout() {
       " hours before anything repeats. " +
       "Every channel is a 24/7 schedule set by the clock, so every TV tuned in sees the same thing at the same time.<br><br>" +
       "All programming streams from the <b>Internet Archive</b> (archive.org), a non-profit library. " +
-      "Most of it is in the public domain or openly licensed. If you enjoy it, consider donating at <b>archive.org/donate</b>.<br><br>" +
+      "Most of it is in the public domain or openly licensed. If you enjoy it, consider donating at <b>archive.org/donate</b>. " +
+      "Channels 50 and up air official uploads from the studios' own <b>YouTube</b> channels, in YouTube's player.<br><br>" +
       "A program that won't play is skipped on this TV for a day. Lineup built " +
       esc(built) +
       ". Version " +
