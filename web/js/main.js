@@ -7,6 +7,8 @@ import { Static } from "./static.js";
 import { actionFor, isTypingTarget, registerTvKeys } from "./remote.js";
 import { load, save } from "./store.js";
 import { buildChannel, browserFetchJson } from "./archive.js";
+import { archiveAboutHtml } from "./about.js";
+import { buildItemsChannel, packChannelDef, parsePack, validatePack, PACK_MIN_NUMBER, PACK_MAX_NUMBER } from "./packs.js";
 import { pickSubtitle, subtitleLabel } from "./captions.js";
 import { Guide } from "./ui/guide.js";
 import { Menu } from "./ui/menu.js";
@@ -946,6 +948,21 @@ function rootPage() {
         },
       });
       list.push({
+        label: "Load a channel pack",
+        sub: true,
+        ok: function () {
+          menu.push(packPage());
+        },
+      });
+      list.push({
+        label: "About the Archive",
+        sub: true,
+        ok: function () {
+          showArchiveAbout();
+          return "close";
+        },
+      });
+      list.push({
         label: "Region-locked videos",
         value: function () {
           if (s.region === "off") return "Shown";
@@ -1231,9 +1248,81 @@ function openSearch() {
   });
 }
 
+// The Archive context every channel build shares: the lineup's filters and year cap.
+function channelCtx(onProgress) {
+  const L = app.lineup;
+  return {
+    fetchJson: browserFetchJson,
+    exclude: L.exclude,
+    excludeDescription: L.excludeDescription,
+    excludeFiles: L.excludeFiles,
+    maxYear: L.maxYear,
+    concurrency: 4,
+    progress: onProgress || function () {},
+  };
+}
+
+function fetchChannelPrograms(def, onProgress) {
+  return buildChannel(def, channelCtx(onProgress));
+}
+
+// First free number in the viewer-added range (30–49); past that, the first free number anywhere.
+function nextPackNumber() {
+  const used = {};
+  app.channels.forEach(function (c) {
+    used[c.number] = 1;
+  });
+  for (let n = PACK_MIN_NUMBER; n <= PACK_MAX_NUMBER; n++) if (!used[n]) return n;
+  return nextNumber();
+}
+
+// A built channel (def + build result) onto the dial. opts.number pins the number
+// (a pack channel); without it, the next free number is used. Returns { ch, renumbered }
+// or { skipped } when a channel with that slug is already on this TV. Does not save:
+// the caller calls saveCustom once it is done adding.
+function addBuiltChannel(def, res, opts) {
+  const o = opts || {};
+  const existing = app.channels.filter(function (c) {
+    return c.slug === def.slug;
+  })[0];
+  if (existing) return { skipped: "CH " + chLabel(existing) + " " + existing.name + " is already on this TV" };
+  let number;
+  let renumbered = false;
+  if (o.number == null) {
+    number = nextNumber();
+  } else if (
+    o.number >= PACK_MIN_NUMBER &&
+    o.number <= PACK_MAX_NUMBER &&
+    !app.channels.some(function (c) {
+      return c.number === o.number;
+    })
+  ) {
+    number = o.number;
+  } else {
+    number = nextPackNumber();
+    renumbered = true;
+  }
+  const ch = {
+    slug: def.slug,
+    number: number,
+    name: def.name,
+    tagline: def.tagline || "Your channel",
+    icon: def.icon || "📡",
+    color: def.color || SWATCHES[hash32(def.slug) % SWATCHES.length],
+    kind: def.kind === "audio" ? "audio" : "video",
+    items: res.items,
+    about: res.about,
+    custom: true,
+    built: new Date().toISOString(),
+  };
+  Object.assign(app.about, res.about);
+  app.channels.push(ch);
+  sortChannels();
+  return { ch: ch, renumbered: renumbered };
+}
+
 function buildCustom(def) {
   let cancelled = false;
-  const L = app.lineup;
   dialog.open({
     title: "Building " + def.name,
     html: "Asking the Internet Archive for programs. This takes a few seconds.",
@@ -1251,16 +1340,8 @@ function buildCustom(def) {
     ],
   });
   dialog.status("Searching…");
-  buildChannel(def, {
-    fetchJson: browserFetchJson,
-    exclude: L.exclude,
-    excludeDescription: L.excludeDescription,
-    excludeFiles: L.excludeFiles,
-    maxYear: L.maxYear,
-    concurrency: 4,
-    progress: function (n, total) {
-      if (!cancelled) dialog.status("Checking " + n + " of " + total + " items…");
-    },
+  fetchChannelPrograms(def, function (n, total) {
+    if (!cancelled) dialog.status("Checking " + n + " of " + total + " items…");
   })
     .then(function (res) {
       if (cancelled) return;
@@ -1268,22 +1349,12 @@ function buildCustom(def) {
         dialog.status("Nothing playable turned up. Try other words.");
         return;
       }
-      const ch = {
-        slug: def.slug,
-        number: nextNumber(),
-        name: def.name,
-        tagline: def.tagline || "Your channel",
-        icon: def.icon || "📡",
-        color: def.color || SWATCHES[hash32(def.slug) % SWATCHES.length],
-        kind: def.kind === "audio" ? "audio" : "video",
-        items: res.items,
-        about: res.about,
-        custom: true,
-        built: new Date().toISOString(),
-      };
-      Object.assign(app.about, res.about);
-      app.channels.push(ch);
-      sortChannels();
+      const added = addBuiltChannel(def, res, {});
+      if (added.skipped) {
+        dialog.status(added.skipped);
+        return;
+      }
+      const ch = added.ch;
       const saved = saveCustom();
       cancelled = true; // done: closing the dialog now is not a cancel
       dialog.close();
@@ -1293,6 +1364,298 @@ function buildCustom(def) {
     .catch(function (err) {
       if (!cancelled) dialog.status("Couldn't reach the Archive (" + err.message + "). Try again in a moment.");
     });
+}
+
+function showArchiveAbout() {
+  dialog.open({
+    title: "About the Archive",
+    html: archiveAboutHtml(),
+    buttons: [
+      {
+        label: "Close",
+        action: function (d) {
+          d.close();
+        },
+      },
+    ],
+  });
+}
+
+// ---------- channel packs ----------
+function packPage() {
+  return {
+    title: "Load a channel pack",
+    sub: "Archive-only packs · saved on this TV",
+    items: function () {
+      return [
+        { head: true, label: "From a file" },
+        {
+          label: "Choose a .json file…",
+          ok: function () {
+            pickPackFile();
+            return "close";
+          },
+        },
+        { head: true, label: "Or paste it" },
+        {
+          label: "Paste pack JSON…",
+          ok: function () {
+            openPackPaste();
+            return "close";
+          },
+        },
+        { head: true, label: "About packs" },
+        {
+          label: "How channel packs work",
+          ok: function () {
+            showPackHelp();
+            return "close";
+          },
+        },
+      ];
+    },
+  };
+}
+
+function showPackHelp() {
+  dialog.open({
+    title: "How channel packs work",
+    html:
+      "A channel pack is a small JSON file that adds channels from the <b>Internet Archive</b> — " +
+      "a collection search, or Archive item IDs. Nothing else: no YouTube, no other sites, no direct video links.<br><br>" +
+      "Pack channels land on <b>CH 30–49</b> and are saved on this TV only, like channels you add by search. " +
+      "Loading a pack never changes the shipped lineup.<br><br>" +
+      "The format is in <b>PACKS.md</b>, with an example pack in <b>packs/example-pack.json</b>. " +
+      "On a TV with no file picker, use Paste pack JSON instead. " +
+      "Channels you load are your choice on your own TV.",
+    buttons: [
+      {
+        label: "Got it",
+        action: function (d) {
+          d.close();
+        },
+      },
+    ],
+  });
+}
+
+function showPackErrors(label, errors) {
+  dialog.open({
+    title: "That pack won't load",
+    html:
+      "<b>" +
+      esc(label) +
+      "</b> has a problem:<br>" +
+      errors
+        .slice(0, 8)
+        .map(esc)
+        .join("<br>") +
+      (errors.length > 8 ? "<br>…and " + (errors.length - 8) + " more." : ""),
+    buttons: [
+      {
+        label: "OK",
+        action: function (d) {
+          d.close();
+        },
+      },
+    ],
+  });
+}
+
+function pickPackFile() {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".json,application/json";
+  input.addEventListener("change", function () {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function () {
+      handlePackText(String(reader.result || ""), file.name);
+    };
+    reader.onerror = function () {
+      dialog.open({
+        title: "Load a channel pack",
+        html: "Couldn't read that file.",
+        buttons: [
+          {
+            label: "OK",
+            action: function (d) {
+              d.close();
+            },
+          },
+        ],
+      });
+    };
+    reader.readAsText(file);
+  });
+  input.click();
+}
+
+function openPackPaste() {
+  dialog.open({
+    title: "Paste pack JSON",
+    html:
+      "Paste the pack file's text. Packs only point at the Internet Archive — a collection search or " +
+      "Archive item IDs — and their channels land on CH 30–49 on this TV.",
+    textarea: { placeholder: '{"pack": "Example pack", "version": 1, "channels": [...]}', rows: 8 },
+    buttons: [
+      {
+        label: "Check this pack",
+        action: function (d) {
+          handlePackText(d.value(), "pasted pack");
+        },
+      },
+      {
+        label: "Cancel",
+        action: function (d) {
+          d.close();
+        },
+      },
+    ],
+  });
+}
+
+function handlePackText(text, label) {
+  const parsed = parsePack(text);
+  if (!parsed.ok) return showPackErrors(label, parsed.errors);
+  const v = validatePack(parsed.pack);
+  if (!v.ok) return showPackErrors(label, v.errors);
+  const pack = parsed.pack;
+  let html =
+    "<b>" +
+    esc(pack.pack) +
+    "</b> — " +
+    pack.channels.length +
+    " channel" +
+    (pack.channels.length > 1 ? "s" : "") +
+    ":<br>" +
+    pack.channels
+      .map(function (ch) {
+        return "CH " + ch.number + " · " + ch.name + (ch.kind === "audio" ? " (radio)" : "");
+      })
+      .map(esc)
+      .join("<br>");
+  if (v.warnings.length) {
+    html += "<br><br>Heads up:<br>" + v.warnings.map(esc).join("<br>");
+  }
+  html += "<br><br>Channels you load are saved on this TV only. They never change the shipped lineup.";
+  dialog.open({
+    title: "Load this pack?",
+    html: html,
+    buttons: [
+      {
+        label: "Load pack",
+        action: function (d) {
+          d.close();
+          loadPack(pack);
+        },
+      },
+      {
+        label: "Cancel",
+        action: function (d) {
+          d.close();
+        },
+      },
+    ],
+  });
+}
+
+function loadPack(pack) {
+  let cancelled = false;
+  const done = [];
+  const notes = [];
+  dialog.open({
+    title: "Loading " + pack.pack,
+    html: "Asking the Internet Archive for programs. This takes a few seconds per channel.",
+    onClose: function () {
+      cancelled = true;
+    },
+    buttons: [
+      {
+        label: "Cancel",
+        action: function (d) {
+          cancelled = true;
+          d.close();
+        },
+      },
+    ],
+  });
+  let i = 0;
+  const finish = function () {
+    saveCustom();
+    cancelled = true; // done: closing the dialog now is not a cancel
+    dialog.close();
+    if (!done.length) {
+      dialog.open({
+        title: "Pack loaded — nothing new",
+        html: notes.length ? notes.map(esc).join("<br>") : "No channels were added.",
+        buttons: [
+          {
+            label: "OK",
+            action: function (d) {
+              d.close();
+            },
+          },
+        ],
+      });
+      return;
+    }
+    const first = done[0];
+    tuneTo(first);
+    let msg = "Pack on the air: " + done.map(function (c) {
+      return "CH " + chLabel(c) + " " + c.name;
+    }).join(", ");
+    if (notes.length) msg += ". " + notes.join("; ");
+    V.toast(msg, 6000);
+  };
+  const step = function () {
+    if (cancelled) return;
+    if (i >= pack.channels.length) return finish();
+    const ch = pack.channels[i];
+    i++;
+    dialog.status("Building " + ch.name + " (" + i + " of " + pack.channels.length + ")…");
+    const def = packChannelDef(pack.pack, ch);
+    const job = def.items
+      ? buildItemsChannel(def.items, def, channelCtx())
+      : fetchChannelPrograms(def, function (n, total) {
+          if (!cancelled) dialog.status("Checking " + n + " of " + total + " items for " + ch.name + "…");
+        });
+    job
+      .then(function (res) {
+        if (cancelled) return;
+        if (!res.items.length) {
+          notes.push(ch.name + ": nothing playable turned up");
+          return step();
+        }
+        const added = addBuiltChannel(def, res, { number: ch.number });
+        if (added.skipped) {
+          notes.push(ch.name + ": " + added.skipped);
+          return step();
+        }
+        if (added.renumbered) {
+          notes.push(ch.name + ": CH " + ch.number + " was taken, so it went to CH " + added.ch.number);
+        }
+        if (res.items.length < 25) {
+          notes.push(ch.name + ": only " + res.items.length + " programs — a thin channel");
+        }
+        const hours = res.items.reduce(function (t, p) {
+          return t + p.d;
+        }, 0) / 3600;
+        if (hours < 5) {
+          notes.push(ch.name + ": only about " + hours.toFixed(1) + " hours before it repeats");
+        }
+        done.push(added.ch);
+        step();
+      })
+      .catch(function (err) {
+        if (!cancelled) {
+          notes.push(ch.name + ": couldn't reach the Archive (" + err.message + ")");
+          step();
+        }
+      });
+  };
+  step();
 }
 
 // ---------- phone remote ----------
