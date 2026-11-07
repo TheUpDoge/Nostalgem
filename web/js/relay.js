@@ -14,7 +14,9 @@
 //   TV → phone  { k: "msg" | "pong" | "bye", to, m? }
 //               { k: "tvup", to: "*" }  the TV just came on: phones that were paired rejoin at once
 
-export const RELAY_BROKERS = ["wss://broker.emqx.io:8084/mqtt", "wss://broker.hivemq.com:8884/mqtt", "wss://test.mosquitto.org:8081/"];
+// EMQX and HiveMQ on their WebSocket ports, and Eclipse on the ordinary HTTPS port (443), which even
+// strict networks leave open.
+export const RELAY_BROKERS = ["wss://broker.emqx.io:8084/mqtt", "wss://broker.hivemq.com:8884/mqtt", "wss://mqtt.eclipseprojects.io/mqtt"];
 
 const enc = typeof TextEncoder !== "undefined" ? new TextEncoder() : null;
 const dec = typeof TextDecoder !== "undefined" ? new TextDecoder() : null;
