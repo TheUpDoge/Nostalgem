@@ -1,5 +1,5 @@
 // Link-out stations: hidden channels that show a card with a link instead of a schedule — 420 (South Park)
-// and 777 (the Quenq Arcade). Each station lives in its own module (southpark.js, arcade.js); this is the
+// and 777 (RetroGames.cc). Each station lives in its own module (southpark.js, arcade.js); this is the
 // one place main.js asks about them, so adding a third is one more line here.
 
 import { ARCADE_CHANNEL, ARCADE_URL, openArcade, isLinkChannel, isGuideVisible } from "./arcade.js";

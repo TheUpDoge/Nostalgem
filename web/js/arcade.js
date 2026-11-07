@@ -1,17 +1,17 @@
-// The secret arcade station: a link-out to the Quenq Arcade, tuned by number only.
+// The secret arcade station: a link-out to RetroGames.cc, tuned by number only.
 // Kept in its own module so the secret's rules can be tested without a browser.
 //
 // The number is the secret: it never appears in the guide, the README channel list,
 // or any listing. The channel itself carries no game files and no iframe —
-// Quenq refuses to be framed from here, so the station is a card with a link.
+// the station is a card with a link.
 
-export const ARCADE_URL = "https://quenq.com/arcade/";
+export const ARCADE_URL = "https://www.retrogames.cc/";
 
 export const ARCADE_CHANNEL = {
-  slug: "quenq-arcade",
+  slug: "retrogames",
   number: 777,
-  name: "Quenq Arcade",
-  tagline: "Classic Flash games, preserved and playable.",
+  name: "RetroGames.cc",
+  tagline: "Retro console and arcade games, playable in your browser.",
   icon: "🕹️",
   color: "#ff2a6d",
   kind: "link",
