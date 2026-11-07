@@ -23,6 +23,7 @@ const BY_KEY = {
   l: "live", L: "live",
   p: "last", P: "last", LastNumberRedial: "last",
   m: "mute", M: "mute",
+  v: "look", V: "look",
   "?": "help", h: "help", H: "help",
 };
 

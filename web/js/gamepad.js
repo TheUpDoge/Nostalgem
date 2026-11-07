@@ -2,7 +2,7 @@
 // drives the remote. The button mapping and the press/repeat logic are pure and
 // tested; the poller at the bottom is a thin shell around navigator.getGamepads.
 //
-// Standard Gamepad API layout: 0 A/cross, 1 B/circle, 2 X/square, 3 Y/triangle,
+// Standard Gamepad API layout: 0 A/cross, 1 B/circle, 2 X/square, 3 Y/triangle (next picture filter),
 // 8 Back/Share, 9 Start/Options, 12–15 D-pad up/down/left/right, axes 0/1 left stick.
 
 export const PAD = { A: 0, B: 1, X: 2, Y: 3, BACK: 8, START: 9, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
@@ -18,6 +18,8 @@ export function actionForButton(i) {
       return "back";
     case 2:
       return "playpause";
+    case 3:
+      return "look";
     case 8:
       return "back";
     case 9:
@@ -61,7 +63,7 @@ function stickDir(snap) {
 export function padStep(state, snap, now) {
   var out = [];
   var prev = state.prev || null;
-  var faces = [0, 1, 2, 8, 9];
+  var faces = [0, 1, 2, 3, 8, 9];
   for (var f = 0; f < faces.length; f++) {
     var bi = faces[f];
     if (isDown(snap, bi) && !isDown(prev, bi)) {

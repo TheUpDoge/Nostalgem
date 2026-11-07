@@ -19,7 +19,7 @@ test("button mapping", () => {
   assert.equal(actionForButton(13), "down");
   assert.equal(actionForButton(14), "left");
   assert.equal(actionForButton(15), "right");
-  assert.equal(actionForButton(3), null);
+  assert.equal(actionForButton(3), "look");
   assert.equal(actionForButton(4), null);
 });
 

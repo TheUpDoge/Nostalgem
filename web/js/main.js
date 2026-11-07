@@ -11,6 +11,8 @@ import { archiveAboutHtml } from "./about.js";
 import { buildItemsChannel, packChannelDef, parsePack, validatePack, PACK_MIN_NUMBER, PACK_MAX_NUMBER } from "./packs.js";
 import { LINK_CHANNELS, isLinkChannel, isGuideVisible, linkCardName, linkUrl, openLinkChannel } from "./linkout.js";
 import { createGamepad } from "./gamepad.js";
+import { LOOKS, asciiMask, lookById, lookCss, lookYtCss, looksSvg, nextLook } from "./looks.js";
+import { Ambience, AMBIENCES, ambienceName } from "./ambience.js";
 import { pickSubtitle, subtitleLabel } from "./captions.js";
 import { Guide } from "./ui/guide.js";
 import { Menu } from "./ui/menu.js";
@@ -31,7 +33,7 @@ const ON_PAGES = window.location.href.indexOf(PAGES_BASE) === 0;
 const LIVE_LINEUP = ANDROID && !ON_PAGES ? PAGES_BASE + "data/lineup.json" : "";
 const LINEUP_RECHECK = 3 * 3600 * 1000; // coming back to the app after this long: look for a newer lineup
 
-const DEFAULTS = { crt: "light", fit: "contain", cc: "off", staticFx: "sound", bug: true, clock24: false, surf: "all", phone: false, region: "auto" };
+const DEFAULTS = { crt: "light", fit: "contain", cc: "off", staticFx: "sound", bug: true, clock24: false, surf: "all", phone: false, region: "auto", look: "off", ambience: "off" };
 const SLEEP_STEPS = [0, 15, 30, 45, 60, 90, 120];
 const STILL_AFTER = 4 * 3600 * 1000; // no button pressed for four hours: ask
 const STILL_GRACE = 2 * 60 * 1000; // then switch off two minutes later
@@ -96,6 +98,7 @@ const app = {
 const s = app.s;
 
 const fx = new Static($("static"));
+const ambience = new Ambience();
 const player = new Player($("screen"), {
   ytHost: $("yt"),
   state: onPlayerState,
@@ -722,16 +725,93 @@ function saveLists() {
 
 // ---------- look ----------
 function applyLook() {
+  const look = lookById(s.look);
+  const css = lookCss(look);
   const keep = tv.className
     .split(/\s+/)
     .filter(function (c) {
-      return c && !/^(crt|fit)-/.test(c);
+      return c && !/^(crt|fit|lookfx)-/.test(c) && c !== "look-on" && c !== "look-ascii";
     })
     .join(" ");
-  tv.className = keep + " crt-" + s.crt + " fit-" + s.fit;
+  tv.className =
+    keep +
+    " crt-" +
+    s.crt +
+    " fit-" +
+    s.fit +
+    (css ? " look-on" : "") +
+    (look.ytMask ? " look-ascii" : "") +
+    (look.overlay ? " lookfx-" + look.overlay : "") +
+    (look.ytOverlay ? " lookfx-" + look.ytOverlay : "");
+  if (css) {
+    tv.style.setProperty("--look", css);
+    tv.style.setProperty("--look-yt", lookYtCss(look) || "none");
+  } else {
+    tv.style.removeProperty("--look");
+    tv.style.removeProperty("--look-yt");
+  }
+  if (look.ytMask) {
+    const m = asciiMask(tv.clientHeight || window.innerHeight);
+    tv.style.setProperty("--look-mask", m.url);
+    tv.style.setProperty("--look-mask-size", m.size);
+  }
+  if (look.svg) installLooks();
+  ambience.set(s.ambience);
   fx.sound = s.staticFx === "sound";
   updateBug();
   if (!banner.hidden) renderBanner();
+}
+
+// The SVG filters live in the page once; their pixel and ASCII cells follow the screen's height.
+let looksHeight = 0;
+function installLooks() {
+  const h = Math.round(tv.clientHeight || window.innerHeight || 720);
+  if (Math.abs(h - looksHeight) < 40 && document.getElementById("looks")) return;
+  looksHeight = h;
+  let holder = document.getElementById("looks");
+  if (!holder) {
+    holder = document.createElement("div");
+    holder.id = "looks";
+    document.body.appendChild(holder);
+  }
+  holder.innerHTML = looksSvg({ height: h });
+}
+window.addEventListener("resize", function () {
+  if (lookById(s.look).svg) installLooks();
+});
+
+function setLook(id, quiet) {
+  s.look = lookById(id).id;
+  saveSettings();
+  applyLook();
+  if (!quiet) V.toast("🎨 Filter: " + lookById(s.look).name, 2500);
+}
+
+function looksPage() {
+  return {
+    title: "Picture filter",
+    sub: "Shows right away · works on every channel",
+    items: function () {
+      const list = [];
+      let group = "";
+      LOOKS.forEach(function (look) {
+        if (look.group !== group) {
+          group = look.group;
+          list.push({ head: true, label: group });
+        }
+        list.push({
+          label: look.name,
+          value: function () {
+            return s.look === look.id ? "✓ On" : "";
+          },
+          ok: function () {
+            setLook(look.id, true);
+          },
+        });
+      });
+      return list;
+    },
+  };
 }
 
 function updateBug() {
@@ -969,7 +1049,7 @@ function rootPage() {
         },
       });
       list.push({
-        label: "About the Archive",
+        label: "📜 Disclaimer & donate",
         sub: true,
         ok: function () {
           showArchiveAbout();
@@ -1023,6 +1103,23 @@ function rootPage() {
           applyLook
         )
       );
+      list.push({
+        label: "🎨 Filter",
+        sub: true,
+        value: function () {
+          return lookById(s.look).name;
+        },
+        left: function () {
+          setLook(nextLook(s.look, -1).id, true);
+        },
+        right: function () {
+          setLook(nextLook(s.look, 1).id, true);
+        },
+        ok: function () {
+          menu.push(looksPage());
+        },
+      });
+      list.push(cycler("🎧 Ambience", "ambience", AMBIENCES, applyLook));
       list.push(
         cycler(
           "Channel static",
@@ -1388,10 +1485,21 @@ function buildCustom(def) {
     });
 }
 
+function drawDonateQr() {
+  loadScript("vendor/qrcode.js")
+    .then(function () {
+      const box = document.querySelector("#dialog .link-qr");
+      if (box) box.innerHTML = qrSvg(box.getAttribute("data-url"));
+    })
+    .catch(function () {
+      /* the address is in the text */
+    });
+}
+
 function showArchiveAbout() {
   dialog.open({
-    title: "About the Archive",
-    html: archiveAboutHtml(),
+    title: "Disclaimer & donate",
+    html: '<div class="donate-qr"><div class="link-qr" data-url="https://archive.org/donate"></div>Scan to donate</div>' + archiveAboutHtml(),
     buttons: [
       {
         label: "Close",
@@ -1401,6 +1509,7 @@ function showArchiveAbout() {
       },
     ],
   });
+  drawDonateQr();
 }
 
 // ---------- channel packs ----------
@@ -1927,6 +2036,7 @@ function showHelp() {
     ["Blue", "TV guide", "G"],
     ["", "Back to live after pausing", "L"],
     ["", "Sound on / off", "M"],
+    ["🎨", "Next picture filter (a controller's Y button too)", "V"],
     ["📱", "Use your phone as the remote: Menu ▸ Phone remote", ""],
   ];
   dialog.open({
@@ -2045,6 +2155,7 @@ function restoreCard() {
 // ---------- input ----------
 function handleAction(a) {
   app.lastInput = Date.now();
+  ambience.resume();
   if (fx.audio && fx.audio.state === "suspended") {
     try {
       fx.audio.resume();
@@ -2151,6 +2262,9 @@ function rootAction(a) {
     case "green":
       cycleCc(1);
       V.toast("Subtitles: " + ccValue());
+      break;
+    case "look":
+      setLook(nextLook(s.look, 1).id);
       break;
     case "mute":
       player.setMuted(!player.muted);
@@ -2355,6 +2469,7 @@ function tick() {
   const now = Date.now();
   app.ticks++;
   player.tick();
+  ambience.setActive(app.state === "on" && !player.muted);
   if (app.bannerUntil) {
     if (now > app.bannerUntil && player.mode !== "paused") hideBanner();
     else if (app.ticks % 2 === 0) renderBanner();

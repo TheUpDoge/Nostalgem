@@ -2,8 +2,8 @@
 
 Retro cable TV. 65 channels that run 24/7, with Westerns at the top of the dial, plus serials, noir,
 creature features, cartoons, sitcoms, game shows, newsreels, Apollo films, *The Computer Chronicles* and
-old-time radio, public-domain or openly licensed and streamed from the [Internet Archive](https://archive.org), and a
-block of official YouTube channels from CH 50 up.
+old-time radio streamed from the [Internet Archive](https://archive.org)'s public collections, and a block
+of official YouTube channels from CH 50 up. Free and non-commercial: see the [Disclaimer](#disclaimer).
 
 Like real broadcast TV, every channel follows a schedule set by the clock. Tune in and you join
 whatever's already on, mid-scene, at the same moment as every other TV tuned to that channel.
@@ -80,6 +80,14 @@ YouTube's player) and rebuilt daily:
 - **House bumpers.** About one station break in three (every break on Commercial Break) shows a station
   ID card instead of the plain up-next card — short original bumpers from `web/data/bumpers.json`,
   picked from the clock so every TV in the same break sees the same one.
+- **Picture filters**, like an emulator's video filters: black & white, hard noir, sepia, Technicolor,
+  *Sin City* (black and white with one color kept: red, blue, green, yellow, purple or cyan), color tints,
+  VHS tape, Game Boy, 8-bit, low-res pixels, **ASCII** (mono or color), vaporwave, outrun, thermal camera,
+  night vision, dreamy glow and negative. Menu ▸ Picture & sound ▸ 🎨 Filter, or press **V** (a
+  controller's Y, or 🎨 on the phone) to step through them. They're drawn by the browser over the
+  picture, so they work on YouTube channels too, where a few become simpler versions (YouTube's player
+  is another site's page, and browsers only allow plain CSS filters over it).
+- **Ambience**: lo-fi vinyl crackle, a rainy window, or tape hiss under the program (Menu ▸ Picture & sound).
 - **Channel surfing**: ▲▼, CH+/CH−, or type a number. There's TV snow and a hiss between channels
   (or just snow, or neither), and holding ▲ flips fast.
 - **TV guide**: channels down the side and time across the top, with what's on later and a
@@ -163,6 +171,7 @@ rewriting in Roku's own language (BrightScript), which would be a separate proje
 | Green · CC | C | Subtitles |
 | Yellow | P | Previous channel |
 | | M | Sound on / off |
+| | V | Next picture filter (a controller's Y button too) |
 | | H | Help |
 
 ### 🎮 Gamepad
@@ -327,7 +336,8 @@ web/
   remote.html, js/phone.js     the phone remote page (an installable PWA)
   vendor/                      PeerJS and a QR code generator, both MIT (see vendor/README.md)
   js/ui/                       banner, guide, menu, dialogs
-  js/about.js                  About the Archive: words and links (Menu ▸ About the Archive)
+  js/about.js                  disclaimer & donate: words and links (Menu ▸ Disclaimer & donate, about.html)
+  js/looks.js, js/ambience.js  picture filters and lo-fi sound (Menu ▸ Picture & sound, V key)
   js/packs.js                  channel packs: format, validator, loader (Menu ▸ Load a channel pack)
   js/main.js                   wires it all together
   data/channels.json           channel definitions
@@ -364,15 +374,32 @@ tests/                         node:test unit tests + a Playwright smoke test
   key press makes; the TV sends back what's on. Only whitelisted actions are accepted.
 - **Older TVs.** The app sticks to ES2018 (a test enforces it), ships its own fonts, and uses no frameworks.
 
+## Disclaimer
+
+NostalGem is a free, non-commercial, personal project: a way into public library collections, a tool
+for learning, and something to enjoy. It is not sold, carries no ads, has no accounts, and nobody pays
+for anything.
+
+It hosts no video. The Archive channels stream straight from the Internet Archive, and the YouTube
+channels play through YouTube's own player. Every program belongs to its rights holders; this project
+claims no ownership of any of it. **If you hold the rights to something here and want it off, open an
+issue at [github.com/TheUpDoge/Nostalgem/issues](https://github.com/TheUpDoge/Nostalgem/issues) and it
+comes off.**
+
+The same words are in the app (Menu ▸ 📜 Disclaimer & donate) and on its own page, `about.html`
+([theupdoge.github.io/Nostalgem/about.html](https://theupdoge.github.io/Nostalgem/about.html)).
+
+**[♥ Donate to the Internet Archive](https://archive.org/donate)** — its bandwidth makes every Archive
+channel work.
+
 ## About the programming
 
-Everything plays straight from the Internet Archive. This project hosts no video. Most of it is in the
-public domain or openly licensed, and the lineup builder tries hard to keep it that way. It skips
-lending-library items, anything dated after 1977 (except NASA and Creative Commons sources), and
-items whose files carry the fingerprints of ripped commercial releases. It also keeps adult titles
-and a short list of notoriously hateful cartoons and films off the air. That filtering is a good-faith
-effort, not a guarantee. If something shouldn't be on, add it to `exclude` in `channels.json` and
-rebuild.
+Everything on the Archive channels plays straight from the Internet Archive. Most of it is in the
+public domain or openly licensed. The lineup builder skips lending-library items, anything dated after
+1977 (except NASA and Creative Commons sources), and items whose files carry the fingerprints of ripped
+commercial releases. It also keeps adult titles and a short list of notoriously hateful cartoons and
+films off the air. That filtering is a good-faith effort, not a guarantee. To take something off, add it
+to `exclude` in `channels.json` and rebuild.
 
 Some of these films are a century old and show the attitudes of their time.
 
@@ -380,16 +407,11 @@ The Internet Archive is a non-profit digital library working toward universal ac
 knowledge. Its films, radio, books and music are preserved for everyone, and its bandwidth
 makes this app possible. Learn more at [archive.org/about](https://archive.org/about/), read
 its [terms of use](https://archive.org/about/terms), and if you enjoy it, please consider
-[donating](https://archive.org/donate). You can also read about the Archive in the app:
-Menu ▸ About the Archive.
+[donating](https://archive.org/donate).
 
-A note on this page — or in the app — doesn't change the copyright status of anything. The
-built-in channels play public-domain Archive material only, checked before it ships, but that
-filtering is a good-faith effort, not a guarantee. Channels you add yourself, by search or by
-loading a channel pack, are your choice on your own TV and are not part of the shipped lineup.
-
-If you enjoy it, please consider [donating to the Internet Archive](https://archive.org/donate).
-Their bandwidth makes this work.
+A note on this page — or in the app — doesn't change the copyright status of anything. Channels you
+add yourself, by search or by loading a channel pack, are your choice on your own TV and are not part
+of the shipped lineup.
 
 Fonts: [Orbitron](https://github.com/theleagueof/orbitron) and [VT323](https://fonts.google.com/specimen/VT323),
 both under the SIL Open Font License (`web/fonts/OFL-*.txt`).

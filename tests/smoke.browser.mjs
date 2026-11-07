@@ -384,6 +384,22 @@ try {
   check(st.channel >= 30 && /Rodeo/.test(st.name), `a new channel was built and tuned (CH ${st.channel} ${st.name})`);
   check(st.program === "Test Rodeo", `it plays the search result (${st.program})`);
 
+  // Picture filters: V steps through them; SVG ones draw on the program; all the way round is Off again.
+  {
+    const { LOOKS } = await import("../web/js/looks.js");
+    await key("v", 400);
+    check((await page.evaluate(() => document.getElementById("tv").classList.contains("look-on"))) && (await page.textContent("#toast")).includes(LOOKS[1].name), `V turns on the first filter (${LOOKS[1].name})`);
+    const ascii = LOOKS.findIndex((l) => l.id === "ascii");
+    for (let i = 1; i < ascii; i++) await key("v", 60);
+    await page.waitForTimeout(800);
+    const f = await page.evaluate(() => getComputedStyle(document.getElementById("screen")).filter);
+    check(/ng-look-ascii/.test(f) && (await page.$("#looks filter#ng-look-ascii")) !== null, "…and the ASCII filter is drawn on the program (" + f.slice(0, 40) + ")");
+    await shot("4h-ascii");
+    for (let i = ascii; i < LOOKS.length; i++) await key("v", 60);
+    await page.waitForTimeout(300);
+    check(!(await page.evaluate(() => document.getElementById("tv").classList.contains("look-on"))), "…and pressing V all the way round turns filters off");
+  }
+
   // The hidden link-out stations: tuned by number only; a card with a link and a QR code; not in the guide.
   for (const [num, name, word] of [
     ["420", "South Park", "SOUTH PARK"],

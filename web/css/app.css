@@ -177,6 +177,88 @@ body {
   border-radius: 4vh / 6vh;
   filter: saturate(1.15) contrast(1.05);
 }
+
+/* ---------- picture filters (looks.js) ---------- */
+/* Only set while a filter is on: a filter makes the browser composite every video frame itself. */
+.look-on #screen {
+  filter: var(--look);
+}
+/* YouTube's player is another site's page: browsers only run CSS filter functions over it. */
+.look-on .yt {
+  filter: var(--look-yt);
+}
+/* ASCII on YouTube: the picture seen through a tile of characters. */
+.look-ascii {
+  background: #000;
+}
+.look-ascii .yt {
+  background: transparent;
+  -webkit-mask-image: var(--look-mask);
+  mask-image: var(--look-mask);
+  -webkit-mask-size: var(--look-mask-size);
+  mask-size: var(--look-mask-size);
+}
+/* Pixel looks on YouTube: a pixel grid over the picture. */
+.lookfx-pixgrid .yt:not([hidden]) ~ .lookfx {
+  display: block;
+  background: repeating-linear-gradient(to right, rgba(0, 0, 0, 0.35) 0, rgba(0, 0, 0, 0.35) 1px, rgba(0, 0, 0, 0) 1px, rgba(0, 0, 0, 0) 5px),
+    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.35) 0, rgba(0, 0, 0, 0.35) 1px, rgba(0, 0, 0, 0) 1px, rgba(0, 0, 0, 0) 5px);
+}
+.crt-heavy.look-on #screen {
+  filter: saturate(1.15) contrast(1.05) var(--look);
+}
+.lookfx {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  display: none;
+}
+/* VHS: a tracking band rolling down, and a little tape noise. */
+.lookfx-vhs .lookfx {
+  display: block;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0) 0, rgba(255, 255, 255, 0.07) 46%, rgba(255, 255, 255, 0.16) 50%, rgba(255, 255, 255, 0.07) 54%, rgba(255, 255, 255, 0) 100%) 0 0 / 100% 18vh no-repeat,
+    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.12) 0, rgba(0, 0, 0, 0.12) 1px, rgba(0, 0, 0, 0) 2px, rgba(0, 0, 0, 0) 4px);
+  animation: vhs-roll 7s linear infinite;
+  mix-blend-mode: screen;
+}
+@keyframes vhs-roll {
+  from {
+    background-position: 0 -20vh, 0 0;
+  }
+  to {
+    background-position: 0 120vh, 0 0;
+  }
+}
+/* Night vision: grain and a scope vignette. */
+.lookfx-grain .lookfx {
+  display: block;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.75) 100%),
+    repeating-radial-gradient(circle at 37% 61%, rgba(180, 255, 180, 0.07) 0, rgba(0, 0, 0, 0) 1px, rgba(0, 0, 0, 0) 3px);
+  animation: grain 0.25s steps(3) infinite;
+}
+@keyframes grain {
+  0% {
+    background-position: 0 0, 0 0;
+  }
+  33% {
+    background-position: 0 0, 7px 3px;
+  }
+  66% {
+    background-position: 0 0, -5px 6px;
+  }
+  100% {
+    background-position: 0 0, 3px -4px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lookfx-vhs .lookfx,
+  .lookfx-grain .lookfx {
+    animation: none;
+  }
+}
 @keyframes flicker {
   from {
     opacity: 1;
@@ -1481,4 +1563,19 @@ body {
 .pair-note {
   font-size: 0.85rem;
   color: var(--faint);
+}
+
+/* Disclaimer & donate: a QR code so a TV viewer can donate from a phone. */
+.donate-qr {
+  float: right;
+  width: 8rem;
+  margin: 0 0 0.6rem 1.2rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--dim);
+}
+.donate-qr .link-qr {
+  width: 8rem;
+  height: 8rem;
+  margin-bottom: 0.3rem;
 }
