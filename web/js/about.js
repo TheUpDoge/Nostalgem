@@ -1,32 +1,40 @@
-// About the Internet Archive: the words and links behind Menu ▸ About the Archive.
-// Kept in its own module so the text can be tested without a browser.
+// About, disclaimer and donate: the words and links behind Menu ▸ Disclaimer & donate, and the
+// stand-alone about.html page. Kept in its own module so the text can be tested without a browser.
 
 // All three were checked live and return HTTP 200. The terms page lives at /about/terms;
 // the older /about/terms.php address redirects there.
 export const ARCHIVE_ABOUT_URL = "https://archive.org/about/";
 export const ARCHIVE_DONATE_URL = "https://archive.org/donate";
 export const ARCHIVE_TERMS_URL = "https://archive.org/about/terms";
+export const ISSUES_URL = "https://github.com/TheUpDoge/Nostalgem/issues";
+
+function link(url, text) {
+  return '<a href="' + url + '" target="_blank" rel="noopener">' + text + "</a>";
+}
 
 export function archiveAboutHtml() {
   return (
-    "<p>The <b>Internet Archive</b> (archive.org) is a non-profit digital library working " +
-    "toward universal access to all knowledge — books, films, music, radio and more, " +
-    "preserved for everyone.</p>" +
-    "<p>NostalGem's Archive channels play <b>public-domain Archive material only</b>, checked " +
-    "before it ships. The lineup builder skips lending-library items, anything dated after 1977 " +
-    "(except NASA and Creative Commons sources), and files that carry the fingerprints of ripped " +
-    "commercial releases. That filtering is a good-faith effort, not a guarantee. " +
-    "The YouTube channels (CH 50 and up) are different: they play the owners' own official uploads " +
-    "through YouTube's player, and stay on YouTube.</p>" +
-    "<p>A note on this page doesn't change the copyright status of anything. If something " +
-    "shouldn't be on, it gets taken off — see “About the programming” in the README.</p>" +
-    "<p>Channels you add yourself — by search, or by loading a channel pack — are your choice " +
-    "on your own TV. They are not part of the shipped lineup.</p>" +
-    "<p>If you enjoy it, please consider donating — the Archive's bandwidth makes this work: " +
-    '<a href="https://archive.org/donate" target="_blank" rel="noopener">archive.org/donate</a>. ' +
-    "The Archive's terms of use: " +
-    '<a href="https://archive.org/about/terms" target="_blank" rel="noopener">archive.org/about/terms</a>. ' +
-    "More about the Archive: " +
-    '<a href="https://archive.org/about/" target="_blank" rel="noopener">archive.org/about</a>.</p>'
+    "<p><b>NostalGem is free, non-commercial and personal.</b> It's made for private, personal use: " +
+    "a way into public library collections, a tool for learning, and something to enjoy. It is not sold, " +
+    "it carries no ads, it has no accounts, and nobody pays for anything.</p>" +
+    "<p><b>It hosts no video.</b> The Archive channels stream straight from the <b>Internet Archive</b> " +
+    "(archive.org), a non-profit digital library working toward universal access to all knowledge. " +
+    "The YouTube channels play through YouTube's own player. Every program belongs to its rights " +
+    "holders; NostalGem claims no ownership of any of it.</p>" +
+    "<p>The lineup is picked from the Archive's public collections by a builder that skips " +
+    "lending-library items and files that look like ripped releases. That's a good-faith effort, not a " +
+    "guarantee, and a note like this one doesn't change the copyright status of anything. " +
+    "<b>If you hold the rights to something here and want it off, say so at " +
+    link(ISSUES_URL, "github.com/TheUpDoge/Nostalgem/issues") +
+    " and it comes off.</b> Channels you add yourself (by search or a channel pack) are your choice on " +
+    "your own TV.</p>" +
+    "<p><b>Please support the Internet Archive.</b> Its bandwidth makes every Archive channel work. " +
+    "Donate: " +
+    link(ARCHIVE_DONATE_URL, "archive.org/donate") +
+    " · Terms of use: " +
+    link(ARCHIVE_TERMS_URL, "archive.org/about/terms") +
+    " · More: " +
+    link(ARCHIVE_ABOUT_URL, "archive.org/about") +
+    "</p>"
   );
 }

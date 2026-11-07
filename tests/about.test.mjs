@@ -10,11 +10,15 @@ test("the Archive links are the checked addresses", () => {
   assert.equal(ARCHIVE_TERMS_URL, "https://archive.org/about/terms");
 });
 
-test("the About text names the mission, the curation rule and the honesty note", () => {
+test("the disclaimer says what the app is, that it hosts nothing, and how to get something taken off", () => {
   const html = archiveAboutHtml();
   assert.match(html, /non-profit digital library/);
   assert.match(html, /universal access to all knowledge/);
-  assert.match(html, /public-domain Archive material only/);
+  assert.match(html, /non-commercial/);
+  assert.match(html, /not sold/);
+  assert.match(html, /hosts no video/);
+  assert.match(html, /want it off/);
+  assert.ok(html.indexOf('href="https://github.com/TheUpDoge/Nostalgem/issues"') >= 0, "takedown link");
   assert.match(html, /doesn't change the copyright status/);
   assert.match(html, /your choice/);
   assert.match(html, /archive\.org\/donate/);
