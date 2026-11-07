@@ -18,6 +18,7 @@ import { Dialog } from "./ui/dialog.js";
 import * as V from "./ui/views.js";
 import { TvLink, makeCode, cleanCode, remoteUrl, prettyCode, qrSvg, loadScript, isIPv4, PAGES_BASE } from "./link.js";
 import { loadLineup, builtAt } from "./lineup.js";
+import { loadBumpers } from "./bumpers.js";
 import { pad2, escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder } from "./util.js";
 
 const VERSION = "1.3.0";
@@ -58,6 +59,7 @@ function pruneBad(bad) {
 const app = {
   lineup: null,
   about: {},
+  bumpers: [],
   channels: [],
   idx: -1,
   last: -1,
@@ -387,7 +389,7 @@ function onPlayerState(mode, extra) {
     case "gap":
       fx.release();
       hideRadio();
-      if (player.slot) V.showCard("gap", V.gapCard(ch, player.slot, s.clock24));
+      if (player.slot) V.showCard("gap", V.gapCard(ch, player.slot, s.clock24, app.bumpers));
       break;
     case "standby":
       fx.release();
@@ -2023,7 +2025,7 @@ function openLinkOut(ch) {
 
 function restoreCard() {
   const ch = current();
-  if (player.mode === "gap" && player.slot) V.showCard("gap", V.gapCard(ch, player.slot, s.clock24));
+  if (player.mode === "gap" && player.slot) V.showCard("gap", V.gapCard(ch, player.slot, s.clock24, app.bumpers));
   else if (player.mode === "standby") V.showCard("standby", V.standbyCard(app.standby));
   else if (player.mode === "empty") V.showCard("empty", V.emptyCard(ch, app.emptyWhy));
   else if (isLinkChannel(ch)) showLinkCard(ch);
@@ -2457,6 +2459,11 @@ async function boot() {
     }
   }
   applyLineup(got.lineup, got.source);
+  // House bumpers for the station breaks. Loads in the background; a missing
+  // file just means plain "up next" cards.
+  loadBumpers("data/bumpers.json").then(function (list) {
+    app.bumpers = list;
+  });
   const asked = (params.get("ch") || "").replace(/[^0-9]/g, "").replace(/^0+(?=\d)/, "");
   const lastSlug = load("last", "");
   const start =

@@ -4,6 +4,7 @@ import { escapeHtml as esc, fmtClock, fmtDuration, fmtLeft, fmtRuntime, pad2, ch
 import { ARCADE_URL } from "../arcade.js";
 import { SOUTH_PARK_CHANNEL, SOUTH_PARK_URL } from "../southpark.js";
 import { standbyText } from "../problems.js";
+import { bumperForSlot } from "../bumpers.js";
 
 export function $(id) {
   return document.getElementById(id);
@@ -189,7 +190,11 @@ export function hideCard() {
 }
 
 // A station break (or a file that ended early): the next program starts when this slot ends.
-export function gapCard(ch, slot, clock24) {
+// About one break in three (every break on Commercial Break) shows a house bumper instead:
+// a station ID card that still counts down and still says what's up next.
+export function gapCard(ch, slot, clock24, bumpers) {
+  const b = bumperForSlot(bumpers, slot, ch);
+  if (b && slot.next) return bumperCard(ch, slot, clock24, b);
   const n = slot.next;
   const startMs = slot.slotEndMs;
   const left = gapSecondsLeft(slot);
@@ -200,6 +205,32 @@ export function gapCard(ch, slot, clock24) {
       n.t,
       programMeta(n) + " · " + fmtClock(new Date(startMs), clock24),
       '<div class="card-count">' + fmtDuration(left) + "</div>"
+    )
+  );
+}
+
+// A house bumper: same sunset scene and panel, same countdown and up-next line
+// as the plain break card, so it still does the break card's job.
+export function bumperCard(ch, slot, clock24, bumper) {
+  const n = slot.next;
+  const startMs = slot.slotEndMs;
+  const left = gapSecondsLeft(slot);
+  return (
+    SCENE +
+    panel(
+      bumper.kicker,
+      bumper.title,
+      bumper.sub,
+      '<div class="card-count">' +
+        fmtDuration(left) +
+        "</div>" +
+        '<div class="b-next-label">UP NEXT · ' +
+        esc(fmtClock(new Date(startMs), clock24)) +
+        '</div><div class="b-next">' +
+        esc(n.t) +
+        (n.e ? " · " + esc(n.e) : "") +
+        (n.y ? " <small>" + n.y + "</small>" : "") +
+        "</div>"
     )
   );
 }

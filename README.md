@@ -1,6 +1,6 @@
 # NostalGem
 
-Retro cable TV from the public domain. 23 channels that run 24/7, with Westerns at the top of the dial,
+Retro cable TV from the public domain. 63 channels that run 24/7, with Westerns at the top of the dial,
 plus serials, noir, creature features, cartoons, sitcoms, game shows, newsreels, Apollo films,
 *The Computer Chronicles* and old-time radio. Everything streams from the
 [Internet Archive](https://archive.org).
@@ -19,6 +19,7 @@ code, branding or look.
 | 1 | 🌵 **High Noon** | Western features, about 100 hours before a repeat |
 | 2 | 🎸 **Singing Cowboys** | Roy Rogers, Gene Autry, Tex Ritter |
 | 3 | 🐎 **Trail TV** | *The Lone Ranger*, *Bonanza*, *Annie Oakley*, *26 Men*, *Kit Carson* |
+| 3-2 | 🛤️ **The Iron Horse** | Steam, diesel and the open rail |
 | 4 | 🔥 **Campfire Radio** | *Gunsmoke*, *The Six Shooter*, *Fort Laramie*, *Frontier Gentleman* |
 | 5 | 💥 Cliffhangers | Saturday-matinee serials, a chapter at a time |
 | 6 | 🕵️ Midnight Noir | Film noir |
@@ -31,11 +32,14 @@ code, branding or look.
 | 13 | 🎤 Hit Parade | Variety hours, crooners, big bands |
 | 14 | 💰 Commercial Break | Nothing but vintage ads |
 | 15 | 🧪 Ephemera | Classroom, industrial and duck-and-cover films |
+| 15-2 | 🗺️ **Wanderlust** | Vintage travelogues from around the world |
 | 16 | 🗞️ Newsreel | Universal newsreels, 1929–1967 |
 | 17 | 🚀 Mission Control | Mercury, Gemini, Apollo, Skylab, the Shuttle |
+| 17-2 | ✈️ **The Wild Blue** | Vintage aviation, barnstormers to jets |
 | 18 | 💾 Byte Size | *The Computer Chronicles* |
 | 19 | 🌈 Pixel Dreams | Open-source animated shorts in HD |
 | 20 | 🔎 Mystery Radio | *Yours Truly, Johnny Dollar*, *Dragnet* and more |
+| 20-2 | 🎃 **The Witching Hour** | *Inner Sanctum* and more things that go bump |
 | 21 | 👽 Radio From Space | *X Minus One*, *Dimension X* |
 | 22 | 📻 Comedy Radio | Jack Benny, *Our Miss Brooks*, Gildersleeve |
 | 23 | 💬 Subtítulos | Classic films with Spanish subtitles. ¡A practicar! |
@@ -46,7 +50,7 @@ code, branding or look.
 | 28 | 🎷 Jukebox | Soundies, the 1940s music videos |
 | 29 | 💾 Netlabel Radio | Free, Creative Commons synthwave, chiptune and vaporwave |
 
-The Archive channels hold about 3,600 programs and 1,590 hours. From **Menu ▶ Add a channel** you can add more
+The Archive channels hold about 4,000 programs and 1,740 hours. From **Menu ▶ Add a channel** you can add more
 with one button (*Bonanza*, *The Lone Ranger*, Duke Westerns, Hopalong Cassidy, Swashbucklers,
 *Gunsmoke* radio, Popeye, Chaplin & Keaton, Méliès, Jack Benny, *Dragnet*, *X Minus One*), or type
 any search and get a channel of it: *the shadow*, *kung fu*, *jazz*, *collection:prelinger*.
@@ -73,6 +77,9 @@ YouTube's player) and rebuilt daily:
 
 - **Live, synchronized schedule.** Every TV agrees on what's on, with no server involved: the schedule
   is worked out from the clock. Programs have an 8-second station break between them with an "up next" card.
+- **House bumpers.** About one station break in three (every break on Commercial Break) shows a station
+  ID card instead of the plain up-next card — short original bumpers from `web/data/bumpers.json`,
+  picked from the clock so every TV in the same break sees the same one.
 - **Channel surfing**: ▲▼, CH+/CH−, or type a number. There's TV snow and a hiss between channels
   (or just snow, or neither), and holding ▲ flips fast.
 - **TV guide**: channels down the side and time across the top, with what's on later and a
@@ -217,7 +224,7 @@ Internet Archive [advanced search](https://archive.org/advancedsearch.php) plus 
 
 ```json
 {
-  "number": 24, "slug": "spaghetti", "name": "Dollars Trilogy", "tagline": "A few films more",
+  "number": 30, "slug": "spaghetti", "name": "Dollars Trilogy", "tagline": "A few films more",
   "icon": "🎺", "color": "#e07a5f", "kind": "video",
   "minMinutes": 60, "maxMinutes": 180, "maxItems": 40, "filesPerItem": 1,
   "sources": [{ "q": "collection:feature_films AND subject:\"spaghetti western\"", "rows": 60 }]
@@ -257,6 +264,15 @@ example in [packs/example-pack.json](packs/example-pack.json) (a western-feature
 built from the same Archive query as CH 1 High Noon).
 
 Packs are your choice on your own TV. They never change `web/data/lineup.json`.
+
+### House bumpers
+
+The station breaks can show a house bumper — an Adult Swim-style station ID card — instead of the
+plain up-next card. They're in [`web/data/bumpers.json`](web/data/bumpers.json): one card each, a
+kicker on top, a big title, and a line underneath. Add your own, delete the ones you don't like, and
+they'll air in the breaks (about one in three, and every break on Commercial Break, CH 14). The
+picker is clock-based, like the schedule, so every TV in the same break shows the same bumper.
+No video needed.
 
 ### YouTube channels
 
@@ -313,6 +329,7 @@ web/
   js/packs.js                  channel packs: format, validator, loader (Menu ▸ Load a channel pack)
   js/main.js                   wires it all together
   data/channels.json           channel definitions
+  data/bumpers.json            house bumpers for the station breaks
   data/lineup.json             built programs (from tools/build-lineup.mjs)
   packs/example-pack.json      an example pack (western features, CH 30)
   PACKS.md                     the channel-pack format
