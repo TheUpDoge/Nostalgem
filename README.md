@@ -158,6 +158,21 @@ rewriting in Roku's own language (BrightScript), which would be a separate proje
 | | M | Sound on / off |
 | | H | Help |
 
+### 🎮 Gamepad
+
+Plug in any standard controller (Xbox, PlayStation, or other) and it drives the remote — no setup. The left stick works like the D-pad; holding ▲▼ flips through channels.
+
+| Gamepad | Does |
+|---|---|
+| D-pad / left stick ▲ ▼ | Change channel (hold to keep flipping) |
+| D-pad / left stick ◀ ▶ | Guide / menu |
+| A / cross | OK / confirm |
+| B / circle | Back / close |
+| X / square | Pause / resume |
+| Start / Options | Menu |
+
+Once you jump out to another site, that site's controls take over.
+
 ### 🔎 Find a show, watch it now
 
 Every channel runs on a schedule, but you don't have to wait for a program. **Menu ▸ 🔎 Find a show**
