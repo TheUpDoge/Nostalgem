@@ -9,7 +9,7 @@ import { load, save } from "./store.js";
 import { buildChannel, browserFetchJson } from "./archive.js";
 import { archiveAboutHtml } from "./about.js";
 import { buildItemsChannel, packChannelDef, parsePack, validatePack, PACK_MIN_NUMBER, PACK_MAX_NUMBER } from "./packs.js";
-import { ARCADE_CHANNEL, isLinkChannel, isGuideVisible, openArcade } from "./arcade.js";
+import { LINK_CHANNELS, isLinkChannel, isGuideVisible, linkCardName, linkUrl, openLinkChannel } from "./linkout.js";
 import { createGamepad } from "./gamepad.js";
 import { pickSubtitle, subtitleLabel } from "./captions.js";
 import { Guide } from "./ui/guide.js";
@@ -258,7 +258,7 @@ function tuneTo(ch, opts) {
     // A link-out station has no schedule: park the player and show its card.
     player.off();
     hideRadio();
-    V.showCard("arcade", V.arcadeCard(ch));
+    showLinkCard(ch);
     updateBug();
     return;
   }
@@ -2001,12 +2001,32 @@ function wake() {
   if (current()) tuneTo(current());
 }
 
+// A link-out station's card, with a QR code so a phone can open the site (the TV app can't open other
+// sites itself).
+function showLinkCard(ch) {
+  V.showCard(linkCardName(ch), V.linkCard(ch, ANDROID));
+  loadScript("vendor/qrcode.js")
+    .then(function () {
+      const box = document.querySelector(".link-qr");
+      const url = linkUrl(current());
+      if (box && url && box.getAttribute("data-url") === url) box.innerHTML = qrSvg(url);
+    })
+    .catch(function () {
+      /* no QR code: the address is on the card */
+    });
+}
+
+// OK on a link-out station: a new tab in a browser; in the TV app, which stays on NostalGem, the phone.
+function openLinkOut(ch) {
+  if (ANDROID || !openLinkChannel(ch)) V.toast("Scan the code on the screen with your phone to open it there", 5000);
+}
+
 function restoreCard() {
   const ch = current();
   if (player.mode === "gap" && player.slot) V.showCard("gap", V.gapCard(ch, player.slot, s.clock24));
   else if (player.mode === "standby") V.showCard("standby", V.standbyCard(app.standby));
   else if (player.mode === "empty") V.showCard("empty", V.emptyCard(ch, app.emptyWhy));
-  else if (isLinkChannel(ch)) V.showCard("arcade", V.arcadeCard(ch));
+  else if (isLinkChannel(ch)) showLinkCard(ch);
   else V.hideCard();
 }
 
@@ -2080,7 +2100,7 @@ function rootAction(a) {
       break;
     case "ok":
       if (isLinkChannel(current())) {
-        openArcade();
+        openLinkOut(current());
         break;
       }
       if (app.digits) commitDigits();
@@ -2365,8 +2385,10 @@ function applyLineup(lineup, source) {
     })
   );
   app.channels.sort(chOrder);
-  // The secret arcade station: tuned by number only, never listed, never scheduled.
-  app.channels.push(ARCADE_CHANNEL);
+  // The secret link-out stations (420, 777): tuned by number only, never listed, never scheduled.
+  LINK_CHANNELS.forEach(function (c) {
+    app.channels.push(c);
+  });
   app.timelines = {};
 }
 

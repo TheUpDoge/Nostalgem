@@ -2,6 +2,7 @@
 
 import { escapeHtml as esc, fmtClock, fmtDuration, fmtLeft, fmtRuntime, pad2, chLabel } from "../util.js";
 import { ARCADE_URL } from "../arcade.js";
+import { SOUTH_PARK_CHANNEL, SOUTH_PARK_URL } from "../southpark.js";
 import { standbyText } from "../problems.js";
 
 export function $(id) {
@@ -248,7 +249,7 @@ export function gestureCard() {
 
 // The secret arcade station: a card, not a program. No iframe — Quenq refuses to be
 // framed from here — just a link out to the arcade, opened with OK or a tap.
-export function arcadeCard(ch) {
+export function arcadeCard(ch, inApp) {
   return (
     SCENE +
     panel(
@@ -256,12 +257,46 @@ export function arcadeCard(ch) {
       "🕹️ THE QUENQ ARCADE",
       "Hundreds of classic Flash games, preserved and playable — search by title, filter by genre, pin your favorites. Keyboard and touch controls built in.",
       '<div class="arcade-coin blink">INSERT COIN</div>' +
-        '<a class="arcade-go" href="' +
-        esc(ARCADE_URL) +
-        '" target="_blank" rel="noopener">▶ PLAY AT QUENQ.COM/ARCADE</a>' +
-        '<div class="arcade-hint">Press OK to jump to the arcade — it opens in a new tab</div>'
+        linkRow(ARCADE_URL, '<a class="arcade-go" href="' + esc(ARCADE_URL) + '" target="_blank" rel="noopener">▶ PLAY AT QUENQ.COM/ARCADE</a>') +
+        '<div class="arcade-hint">' +
+        linkHint(inApp, "the arcade") +
+        "</div>"
     )
   );
+}
+
+// The secret South Park station: a card, not a program. No iframe — the official
+// site only allows framing from its own origin — just a link out, opened with OK or a tap.
+export function southParkCard(ch, inApp) {
+  return (
+    SCENE +
+    panel(
+      "A SECRET STATION",
+      "📺 SOUTH PARK",
+      "Full episodes, clips and more from the official South Park site. Oh my God, they killed Kenny!",
+      '<div class="southpark-tag blink">RESPECT MY AUTHORITAH</div>' +
+        linkRow(SOUTH_PARK_URL, '<a class="southpark-go" href="' + esc(SOUTH_PARK_URL) + '" target="_blank" rel="noopener">▶ WATCH AT SOUTHPARK.CC.COM</a>') +
+        '<div class="southpark-hint">' +
+        linkHint(inApp, "South Park") +
+        "</div>"
+    )
+  );
+}
+
+// Either link-out station's card. inApp: the Android TV app, which never leaves NostalGem, so the phone
+// opens the site instead (main.js draws the QR code into .link-qr).
+export function linkCard(ch, inApp) {
+  return ch && ch.slug === SOUTH_PARK_CHANNEL.slug ? southParkCard(ch, inApp) : arcadeCard(ch, inApp);
+}
+
+function linkRow(url, button) {
+  return '<div class="link-row"><div class="link-qr" data-url="' + esc(url) + '"></div>' + button + "</div>";
+}
+
+function linkHint(inApp, what) {
+  return inApp
+    ? "Scan the code with your phone to open " + what + " there"
+    : "Press OK to open " + what + " in a new tab — or scan the code with your phone";
 }
 
 // ---------- radio ----------
