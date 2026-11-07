@@ -82,12 +82,15 @@ YouTube's player) and rebuilt daily:
   picked from the clock so every TV in the same break sees the same one.
 - **Picture filters**, like an emulator's video filters: black & white, hard noir, sepia, Technicolor,
   *Sin City* (black and white with one color kept: red, blue, green, yellow, purple or cyan), color tints,
-  VHS tape, Game Boy, 8-bit, low-res pixels, **ASCII** (mono or color), vaporwave, outrun, thermal camera,
-  night vision, dreamy glow and negative. Menu ▸ Picture & sound ▸ 🎨 Filter, or press **V** (a
+  VHS tape, Game Boy, 8-bit, low-res pixels, **ASCII** (green, color, or with **Matrix rain**; the
+  characters shimmer as they play), vaporwave, outrun, thermal camera, night vision, dreamy glow and
+  negative. **Mix with** puts a second color filter on top: ASCII + Vaporwave, Game Boy + Hard noir. Menu ▸ Picture & sound ▸ 🎨 Filter, or press **V** (a
   controller's Y, or 🎨 on the phone) to step through them. They're drawn by the browser over the
   picture, so they work on YouTube channels too: browsers won't filter YouTube's player directly (it's
   another site's page), so there the filter runs on a see-through layer above it. Older TV browsers
-  without that get simpler versions.
+  without that get simpler versions. The pixel and ASCII looks are drawn on a canvas (the video drawn
+  small, then scaled up by the graphics chip), so they run at full speed on a TV; on YouTube they get
+  lighter stand-ins, since YouTube's player can't be drawn.
 - **Ambience**: lo-fi vinyl crackle, a rainy window, or tape hiss under the program (Menu ▸ Picture & sound).
 - **Number pad** on screen for remotes without number buttons (TCL's Google TV remote has none):
   Menu ▸ 🔢 Number pad, then the arrows and OK. 1 5 2 GO is CH 15-2.
@@ -345,6 +348,7 @@ web/
   js/ui/                       banner, guide, menu, dialogs
   js/about.js                  disclaimer & donate: words and links (Menu ▸ Disclaimer & donate, about.html)
   js/looks.js, js/ambience.js  picture filters and lo-fi sound (Menu ▸ Picture & sound, V key)
+  js/fxcanvas.js               the pixel and ASCII looks, drawn on a canvas
   js/packs.js                  channel packs: format, validator, loader (Menu ▸ Load a channel pack)
   js/main.js                   wires it all together
   data/channels.json           channel definitions
@@ -380,7 +384,7 @@ tests/                         node:test unit tests + a Playwright smoke test
   TV sends the phone each hidden address twice: as the browser wrote it, and with the real one. The phone sends the same actions a
   key press makes; the TV sends back what's on. Only whitelisted actions are accepted.
 - **The relay** (`js/relay.js`) runs alongside, for networks where the two can't reach each other. Both
-  sides connect out over secure WebSockets to public MQTT brokers (EMQX, HiveMQ, Mosquitto); the TV
+  sides connect out over secure WebSockets to public MQTT brokers (EMQX, HiveMQ, Eclipse); the TV
   listens on all of them, the phone uses the first where the TV answers. The topic is a hash of the code
   and every message is AES-GCM-encrypted with a key made from the code, so the brokers see only noise.
   The phone moves to the direct link if that comes up later.

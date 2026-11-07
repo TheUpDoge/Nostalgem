@@ -1690,3 +1690,25 @@ body {
     display: none;
   }
 }
+
+/* The pixel and ASCII looks are drawn on canvases (fxcanvas.js): the picture, stretched to the screen
+   with hard pixel edges, and Matrix rain laid over everything. */
+.fxcv,
+.fxrain {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.fxcv {
+  background: #000;
+}
+.fxcv.pix {
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+}
+.fxrain {
+  mix-blend-mode: screen;
+}

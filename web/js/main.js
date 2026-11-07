@@ -11,7 +11,8 @@ import { archiveAboutHtml } from "./about.js";
 import { buildItemsChannel, packChannelDef, parsePack, validatePack, PACK_MIN_NUMBER, PACK_MAX_NUMBER } from "./packs.js";
 import { LINK_CHANNELS, isLinkChannel, isGuideVisible, linkCardName, linkUrl, openLinkChannel } from "./linkout.js";
 import { createGamepad } from "./gamepad.js";
-import { LOOKS, asciiMask, lookById, lookCss, lookYtCss, looksSvg, nextLook } from "./looks.js";
+import { LOOKS, asciiMask, lookById, lookCss, lookYtCss, looksSvg, mixable, nextLook } from "./looks.js";
+import { CanvasLook } from "./fxcanvas.js";
 import { Ambience, AMBIENCES, ambienceName } from "./ambience.js";
 import { pickSubtitle, subtitleLabel } from "./captions.js";
 import { Guide } from "./ui/guide.js";
@@ -24,7 +25,7 @@ import { loadLineup, builtAt } from "./lineup.js";
 import { loadBumpers } from "./bumpers.js";
 import { pad2, escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder } from "./util.js";
 
-const VERSION = "1.4.0";
+const VERSION = "1.5.0";
 const NAME = "NostalGem";
 const params = new URLSearchParams(window.location.search);
 const ANDROID = params.get("tv") === "android";
@@ -34,7 +35,7 @@ const ON_PAGES = window.location.href.indexOf(PAGES_BASE) === 0;
 const LIVE_LINEUP = ANDROID && !ON_PAGES ? PAGES_BASE + "data/lineup.json" : "";
 const LINEUP_RECHECK = 3 * 3600 * 1000; // coming back to the app after this long: look for a newer lineup
 
-const DEFAULTS = { crt: "light", fit: "contain", cc: "off", staticFx: "sound", bug: true, clock24: false, surf: "all", phone: false, region: "auto", look: "off", ambience: "off" };
+const DEFAULTS = { crt: "light", fit: "contain", cc: "off", staticFx: "sound", bug: true, clock24: false, surf: "all", phone: false, region: "auto", look: "off", mix: "off", ambience: "off" };
 const SLEEP_STEPS = [0, 15, 30, 45, 60, 90, 120];
 const STILL_AFTER = 4 * 3600 * 1000; // no button pressed for four hours: ask
 const STILL_GRACE = 2 * 60 * 1000; // then switch off two minutes later
@@ -100,6 +101,7 @@ const s = app.s;
 
 const fx = new Static($("static"));
 const ambience = new Ambience();
+const canvasLook = new CanvasLook({ video: $("screen"), yt: $("yt"), before: $("yt"), rainBefore: $("radio") });
 const numpad = new Numpad($("numpad"), {
   describe: function (typed) {
     const exact = channelForDigits(typed, false);
@@ -760,7 +762,20 @@ function saveLists() {
 // ---------- look ----------
 function applyLook() {
   const look = lookById(s.look);
-  const css = lookCss(look);
+  const mix = lookById(s.mix);
+  const mixOn = mixable(mix) && mix.id !== look.id;
+  const join = function (a, b) {
+    return [a, b]
+      .filter(function (x) {
+        return !!x;
+      })
+      .join(" ");
+  };
+  // On the picture (Archive programs). Canvas looks draw their own picture, with the mix on top.
+  const screenCss = look.canvas ? "" : join(lookCss(look), mixOn ? lookCss(mix) : "");
+  // On YouTube's player: CSS filter functions only, unless the backdrop layer can run the SVG ones.
+  const ytCss = join(lookYtCss(look), mixOn ? lookYtCss(mix) : "");
+  const svg = /url\(/.test(screenCss);
   const keep = tv.className
     .split(/\s+/)
     .filter(function (c) {
@@ -773,14 +788,14 @@ function applyLook() {
     s.crt +
     " fit-" +
     s.fit +
-    (css ? " look-on" : "") +
+    (screenCss || ytCss ? " look-on" : "") +
     (look.ytMask ? " look-ascii" : "") +
-    (look.svg ? " look-svg" : "") +
+    (svg ? " look-svg" : "") +
     (look.overlay ? " lookfx-" + look.overlay : "") +
     (look.ytOverlay ? " lookfx-" + look.ytOverlay : "");
-  if (css) {
-    tv.style.setProperty("--look", css);
-    tv.style.setProperty("--look-yt", lookYtCss(look) || "none");
+  if (screenCss || ytCss) {
+    tv.style.setProperty("--look", screenCss || "none");
+    tv.style.setProperty("--look-yt", ytCss || "none");
   } else {
     tv.style.removeProperty("--look");
     tv.style.removeProperty("--look-yt");
@@ -790,7 +805,8 @@ function applyLook() {
     tv.style.setProperty("--look-mask", m.url);
     tv.style.setProperty("--look-mask-size", m.size);
   }
-  if (look.svg) installLooks();
+  if (svg || look.canvas) installLooks();
+  canvasLook.set(look.canvas ? look : null, s.fit, mixOn ? lookCss(mix) : "");
   ambience.set(s.ambience);
   fx.sound = s.staticFx === "sound";
   updateBug();
@@ -820,6 +836,57 @@ function setLook(id, quiet) {
   saveSettings();
   applyLook();
   if (!quiet) V.toast("🎨 Filter: " + lookById(s.look).name, 2500);
+}
+
+function setMix(id, quiet) {
+  const m = lookById(id);
+  s.mix = mixable(m) ? m.id : "off";
+  saveSettings();
+  applyLook();
+  if (!quiet) V.toast("🎨 Mixed with: " + (s.mix === "off" ? "nothing" : m.name), 2500);
+}
+
+// The color looks that can go on top of the filter, and Off.
+function mixList() {
+  return LOOKS.filter(function (l) {
+    return l.id === "off" || mixable(l);
+  });
+}
+
+function stepMix(dir) {
+  const list = mixList();
+  let i = 0;
+  list.forEach(function (l, k) {
+    if (l.id === s.mix) i = k;
+  });
+  setMix(list[(i + dir + list.length) % list.length].id, true);
+}
+
+function mixPage() {
+  return {
+    title: "Mix with",
+    sub: "A second, color filter on top of the first · ASCII + Vaporwave, Game Boy + Hard noir…",
+    items: function () {
+      const list = [];
+      let group = "";
+      mixList().forEach(function (look) {
+        if (look.group !== group) {
+          group = look.group;
+          list.push({ head: true, label: group });
+        }
+        list.push({
+          label: look.name,
+          value: function () {
+            return s.mix === look.id ? "✓ On" : "";
+          },
+          ok: function () {
+            setMix(look.id, true);
+          },
+        });
+      });
+      return list;
+    },
+  };
 }
 
 function looksPage() {
@@ -1160,6 +1227,22 @@ function rootPage() {
         },
         ok: function () {
           menu.push(looksPage());
+        },
+      });
+      list.push({
+        label: "🎨 Mix with",
+        sub: true,
+        value: function () {
+          return s.mix === "off" ? "Nothing" : lookById(s.mix).name;
+        },
+        left: function () {
+          stepMix(-1);
+        },
+        right: function () {
+          stepMix(1);
+        },
+        ok: function () {
+          menu.push(mixPage());
         },
       });
       list.push(cycler("🎧 Ambience", "ambience", AMBIENCES, applyLook));

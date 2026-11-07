@@ -6,8 +6,11 @@
 // don't allow that for a page like this one, and SVG filters don't need it.
 //
 // A look is { id, name, group } plus one of:
-//   css   a CSS filter list ("grayscale(1) contrast(1.2)")
-//   svg   true: an SVG filter, #ng-look-<id>, made by looksSvg()
+//   css     a CSS filter list ("grayscale(1) contrast(1.2)")
+//   svg     true: an SVG filter, #ng-look-<id>, made by looksSvg()
+//   canvas  "pixel" | "8bit" | "gameboy" | "ascii": drawn by fxcanvas.js instead. These were far too
+//           slow as SVG filters; there the video is drawn small onto a canvas and the graphics chip
+//           scales it up. ascii: "green" | "color" | "matrix"; rain: Matrix rain on top.
 // and optionally overlay: an extra layer drawn over the picture (scanline roll, grain), see app.css.
 //
 // YouTube's player is another site's page inside ours, and browsers won't run SVG filters over another
@@ -42,11 +45,12 @@ export const LOOKS = [
   { id: "tint-cyan", name: "Cyan", group: "Tints", svg: true, yt: "grayscale(1) sepia(1) hue-rotate(140deg) saturate(4)" },
 
   { id: "vhs", name: "VHS tape", group: "Retro & emulator", svg: true, yt: "saturate(1.4) contrast(1.08) brightness(1.04) blur(0.7px)", overlay: "vhs" },
-  { id: "gameboy", name: "Game Boy", group: "Retro & emulator", svg: true, yt: "grayscale(1) sepia(1) hue-rotate(45deg) saturate(2.2) contrast(1.4) brightness(0.9)", ytOverlay: "pixgrid" },
-  { id: "8bit", name: "8-bit", group: "Retro & emulator", svg: true, yt: "saturate(1.8) contrast(1.35)", ytOverlay: "pixgrid" },
-  { id: "pixel", name: "Low-res pixels", group: "Retro & emulator", svg: true, yt: "contrast(1.1)", ytOverlay: "pixgrid" },
-  { id: "ascii", name: "ASCII", group: "Retro & emulator", svg: true, yt: "grayscale(1) sepia(1) hue-rotate(70deg) saturate(5) contrast(1.6) brightness(1.25)", ytMask: true },
-  { id: "ascii-color", name: "ASCII · color", group: "Retro & emulator", svg: true, yt: "saturate(1.6) contrast(1.5) brightness(1.25)", ytMask: true },
+  { id: "gameboy", name: "Game Boy", group: "Retro & emulator", canvas: "gameboy", yt: "grayscale(1) sepia(1) hue-rotate(45deg) saturate(2.2) contrast(1.4) brightness(0.9)", ytOverlay: "pixgrid" },
+  { id: "8bit", name: "8-bit", group: "Retro & emulator", canvas: "8bit", yt: "saturate(1.8) contrast(1.35)", ytOverlay: "pixgrid" },
+  { id: "pixel", name: "Low-res pixels", group: "Retro & emulator", canvas: "pixel", yt: "contrast(1.1)", ytOverlay: "pixgrid" },
+  { id: "ascii", name: "ASCII", group: "Retro & emulator", canvas: "ascii", ascii: "green", yt: "grayscale(1) sepia(1) hue-rotate(70deg) saturate(5) contrast(1.6) brightness(1.25)", ytMask: true },
+  { id: "ascii-color", name: "ASCII · color", group: "Retro & emulator", canvas: "ascii", ascii: "color", yt: "saturate(1.6) contrast(1.5) brightness(1.25)", ytMask: true },
+  { id: "ascii-matrix", name: "ASCII · Matrix rain", group: "Retro & emulator", canvas: "ascii", ascii: "matrix", rain: true, yt: "grayscale(1) sepia(1) hue-rotate(70deg) saturate(6) contrast(1.7) brightness(1.1)", ytMask: true },
 
   { id: "vapor", name: "Vaporwave", group: "Wild", svg: true, yt: "grayscale(1) sepia(1) hue-rotate(260deg) saturate(3.5) contrast(1.15)" },
   { id: "outrun", name: "Outrun sunset", group: "Wild", svg: true, yt: "sepia(0.5) hue-rotate(-35deg) saturate(2.5) contrast(1.2)" },
@@ -68,11 +72,17 @@ export function nextLook(id, dir) {
   return LOOKS[(i + (dir || 1) + LOOKS.length) % LOOKS.length];
 }
 
-// The CSS filter value for a look; "" for Off.
+// The CSS filter value for a look; "" for Off and for the canvas looks (they draw their own picture).
 export function lookCss(look) {
-  if (!look || look.id === "off") return "";
+  if (!look || look.id === "off" || look.canvas) return "";
   if (look.css) return look.css;
   return "url(#ng-look-" + look.id + ")";
+}
+
+// Looks that can go on top of another (Menu ▸ Mix with): the color ones. ASCII mixed with Vaporwave
+// draws vaporwave characters; Game Boy mixed with Hard noir, a grayscale Game Boy.
+export function mixable(look) {
+  return !!look && look.id !== "off" && !look.canvas && !look.overlay;
 }
 
 // The same look for YouTube's player: CSS filter functions only.
@@ -183,103 +193,28 @@ function popFilter(color) {
   );
 }
 
-// Big square pixels: sample one point per cell, then grow it to fill the cell. Result "pix".
-function pixelate(cell) {
-  const h = Math.floor(cell / 2);
+// The canvas looks' color steps, run while the small picture is drawn (fxcanvas.js, ctx.filter):
+// Game Boy's four greens, 8-bit's posterized colors, and ASCII's brightness bands (alpha = 1 where a
+// cell's brightness falls in band k of ASCII_BANDS + 1; band 0 stays blank).
+export const ASCII_BANDS = 6;
+function bandFilter(k) {
+  const table = [];
+  for (let j = 0; j <= ASCII_BANDS; j++) table.push(j === k ? 1 : 0);
   return (
-    '<feFlood x="' +
-    h +
-    '" y="' +
-    h +
-    '" width="1" height="1" flood-color="#fff"/>' +
-    '<feComposite width="' +
-    cell +
-    '" height="' +
-    cell +
-    '"/>' +
-    "<feTile/>" +
-    '<feComposite in="SourceGraphic" operator="in"/>' +
-    '<feMorphology operator="dilate" radius="' +
-    h +
-    '" result="pix"/>'
+    '<filter id="ng-band-' +
+    k +
+    '" color-interpolation-filters="sRGB">' +
+    '<feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  .2126 .7152 .0722 0 0"/>' +
+    '<feComponentTransfer><feFuncA type="gamma" amplitude="1" exponent="0.75" offset="0"/></feComponentTransfer>' +
+    '<feComponentTransfer><feFuncA type="discrete" tableValues="' +
+    table.join(" ") +
+    '"/></feComponentTransfer></filter>'
   );
-}
-
-// ASCII: the picture as characters, densest where it's brightest. Each cell is pixelated to one
-// brightness, cut into bands, and every band is filled with its character, tiled.
-export const ASCII_RAMP = [".", ":", "-", "=", "+", "*", "#", "%", "@"];
-
-function glyphImage(ch, cell, color) {
-  const svg =
-    "<svg xmlns='http://www.w3.org/2000/svg' width='" +
-    cell +
-    "' height='" +
-    cell +
-    "'><text x='50%' y='54%' dominant-baseline='middle' text-anchor='middle' font-family='monospace' font-weight='700' font-size='" +
-    Math.round(cell * 1.1) +
-    "' fill='" +
-    color +
-    "'>" +
-    (ch === "&" ? "&amp;" : ch === "<" ? "&lt;" : ch) +
-    "</text></svg>";
-  return "data:image/svg+xml," + encodeURIComponent(svg);
-}
-
-function asciiFilter(id, cell, colored) {
-  const n = ASCII_RAMP.length + 1; // band 0 stays blank
-  let body =
-    pixelate(cell) +
-    '<feColorMatrix in="pix" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  .2126 .7152 .0722 0 0"/>' +
-    '<feComponentTransfer result="lum"><feFuncA type="gamma" amplitude="1" exponent="0.7" offset="0"/></feComponentTransfer>';
-  const merge = [];
-  for (let k = 1; k < n; k++) {
-    const table = [];
-    for (let j = 0; j < n; j++) table.push(j === k ? 1 : 0);
-    body +=
-      '<feImage href="' +
-      glyphImage(ASCII_RAMP[k - 1], cell, colored ? "#fff" : "#39ff6a") +
-      '" x="0" y="0" width="' +
-      cell +
-      '" height="' +
-      cell +
-      '" preserveAspectRatio="none" result="g' +
-      k +
-      '"/>' +
-      '<feTile in="g' +
-      k +
-      '" result="t' +
-      k +
-      '"/>' +
-      '<feComponentTransfer in="lum" result="b' +
-      k +
-      '"><feFuncA type="discrete" tableValues="' +
-      table.join(" ") +
-      '"/></feComponentTransfer>' +
-      '<feComposite in="t' +
-      k +
-      '" in2="b' +
-      k +
-      '" operator="in" result="o' +
-      k +
-      '"/>';
-    merge.push('<feMergeNode in="o' + k + '"/>');
-  }
-  body += "<feMerge result=\"glyphs\">" + merge.join("") + "</feMerge>";
-  if (colored) {
-    body +=
-      '<feColorMatrix in="pix" type="saturate" values="1.5" result="vivid"/>' +
-      '<feComponentTransfer in="vivid" result="lit"><feFuncR type="linear" slope="1.35" intercept="0.08"/><feFuncG type="linear" slope="1.35" intercept="0.08"/><feFuncB type="linear" slope="1.35" intercept="0.08"/></feComponentTransfer>' +
-      '<feComposite in="lit" in2="glyphs" operator="in" result="glyphs"/>';
-  }
-  body += '<feFlood flood-color="#000" result="black"/><feMerge><feMergeNode in="black"/><feMergeNode in="glyphs"/></feMerge>';
-  return filter(id, body);
 }
 
 // opts.height: the picture's height in CSS pixels, so the pixel and ASCII cells scale with the screen.
 export function looksSvg(opts) {
-  const h = Math.max(240, (opts && opts.height) || 720);
-  const asciiCell = Math.max(8, Math.round(h / 64));
-  const pixCell = Math.max(4, Math.round(h / 144));
+  void opts;
   const defs = [
     popFilter("red"),
     popFilter("blue"),
@@ -315,14 +250,13 @@ export function looksSvg(opts) {
         '<feColorMatrix type="saturate" values="1.35"/>' +
         '<feComponentTransfer><feFuncR type="linear" slope="0.9" intercept="0.06"/><feFuncG type="linear" slope="0.9" intercept="0.05"/><feFuncB type="linear" slope="0.9" intercept="0.07"/></feComponentTransfer>'
     ),
-    filter("gameboy", pixelate(pixCell) + '<feColorMatrix in="pix" type="matrix" values="' + LUM + '"/>' + paletteFuncs(["#0f380f", "#306230", "#8bac0f", "#9bbc0f"], true)),
-    filter(
-      "8bit",
-      pixelate(pixCell) +
-        '<feColorMatrix in="pix" type="saturate" values="1.3"/>' +
-        '<feComponentTransfer><feFuncR type="discrete" tableValues="0 0.33 0.67 1"/><feFuncG type="discrete" tableValues="0 0.33 0.67 1"/><feFuncB type="discrete" tableValues="0 0.5 1"/></feComponentTransfer>'
-    ),
-    filter("pixel", pixelate(pixCell)),
+    '<filter id="ng-pal-gameboy" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="' +
+      LUM +
+      '"/>' +
+      paletteFuncs(["#0f380f", "#306230", "#8bac0f", "#9bbc0f"], true) +
+      "</filter>",
+    '<filter id="ng-pal-8bit" color-interpolation-filters="sRGB"><feColorMatrix type="saturate" values="1.35"/>' +
+      '<feComponentTransfer><feFuncR type="discrete" tableValues="0 0.33 0.67 1"/><feFuncG type="discrete" tableValues="0 0.33 0.67 1"/><feFuncB type="discrete" tableValues="0 0.5 1"/></feComponentTransfer></filter>',
     filter(
       "dream",
       '<feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur"/>' +
@@ -330,9 +264,8 @@ export function looksSvg(opts) {
         '<feColorMatrix in="glow" type="saturate" values="1.3"/>' +
         '<feComponentTransfer><feFuncR type="linear" slope="0.95" intercept="0.02"/><feFuncG type="linear" slope="0.9" intercept="0.02"/><feFuncB type="linear" slope="1" intercept="0.05"/></feComponentTransfer>'
     ),
-    asciiFilter("ascii", asciiCell, false),
-    asciiFilter("ascii-color", asciiCell, true),
   ];
+  for (let k = 1; k <= ASCII_BANDS; k++) defs.push(bandFilter(k));
   return (
     '<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden"><defs>' +
     defs.join("") +

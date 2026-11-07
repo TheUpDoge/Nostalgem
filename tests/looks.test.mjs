@@ -1,7 +1,8 @@
 // Picture filters: every look has a name and a way to draw it, on Archive programs and on YouTube.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { LOOKS, ASCII_RAMP, asciiMask, lookById, lookCss, lookYtCss, looksSvg, nextLook } from "../web/js/looks.js";
+import { LOOKS, ASCII_BANDS, asciiMask, lookById, lookCss, lookYtCss, looksSvg, mixable, nextLook } from "../web/js/looks.js";
+import { fitRect } from "../web/js/fxcanvas.js";
 import { AMBIENCES, ambienceName, clickTrain } from "../web/js/ambience.js";
 
 test("every look has a unique id, a name and a group", () => {
@@ -24,7 +25,11 @@ test("every SVG look has its filter, and a CSS-only version for YouTube", () => 
       assert.equal(lookCss(l), "");
       continue;
     }
-    if (l.svg) {
+    if (l.canvas) {
+      // Drawn on a canvas: no CSS filter on the picture, a CSS version for YouTube.
+      assert.equal(lookCss(l), "", l.id);
+      assert.ok(l.yt && !/url\(/.test(l.yt), "YouTube version for " + l.id);
+    } else if (l.svg) {
       assert.ok(svg.includes('id="ng-look-' + l.id + '"'), "filter for " + l.id);
       assert.equal(lookCss(l), "url(#ng-look-" + l.id + ")");
       assert.ok(l.yt && !/url\(/.test(l.yt), "YouTube version for " + l.id);
@@ -36,14 +41,29 @@ test("every SVG look has its filter, and a CSS-only version for YouTube", () => 
   }
 });
 
-test("ASCII draws one band per character, densest where it's brightest", () => {
+test("the canvas looks have their color steps in the SVG, and ASCII a band per brightness", () => {
   const svg = looksSvg({ height: 720 });
-  const ascii = svg.slice(svg.indexOf('id="ng-look-ascii"'), svg.indexOf("</filter>", svg.indexOf('id="ng-look-ascii"')));
-  assert.equal((ascii.match(/<feImage /g) || []).length, ASCII_RAMP.length);
-  assert.equal(ASCII_RAMP[ASCII_RAMP.length - 1], "@");
+  for (let k = 1; k <= ASCII_BANDS; k++) assert.ok(svg.includes('id="ng-band-' + k + '"'), "band " + k);
+  assert.ok(svg.includes('id="ng-pal-gameboy"') && svg.includes('id="ng-pal-8bit"'));
+  // The slow SVG pixelation is gone for good.
+  assert.doesNotMatch(svg, /feMorphology|feImage/);
+  for (const id of ["pixel", "8bit", "gameboy", "ascii", "ascii-color", "ascii-matrix"]) assert.ok(lookById(id).canvas, id);
+  assert.ok(lookById("ascii-matrix").rain);
   const m = asciiMask(720);
   assert.match(m.url, /^url\("data:image\/svg\+xml,/);
   assert.match(m.size, /^\d+px \d+px$/);
+});
+
+test("Mix with: only color looks go on top", () => {
+  assert.ok(mixable(lookById("vapor")) && mixable(lookById("pop-red")) && mixable(lookById("bw")));
+  assert.ok(!mixable(lookById("off")) && !mixable(lookById("ascii")) && !mixable(lookById("vhs")));
+});
+
+test("the canvas fits the video the way the Picture setting says", () => {
+  assert.deepEqual(fitRect(1600, 900, 160, 90, "contain"), [0, 0, 160, 90]);
+  assert.deepEqual(fitRect(640, 480, 160, 90, "contain"), [20, 0, 120, 90]);
+  assert.deepEqual(fitRect(640, 480, 160, 90, "cover"), [0, -15, 160, 120]);
+  assert.deepEqual(fitRect(640, 480, 160, 90, "fill"), [0, 0, 160, 90]);
 });
 
 test("the SVG is plain markup with no scripts", () => {

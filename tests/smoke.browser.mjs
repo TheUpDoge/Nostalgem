@@ -404,6 +404,23 @@ try {
   check(st.channel >= 30 && /Rodeo/.test(st.name), `a new channel was built and tuned (CH ${st.channel} ${st.name})`);
   check(st.program === "Test Rodeo", `it plays the search result (${st.program})`);
 
+  // Mix with: a second, color filter. ▶ on its row picks the first one; ◀ goes back to nothing.
+  {
+    await key("ArrowRight", 300);
+    for (let i = 0; i < 50; i++) {
+      const label = await page.textContent(".m-item.focus .l");
+      if (/Mix with/.test(label)) break;
+      await key("ArrowDown", 40);
+    }
+    await key("ArrowRight", 300);
+    const mixed = await page.evaluate(() => getComputedStyle(document.getElementById("tv")).getPropertyValue("--look"));
+    check(/grayscale/.test(mixed) && /Black & white/.test(await page.textContent(".m-item.focus")), "Menu ▸ Mix with ▶ puts Black & white on top (" + mixed.trim() + ")");
+    await key("ArrowLeft", 300);
+    check(!(await page.evaluate(() => document.getElementById("tv").classList.contains("look-on"))), "…and ◀ takes it off again");
+    await key("Escape", 200);
+    await key("Escape", 200);
+  }
+
   // The number pad, for remotes without number buttons: arrows and OK only. 1, 5, 2 → GO tunes CH 15-2.
   {
     await key("ArrowRight", 300);
@@ -436,13 +453,16 @@ try {
     check((await page.evaluate(() => document.getElementById("tv").classList.contains("look-on"))) && (await page.textContent("#toast")).includes(LOOKS[1].name), `V turns on the first filter (${LOOKS[1].name})`);
     const ascii = LOOKS.findIndex((l) => l.id === "ascii");
     for (let i = 1; i < ascii; i++) await key("v", 60);
-    await page.waitForTimeout(800);
-    const f = await page.evaluate(() => getComputedStyle(document.getElementById("screen")).filter);
-    check(/ng-look-ascii/.test(f) && (await page.$("#looks filter#ng-look-ascii")) !== null, "…and the ASCII filter is drawn on the program (" + f.slice(0, 40) + ")");
+    await page.waitForTimeout(1200);
+    const cv = await page.evaluate(() => {
+      const c = document.querySelector(".fxcv");
+      return { shown: !!c && !c.hidden, w: c ? c.width : 0, screen: getComputedStyle(document.getElementById("screen")).filter };
+    });
+    check(cv.shown && cv.w >= 512 && cv.screen === "none" && (await page.$("#looks filter#ng-band-1")) !== null, "…and ASCII is drawn on its canvas over the program (" + JSON.stringify(cv) + ")");
     await shot("4h-ascii");
     for (let i = ascii; i < LOOKS.length; i++) await key("v", 60);
     await page.waitForTimeout(300);
-    check(!(await page.evaluate(() => document.getElementById("tv").classList.contains("look-on"))), "…and pressing V all the way round turns filters off");
+    check(!(await page.evaluate(() => document.getElementById("tv").classList.contains("look-on"))) && (await page.evaluate(() => document.querySelector(".fxcv").hidden)), "…and pressing V all the way round turns filters off");
   }
 
   // The hidden link-out stations: tuned by number only; a card with a link and a QR code; not in the guide.
