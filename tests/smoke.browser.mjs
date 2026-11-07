@@ -468,7 +468,7 @@ try {
   // The hidden link-out stations: tuned by number only; a card with a link and a QR code; not in the guide.
   for (const [num, name, word] of [
     ["420", "South Park", "SOUTH PARK"],
-    ["777", "Quenq Arcade", "QUENQ ARCADE"],
+    ["777", "RetroGames.cc", "RETROGAMES.CC"],
   ]) {
     for (const d of num) await key(d, 120);
     await page.waitForFunction((n) => window.NP.state().name === n, name, { timeout: 5000 }).catch(() => {});
@@ -482,7 +482,7 @@ try {
   }
   await key("g", 600);
   const guideText = await page.textContent("#guide");
-  check((await state()).overlay === "guide" && !/South Park|Quenq/.test(guideText), "the guide doesn't list the hidden stations");
+  check((await state()).overlay === "guide" && !/South Park|RetroGames/.test(guideText), "the guide doesn't list the hidden stations");
   await key("Escape", 300);
 
   // A game controller: the poller starts when a pad connects, and its D-pad changes channel.
