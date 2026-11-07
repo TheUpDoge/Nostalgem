@@ -218,7 +218,7 @@ export function compileExclude(words) {
   return new RegExp("(^|[^a-z0-9])(" + list.map(escapeRe).join("|") + ")(?=$|[^a-z0-9])", "i");
 }
 
-function textOf(o) {
+export function textOf(o) {
   if (!o) return "";
   const subj = o.subject;
   return [o.identifier, firstOf(o.title), Array.isArray(subj) ? subj.join(" ") : subj || ""]

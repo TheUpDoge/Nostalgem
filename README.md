@@ -228,6 +228,21 @@ npm run lineup -- --seed spring-2027    # same programs, new running order
 That writes `web/data/lineup.json`, which is what the TV loads. Commit it and both the site and the
 app pick it up.
 
+### Channel packs
+
+A channel pack is a small JSON file that adds channels on your own TV, without touching
+the shipped lineup. From the Menu: **Load a channel pack**, then choose a `.json` file or
+paste its text. Pack channels land on CH 30–49 and are saved on that TV only, like channels
+you add by search.
+
+A pack defines one or more channels — a name, a number (30–49), and an Archive source:
+a collection search or explicit Archive item IDs. Nothing else is allowed: no YouTube, no
+other sites, no direct video links. The full format is in [PACKS.md](PACKS.md), with an
+example in [packs/example-pack.json](packs/example-pack.json) (a western-features channel
+built from the same Archive query as CH 1 High Noon).
+
+Packs are your choice on your own TV. They never change `web/data/lineup.json`.
+
 ### YouTube channels
 
 A channel can also air full episodes from **official** YouTube channels (the studio's or distributor's own
@@ -279,9 +294,13 @@ web/
   remote.html, js/phone.js     the phone remote page (an installable PWA)
   vendor/                      PeerJS and a QR code generator, both MIT (see vendor/README.md)
   js/ui/                       banner, guide, menu, dialogs
+  js/about.js                  About the Archive: words and links (Menu ▸ About the Archive)
+  js/packs.js                  channel packs: format, validator, loader (Menu ▸ Load a channel pack)
   js/main.js                   wires it all together
   data/channels.json           channel definitions
   data/lineup.json             built programs (from tools/build-lineup.mjs)
+  packs/example-pack.json      an example pack (western features, CH 30)
+  PACKS.md                     the channel-pack format
 android-tv/                    Kotlin WebView app for Google TV / Android TV / Fire TV
 tools/build-lineup.mjs         builds the lineup from the Archive
 tests/                         node:test unit tests + a Playwright smoke test
@@ -322,6 +341,18 @@ effort, not a guarantee. If something shouldn't be on, add it to `exclude` in `c
 rebuild.
 
 Some of these films are a century old and show the attitudes of their time.
+
+The Internet Archive is a non-profit digital library working toward universal access to all
+knowledge. Its films, radio, books and music are preserved for everyone, and its bandwidth
+makes this app possible. Learn more at [archive.org/about](https://archive.org/about/), read
+its [terms of use](https://archive.org/about/terms), and if you enjoy it, please consider
+[donating](https://archive.org/donate). You can also read about the Archive in the app:
+Menu ▸ About the Archive.
+
+A note on this page — or in the app — doesn't change the copyright status of anything. The
+built-in channels play public-domain Archive material only, checked before it ships, but that
+filtering is a good-faith effort, not a guarantee. Channels you add yourself, by search or by
+loading a channel pack, are your choice on your own TV and are not part of the shipped lineup.
 
 If you enjoy it, please consider [donating to the Internet Archive](https://archive.org/donate).
 Their bandwidth makes this work.

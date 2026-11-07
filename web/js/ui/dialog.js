@@ -36,8 +36,18 @@ export class Dialog {
         esc(s.input.value || "") +
         '"></div>';
     }
+    if (s.textarea) {
+      html +=
+        '<div class="d-field" data-f="0"><textarea rows="' +
+        (s.textarea.rows || 8) +
+        '" autocomplete="off" spellcheck="false" placeholder="' +
+        esc(s.textarea.placeholder || "") +
+        '">' +
+        esc(s.textarea.value || "") +
+        "</textarea></div>";
+    }
     html += '<div class="d-row">';
-    const base = s.input ? 1 : 0;
+    const base = s.input || s.textarea ? 1 : 0;
     (s.buttons || []).forEach(function (b, i) {
       html += '<button type="button" class="d-btn" data-b="' + i + '" data-f="' + (base + i) + '">' + esc(b.label) + "</button>";
     });
@@ -55,6 +65,8 @@ export class Dialog {
   }
 
   value() {
+    const t = this.root.querySelector("textarea");
+    if (t) return t.value.trim();
     const i = this.input();
     return i ? i.value.trim() : "";
   }
@@ -70,10 +82,10 @@ export class Dialog {
     list.forEach(function (el, i) {
       el.classList.toggle("focus", i === f);
     });
-    const inp = this.input();
-    if (inp) {
-      if (list[f] && list[f].classList.contains("d-field")) inp.focus();
-      else inp.blur();
+    const field = this.root.querySelector("input, textarea");
+    if (field) {
+      if (list[f] && list[f].classList.contains("d-field")) field.focus();
+      else field.blur();
     }
   }
 
