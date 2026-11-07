@@ -7,6 +7,7 @@ import { Static } from "./static.js";
 import { actionFor, isTypingTarget, registerTvKeys } from "./remote.js";
 import { load, save } from "./store.js";
 import { buildChannel, browserFetchJson } from "./archive.js";
+import { SOUTH_PARK_CHANNEL, isLinkChannel, isGuideVisible, openSouthPark } from "./southpark.js";
 import { pickSubtitle, subtitleLabel } from "./captions.js";
 import { Guide } from "./ui/guide.js";
 import { Menu } from "./ui/menu.js";
@@ -143,7 +144,7 @@ function current() {
 }
 function visibleChannels() {
   return app.channels.filter(function (c) {
-    return !app.hidden.has(c.slug);
+    return isGuideVisible(c, app.hidden);
   });
 }
 function surfList() {
@@ -212,7 +213,7 @@ function toggleRegion() {
   app.badSet = null;
   app.timelines = {};
   const ch = current();
-  if (ch && app.state === "on") player.tune(timelineFor(ch));
+  if (ch && app.state === "on" && !isLinkChannel(ch)) player.tune(timelineFor(ch));
 }
 function timelineFor(ch) {
   let tl = app.timelines[ch.slug];
@@ -250,6 +251,14 @@ function tuneTo(ch, opts) {
   V.osdChannel(ch);
   app.lastProgKey = "";
   applyCaptions();
+  if (isLinkChannel(ch)) {
+    // A link-out station has no schedule: park the player and show its card.
+    player.off();
+    hideRadio();
+    V.showCard("southpark", V.southParkCard(ch));
+    updateBug();
+    return;
+  }
   player.tune(timelineFor(ch));
   if (!o.quiet) showBanner(6000);
   updateBug();
@@ -1633,6 +1642,7 @@ function restoreCard() {
   if (player.mode === "gap" && player.slot) V.showCard("gap", V.gapCard(ch, player.slot, s.clock24));
   else if (player.mode === "standby") V.showCard("standby", V.standbyCard(app.standby));
   else if (player.mode === "empty") V.showCard("empty", V.emptyCard(ch, app.emptyWhy));
+  else if (isLinkChannel(ch)) V.showCard("southpark", V.southParkCard(ch));
   else V.hideCard();
 }
 
@@ -1705,6 +1715,10 @@ function rootAction(a) {
       openMenu();
       break;
     case "ok":
+      if (isLinkChannel(current())) {
+        openSouthPark();
+        break;
+      }
     case "info":
       if (app.digits) commitDigits();
       else if (!banner.hidden) hideBanner();
@@ -1983,6 +1997,8 @@ function applyLineup(lineup, source) {
     })
   );
   app.channels.sort(chOrder);
+  // The secret South Park station: tuned by number only, never listed, never scheduled.
+  app.channels.push(SOUTH_PARK_CHANNEL);
   app.timelines = {};
 }
 
