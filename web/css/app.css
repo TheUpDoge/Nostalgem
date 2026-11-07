@@ -1128,6 +1128,10 @@ body {
 .d-text b {
   color: var(--ink);
 }
+.d-text a {
+  color: var(--cyan);
+  text-decoration: underline;
+}
 .d-field {
   margin-top: 1rem;
   padding: 0.25rem;
@@ -1146,6 +1150,20 @@ body {
   color: var(--ink);
   background: #0a0118;
   outline: none;
+}
+.d-field textarea {
+  width: 100%;
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.4;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.45rem;
+  border: 0;
+  color: var(--ink);
+  background: #0a0118;
+  outline: none;
+  min-height: 9rem;
+  resize: vertical;
 }
 .d-row {
   display: flex;
