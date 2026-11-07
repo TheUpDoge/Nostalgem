@@ -126,8 +126,12 @@ export function createGamepad(onAction, opts) {
     }
     return null;
   }
+  // Polls only while a pad is connected, so a TV with no controller isn't woken every frame.
   function frame() {
-    var actions = padStep(state, snapshot(), Date.now());
+    raf = 0;
+    timer = 0;
+    var snap = snapshot();
+    var actions = padStep(state, snap, Date.now());
     for (var i = 0; i < actions.length; i++) {
       try {
         onAction({ type: actions[i] });
@@ -135,14 +139,18 @@ export function createGamepad(onAction, opts) {
         /* a bad action handler must not kill the poller */
       }
     }
-    schedule();
+    if (snap) schedule();
+    else state = newPadState();
   }
   function schedule() {
+    if (raf || timer) return;
     if (typeof requestAnimationFrame === "function") raf = requestAnimationFrame(frame);
     else timer = setTimeout(frame, 100);
   }
   function onPadEvent(e) {
-    if (e && e.type === "gamepadconnected" && typeof o.onConnect === "function") {
+    if (!e || e.type !== "gamepadconnected") return;
+    schedule();
+    if (typeof o.onConnect === "function") {
       var id = "";
       if (e.gamepad && e.gamepad.id) id = String(e.gamepad.id);
       o.onConnect(id);
@@ -155,7 +163,7 @@ export function createGamepad(onAction, opts) {
         window.addEventListener("gamepadconnected", onPadEvent);
         window.addEventListener("gamepaddisconnected", onPadEvent);
       }
-      schedule();
+      if (snapshot()) schedule();
       return true;
     },
     stop: function () {

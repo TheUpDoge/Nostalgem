@@ -257,9 +257,11 @@ function tuneTo(ch, opts) {
   app.lastProgKey = "";
   applyCaptions();
   if (isLinkChannel(ch)) {
-    // A link-out station has no schedule: park the player and show its card.
+    // A link-out station has no schedule: park the player, let the snow settle, and show its card.
     player.off();
+    fx.release();
     hideRadio();
+    hideBanner();
     showLinkCard(ch);
     updateBug();
     return;
@@ -1297,7 +1299,15 @@ function addBuiltChannel(def, res, opts) {
   const existing = app.channels.filter(function (c) {
     return c.slug === def.slug;
   })[0];
-  if (existing) return { skipped: "CH " + chLabel(existing) + " " + existing.name + " is already on this TV" };
+  // A pack channel loaded twice is skipped; a search made twice is simply another channel.
+  if (existing && o.number != null) return { skipped: "CH " + chLabel(existing) + " " + existing.name + " is already on this TV" };
+  const taken = function (slug) {
+    return app.channels.some(function (c) {
+      return c.slug === slug;
+    });
+  };
+  let slug = def.slug;
+  for (let k = 2; taken(slug); k++) slug = def.slug + "-" + k;
   let number;
   let renumbered = false;
   if (o.number == null) {
@@ -1315,7 +1325,7 @@ function addBuiltChannel(def, res, opts) {
     renumbered = true;
   }
   const ch = {
-    slug: def.slug,
+    slug: slug,
     number: number,
     name: def.name,
     tagline: def.tagline || "Your channel",
@@ -2207,8 +2217,19 @@ document.addEventListener("keydown", function (e) {
     if (!(esc || a.type === "ok" || a.type === "up" || a.type === "down")) return;
   }
   e.preventDefault();
-  handleAction(a);
+  fromInput("key", a);
 });
+
+// On Android TV a controller's D-pad and A button also arrive as key presses, so one press can come in
+// twice: once as a key, once from the Gamepad API. The second copy within a moment is dropped.
+const lastInputFrom = { key: {}, pad: {} };
+function fromInput(source, a) {
+  const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+  lastInputFrom[source][a.type] = now;
+  const other = lastInputFrom[source === "key" ? "pad" : "key"][a.type] || 0;
+  if (now - other < 250) return;
+  handleAction(a);
+}
 
 // ---------- mouse and touch ----------
 let pointerTimer = 0;
@@ -2485,11 +2506,16 @@ async function boot() {
   app.state = "on";
   tuneTo(start);
   // Any standard controller drives the remote: D-pad to surf, A for OK, B to go back.
-  createGamepad(handleAction, {
-    onConnect: function (id) {
-      V.toast("Controller connected" + (id ? ": " + id.slice(0, 40) : ""));
+  createGamepad(
+    function (a) {
+      fromInput("pad", a);
     },
-  });
+    {
+      onConnect: function (id) {
+        V.toast("Controller connected" + (id ? ": " + id.slice(0, 40) : ""));
+      },
+    }
+  ).start();
   setInterval(tick, 500);
   if (s.phone) link.start();
 

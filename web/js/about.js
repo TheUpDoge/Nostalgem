@@ -12,10 +12,12 @@ export function archiveAboutHtml() {
     "<p>The <b>Internet Archive</b> (archive.org) is a non-profit digital library working " +
     "toward universal access to all knowledge — books, films, music, radio and more, " +
     "preserved for everyone.</p>" +
-    "<p>NostalGem's built-in channels play <b>public-domain Archive material only</b>, checked " +
+    "<p>NostalGem's Archive channels play <b>public-domain Archive material only</b>, checked " +
     "before it ships. The lineup builder skips lending-library items, anything dated after 1977 " +
     "(except NASA and Creative Commons sources), and files that carry the fingerprints of ripped " +
-    "commercial releases. That filtering is a good-faith effort, not a guarantee.</p>" +
+    "commercial releases. That filtering is a good-faith effort, not a guarantee. " +
+    "The YouTube channels (CH 50 and up) are different: they play the owners' own official uploads " +
+    "through YouTube's player, and stay on YouTube.</p>" +
     "<p>A note on this page doesn't change the copyright status of anything. If something " +
     "shouldn't be on, it gets taken off — see “About the programming” in the README.</p>" +
     "<p>Channels you add yourself — by search, or by loading a channel pack — are your choice " +

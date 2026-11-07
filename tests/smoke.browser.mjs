@@ -252,7 +252,7 @@ try {
   check((await state()).overlay === "", "Back closes the menu");
 
   // Radio channel.
-  await key("4", 1500);
+  await key("4", 2200); // 4 waits a moment in case it's the start of 420
   st = await state();
   check(st.channel === 4, `CH 04 is ${st.name}`);
   await page.waitForFunction(() => !document.getElementById("radio").hidden, null, { timeout: 8000 }).catch(() => {});
@@ -363,7 +363,7 @@ try {
   await key("l", 800);
   check(!(await state()).shifted, "L goes back to the schedule");
 
-  await key("4", 1500);
+  await key("4", 2200); // 4 waits a moment in case it's the start of 420
   check((await page.isVisible("#screen")) && !(await page.isVisible("#yt")), "leaving YouTube puts the <video> back");
 
   // Add a channel from a search (the Archive is faked).
@@ -383,6 +383,45 @@ try {
   st = await state();
   check(st.channel >= 30 && /Rodeo/.test(st.name), `a new channel was built and tuned (CH ${st.channel} ${st.name})`);
   check(st.program === "Test Rodeo", `it plays the search result (${st.program})`);
+
+  // The hidden link-out stations: tuned by number only; a card with a link and a QR code; not in the guide.
+  for (const [num, name, word] of [
+    ["420", "South Park", "SOUTH PARK"],
+    ["777", "Quenq Arcade", "QUENQ ARCADE"],
+  ]) {
+    for (const d of num) await key(d, 120);
+    await page.waitForFunction((n) => window.NP.state().name === n, name, { timeout: 5000 }).catch(() => {});
+    st = await state();
+    check(st.name === name && (await page.textContent("#card")).includes(word), `CH ${num} shows the ${name} card (got ${st.name})`);
+    await page.waitForSelector("#card .link-qr svg", { timeout: 5000 }).catch(() => {});
+    check(await page.isVisible("#card .link-qr svg"), `…with a QR code so a phone can open it`);
+    await page.waitForTimeout(800);
+    check(!(await page.evaluate(() => document.getElementById("static").classList.contains("on"))) && !(await page.isVisible("#banner")), "…and the snow and the last channel's banner clear off it");
+    await shot("4g-link-" + num);
+  }
+  await key("g", 600);
+  const guideText = await page.textContent("#guide");
+  check((await state()).overlay === "guide" && !/South Park|Quenq/.test(guideText), "the guide doesn't list the hidden stations");
+  await key("Escape", 300);
+
+  // A game controller: the poller starts when a pad connects, and its D-pad changes channel.
+  await key("1", 120);
+  await key("2", 2200);
+  const padFrom = (await state()).channel;
+  await page.evaluate(() => {
+    const pad = { connected: true, id: "Test Pad", buttons: Array.from({ length: 17 }, () => ({ pressed: false })), axes: [0, 0, 0, 0] };
+    window.__pad = pad;
+    navigator.getGamepads = () => [pad];
+    const ev = new Event("gamepadconnected");
+    ev.gamepad = pad;
+    window.dispatchEvent(ev);
+  });
+  await page.evaluate(() => (window.__pad.buttons[12].pressed = true));
+  await page.waitForTimeout(200);
+  await page.evaluate(() => (window.__pad.buttons[12].pressed = false));
+  await page.waitForTimeout(1200);
+  const padTo = (await state()).channel;
+  check(padFrom === 12 && padTo !== 12, `a controller's D-pad changes channel (CH ${padFrom} → CH ${padTo})`);
 
   // Outage: every download fails, so after a few tries the TV stands by.
   fake.failing = true;
@@ -470,7 +509,11 @@ try {
   const rowCount = await phone.$$eval("#chList [data-slug]", (r) => r.length);
   check(rowCount >= 20, `the phone lists ${rowCount} channels`);
   if (SHOTS) await phone.screenshot({ path: join(shotsDir, "p2-channels.png") });
-  const fifth = await phone.getAttribute("#chList li:nth-child(5) [data-slug]", "data-slug");
+  // The row whose label reads 05 (sub-channels like 3-2 sit between the numbers, so don't count rows).
+  const fifth = await phone.$$eval("#chList [data-slug]", (rows) => {
+    const row = rows.filter((r) => r.querySelector(".cn").textContent.trim() === "05")[0];
+    return row ? row.getAttribute("data-slug") : "";
+  });
   await tap('#chList [data-slug="' + fifth + '"]', 1000);
   st = await state();
   check(st.channel === 5, `tapping a channel on the phone tunes it (CH ${st.channel})`);

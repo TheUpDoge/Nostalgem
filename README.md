@@ -1,9 +1,9 @@
 # NostalGem
 
-Retro cable TV from the public domain. 63 channels that run 24/7, with Westerns at the top of the dial,
-plus serials, noir, creature features, cartoons, sitcoms, game shows, newsreels, Apollo films,
-*The Computer Chronicles* and old-time radio. Everything streams from the
-[Internet Archive](https://archive.org).
+Retro cable TV. 65 channels that run 24/7, with Westerns at the top of the dial, plus serials, noir,
+creature features, cartoons, sitcoms, game shows, newsreels, Apollo films, *The Computer Chronicles* and
+old-time radio, public-domain or openly licensed and streamed from the [Internet Archive](https://archive.org), and a
+block of official YouTube channels from CH 50 up.
 
 Like real broadcast TV, every channel follows a schedule set by the clock. Tune in and you join
 whatever's already on, mid-scene, at the same moment as every other TV tuned to that channel.
@@ -224,13 +224,15 @@ Internet Archive [advanced search](https://archive.org/advancedsearch.php) plus 
 
 ```json
 {
-  "number": 30, "slug": "spaghetti", "name": "Dollars Trilogy", "tagline": "A few films more",
+  "number": 1, "sub": 2, "slug": "spaghetti", "name": "Dollars Trilogy", "tagline": "A few films more",
   "icon": "🎺", "color": "#e07a5f", "kind": "video",
   "minMinutes": 60, "maxMinutes": 180, "maxItems": 40, "filesPerItem": 1,
   "sources": [{ "q": "collection:feature_films AND subject:\"spaghetti western\"", "rows": 60 }]
 }
 ```
 
+- `number` and `sub`: CH 1–29 are all taken, so a new channel goes on as a sub-channel of the one it
+  fits with (`"number": 1, "sub": 2` is CH 1-2). CH 30–49 are left for channels viewers add.
 - `kind`: `video` (MP4) or `audio` (MP3, shown as radio).
 - `filesPerItem`: how many episodes one Archive item (a whole series, or a collection) may add.
 - `maxYear`: skip anything dated later. The default is 1977, because public-domain films are mostly
