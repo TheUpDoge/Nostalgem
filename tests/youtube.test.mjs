@@ -223,3 +223,16 @@ test("the same episode uploaded twice airs once", async () => {
   assert.deepEqual(res.items.map((p) => p.t), ["Inspector Gadget 101 - Monster Lake", "Inspector Gadget 102 - Gadget at the Circus"]);
   assert.equal(res.rejected["same title"], 1);
 });
+
+test("titles: a creator's English titles where they wrote them", async () => {
+  const mk = (id, title, en) => ok({ id, snippet: { title, liveBroadcastContent: "none", description: "", localized: en ? { title: en, description: "" } : undefined } });
+  const asked = [];
+  const { yt } = fakeApi({ "@kj": { videos: [mk("k1", "肉で作られた包丁", "Kitchen knife made of meat"), mk("k2", "砂の包丁")] } });
+  const spy = async (path, params) => {
+    if (path === "videos") asked.push(params.hl);
+    return yt(path, params);
+  };
+  const res = await buildYouTubeChannel({ slug: "kj", youtube: [{ handle: "@kj", titles: "en", order: "oldest" }] }, { yt: spy });
+  assert.deepEqual(res.items.map((p) => p.t).sort(), ["Kitchen knife made of meat", "砂の包丁"].sort(), "no translation: the original title");
+  assert.deepEqual(asked, ["en"]);
+});

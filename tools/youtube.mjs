@@ -11,6 +11,8 @@
 // "every": N spreads a source's programs through the channel, one after every N of the others.
 // "allow": a pattern of phrases the word filter lets through for that source (an official channel's own
 // "Full Series" watch party, say); the rest of its title and description is still checked.
+// "titles": "en" uses the creator's English titles where they wrote them (Kiwami Japan's are Japanese
+// by default).
 // order: "shuffle" (default), "oldest", "playlist", or "title" (series, then episode number).
 // Every video is checked before it goes on the air: public, embeddable, not age-restricted, not blocked
 // in the region (US unless "region" says otherwise), not live or upcoming, and long enough not to be a
@@ -117,7 +119,9 @@ function dropBranding(s, channel) {
 
 export function toProgram(v) {
   const sn = v.snippet || {};
-  const p = { id: "yt:" + v.id, f: "yt", t: cleanYtTitle(sn.title, sn.channelTitle) || sn.title || v.id, d: parseIsoDuration(v.contentDetails.duration) };
+  // localized: the title in the language asked for ("titles": "en"), when the creator translated it.
+  const title = (sn.localized && sn.localized.title) || sn.title;
+  const p = { id: "yt:" + v.id, f: "yt", t: cleanYtTitle(title, sn.channelTitle) || title || v.id, d: parseIsoDuration(v.contentDetails.duration) };
   // Where it can't play (web/js/regions.js), so a TV abroad can leave it out of the schedule.
   const r = packRegion(v.contentDetails.regionRestriction);
   if (r) p.r = r;
@@ -205,10 +209,13 @@ async function playlistVideoIds(playlistId, max, yt) {
   return ids.slice(0, max);
 }
 
-async function videoDetails(ids, yt) {
+// hl: ask for the creator's own translations of titles and descriptions in that language ("en").
+async function videoDetails(ids, yt, hl) {
   const out = [];
   for (let i = 0; i < ids.length; i += 50) {
-    const json = await yt("videos", { part: "snippet,contentDetails,status", id: ids.slice(i, i + 50).join(","), maxResults: "50" });
+    const params = { part: "snippet,contentDetails,status", id: ids.slice(i, i + 50).join(","), maxResults: "50" };
+    if (hl) params.hl = hl;
+    const json = await yt("videos", params);
     out.push.apply(out, json.items || []);
   }
   const byId = {};
@@ -254,7 +261,7 @@ export async function buildYouTubeChannel(def, ctx) {
       continue;
     }
     searched += ids.length;
-    const videos = await videoDetails(ids, yt);
+    const videos = await videoDetails(ids, yt, src.titles);
     const match = regex(src.match);
     const skip = regex(src.exclude);
     const allow = src.allow ? new RegExp(src.allow, "gi") : null;
@@ -287,7 +294,8 @@ export async function buildYouTubeChannel(def, ctx) {
         p.live = 1;
       }
       list.push(p);
-      const desc = def.about === false ? "" : cleanText(v.snippet.description || "", 170);
+      const sn = v.snippet || {};
+      const desc = def.about === false ? "" : cleanText((sn.localized && sn.localized.description) || sn.description || "", 170);
       if (desc) about[p.id] = desc;
     }
     // Uploads come newest first. "oldest" airs a series from episode 1; "playlist" keeps the playlist's own order.

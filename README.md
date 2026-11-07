@@ -59,12 +59,13 @@ YouTube's player) and rebuilt daily:
 | CH | Channel | From |
 |---|---|---|
 | 50-1, 50-2, 50-3 | Mecha Hangar, Anime Vault, Ultra Hour | GUNDAM CHANNEL, Voltron; Nozomi Entertainment, RetroCrush, Crunchyroll (the *Junji Ito Collection*); Tsuburaya's ULTRAMAN Official English Channel |
-| 60-1 … 60-9 | Laugh Riot, The Workshop, Gearheads, Range Day, Great Outdoors, Passport & Plate, Dark Files, Game Room, VHS Late Show | Big Lez, MeatCanyon, Ze Frank, Drue Langlois, Hand Tool Rescue, Primitive Technology, Cleetus McFarland, Garage 54, Garand Thumb, AntsCanada, Bald and Bankrupt, Trek Trendy, Dark Docs, AVGN, brutalmoose, TronicsFix, Retro Ryu, Orbital Bacon and more |
-| 60-10 | 🔦 Deep Dives | VICE documentaries, DJ Peach Cobbler's video essays |
+| 60-1 … 60-9 | Laugh Riot, The Workshop, Gearheads, Range Day, Great Outdoors, Passport & Plate, Dark Files, Game Room, VHS Late Show | Big Lez, MeatCanyon, Ze Frank, Drue Langlois, Hand Tool Rescue, Primitive Technology, Kiwami Japan, Cleetus McFarland, Garage 54, Garand Thumb, AntsCanada, Bald and Bankrupt, Trek Trendy, Dark Docs, AVGN, brutalmoose, TronicsFix, Retro Ryu, Orbital Bacon and more |
+| 60-10 | 🔦 Deep Dives | VICE documentaries and the VICE Forever archive, DJ Peach Cobbler's video essays |
+| 60-11 | 🗄️ Anime Archive | Fan archives of rare OVAs and forgotten series: Anime Preservation Society, OtakuForLife, GamesBurger |
 | 70-1 … 70-7 | Cam Tour, Rail Cam, Launch Pad, Lo-Fi Radio, Vapor Lounge, World Desk, En Español | **Live**: Monterey Bay Aquarium, EarthCam, Namibia, Virtual Railfan, NASA, NASASpaceflight (plus weather-satellite loops), Lofi Girl, Chillhop, Ryan Celsius; NHK World, Nippon TV News 24, DW News, France 24; DW Español, France 24 Español and DW Documental's Spanish documentaries |
 | 80-1 … 80-6 | Sitcom Classics, After Hours, Stand-Up Stage, FilmRise TV, Midnight Movies, True Crime | I Dream of Jeannie, Married with Children, Bewitched, Adult Swim, Dropout, Funny Or Die, Comedy Central Stand-Up, FilmRise, Unsolved Mysteries |
 | 80-7 | 🍿 Riff Theater | Mystery Science Theater 3000 (Shout! Studios), RiffTrax |
-| 80-8 | 🦸 Toon Block | He-Man & She-Ra (Masters of the Universe), Inspector Gadget (WildBrain, the 1983 series), Teenage Mutant Ninja Turtles (the 1987 series), Throwback Toons (Sony: The Real Ghostbusters, Men in Black, Godzilla, Jackie Chan Adventures), Garfield & Friends |
+| 80-8 | 🦸 Toon Block | He-Man & She-Ra (Masters of the Universe), Inspector Gadget (WildBrain, the 1983 series), Teenage Mutant Ninja Turtles (the 1987 series), Throwback Toons (Sony: The Real Ghostbusters, Men in Black, Godzilla, Jackie Chan Adventures), Garfield & Friends, Transformers: Prime (Hasbro) |
 | 80-9 | 🎨 Pledge Drive | Bob Ross's *The Joy of Painting*, Mister Rogers' Neighborhood, This Old House |
 | 90-1, 90-2 | Joe Rogan Experience, Pod Squad | PowerfulJRE; Unsubscribe, Underwhelming, Conan O'Brien Needs a Friend |
 
