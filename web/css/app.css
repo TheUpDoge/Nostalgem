@@ -1579,3 +1579,114 @@ body {
   height: 8rem;
   margin-bottom: 0.3rem;
 }
+
+/* ---------- on-screen number pad (ui/numpad.js) ---------- */
+.numpad {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 41;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 0, 15, 0.55);
+}
+.numpad[hidden] {
+  display: none;
+}
+.np-box {
+  width: 24rem;
+  background: linear-gradient(180deg, #241056, #0d0221);
+  border: 0.12rem solid var(--line);
+  border-radius: 1rem;
+  padding: 1.4rem 1.6rem 1.1rem;
+  box-shadow: 0 0 3rem rgba(242, 34, 255, 0.35);
+  text-align: center;
+}
+.np-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  font-size: 0.85rem;
+  color: var(--pink);
+}
+.np-num {
+  font-family: var(--font-mono);
+  font-size: 4.2rem;
+  line-height: 1.1;
+  color: var(--cyan);
+  text-shadow: 0 0 0.5em var(--cyan);
+  margin-top: 0.3rem;
+}
+.np-name {
+  min-height: 1.5rem;
+  color: var(--ink);
+  font-size: 1.05rem;
+  margin-bottom: 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.np-keys {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-gap: 0.6rem;
+}
+.np-key {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.6rem;
+  padding: 0.7rem 0;
+  border-radius: 0.6rem;
+  border: 0.12rem solid var(--line);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink);
+  cursor: pointer;
+}
+.np-go,
+.np-del {
+  font-size: 1.05rem;
+  letter-spacing: 0.1em;
+}
+.np-key.focus {
+  background: var(--focus);
+  border-color: #fff;
+}
+.np-hint {
+  margin-top: 0.9rem;
+  font-size: 0.85rem;
+  color: var(--dim);
+}
+
+/* Real SVG filters over YouTube: browsers won't filter another site's page directly, but a see-through
+   layer above it can filter what's behind it (backdrop-filter). Older TV browsers without it keep the
+   CSS-only versions above. */
+.lookbd {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  display: none;
+}
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .look-svg .yt:not([hidden]) ~ .lookbd {
+    display: block;
+    -webkit-backdrop-filter: var(--look);
+    backdrop-filter: var(--look);
+  }
+  .look-svg.look-on .yt {
+    filter: none;
+  }
+  .look-svg.look-ascii .yt {
+    background: #000;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .look-svg.lookfx-pixgrid .yt:not([hidden]) ~ .lookfx {
+    display: none;
+  }
+}

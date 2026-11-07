@@ -17,6 +17,7 @@ import { pickSubtitle, subtitleLabel } from "./captions.js";
 import { Guide } from "./ui/guide.js";
 import { Menu } from "./ui/menu.js";
 import { Dialog } from "./ui/dialog.js";
+import { Numpad } from "./ui/numpad.js";
 import * as V from "./ui/views.js";
 import { TvLink, makeCode, cleanCode, remoteUrl, prettyCode, qrSvg, loadScript, isIPv4, PAGES_BASE } from "./link.js";
 import { loadLineup, builtAt } from "./lineup.js";
@@ -99,6 +100,39 @@ const s = app.s;
 
 const fx = new Static($("static"));
 const ambience = new Ambience();
+const numpad = new Numpad($("numpad"), {
+  describe: function (typed) {
+    const exact = channelForDigits(typed, false);
+    const longer = app.channels.some(function (c) {
+      const k = chKey(c);
+      return k.length > typed.length && k.indexOf(typed) === 0;
+    });
+    const ch = channelForDigits(typed, true);
+    return {
+      text: ch ? "CH " + chLabel(ch) + " · " + ch.name : longer ? "Keep typing…" : "No channel " + typed,
+      done: !!exact && !longer,
+    };
+  },
+  go: function (typed) {
+    app.digits = typed;
+    commitDigits();
+  },
+  onClose: function () {
+    updateBug();
+  },
+});
+$("numpad").addEventListener("click", function (e) {
+  const b = e.target.closest ? e.target.closest("[data-i]") : null;
+  if (b) numpad.click(Number(b.getAttribute("data-i")));
+});
+
+function openNumpad() {
+  hideBanner();
+  menu.close();
+  guide.close();
+  numpad.open();
+  updateBug();
+}
 const player = new Player($("screen"), {
   ytHost: $("yt"),
   state: onPlayerState,
@@ -730,7 +764,7 @@ function applyLook() {
   const keep = tv.className
     .split(/\s+/)
     .filter(function (c) {
-      return c && !/^(crt|fit|lookfx)-/.test(c) && c !== "look-on" && c !== "look-ascii";
+      return c && !/^(crt|fit|lookfx)-/.test(c) && c !== "look-on" && c !== "look-ascii" && c !== "look-svg";
     })
     .join(" ");
   tv.className =
@@ -741,6 +775,7 @@ function applyLook() {
     s.fit +
     (css ? " look-on" : "") +
     (look.ytMask ? " look-ascii" : "") +
+    (look.svg ? " look-svg" : "") +
     (look.overlay ? " lookfx-" + look.overlay : "") +
     (look.ytOverlay ? " lookfx-" + look.ytOverlay : "");
   if (css) {
@@ -871,9 +906,10 @@ function hideBanner() {
 
 // ---------- overlays ----------
 function overlayOpen() {
-  return dialog.isOpen || menu.isOpen || guide.isOpen;
+  return dialog.isOpen || menu.isOpen || guide.isOpen || numpad.isOpen;
 }
 function closeOverlays() {
+  numpad.close();
   dialog.close();
   menu.close();
   guide.close();
@@ -1016,6 +1052,13 @@ function rootPage() {
         },
       });
       list.push({ head: true, label: "Channels" });
+      list.push({
+        label: "🔢 Number pad",
+        ok: function () {
+          openNumpad();
+          return "close";
+        },
+      });
       list.push({
         label: "🔎 Find a show",
         sub: true,
@@ -2024,7 +2067,7 @@ function openPairing() {
 function showHelp() {
   const rows = [
     ["▲ ▼  CH+ CH−", "Change channel", "↑ ↓ PgUp PgDn"],
-    ["0 – 9", "Go to a channel number", "0 – 9"],
+    ["0 – 9", "Go to a channel number (no number buttons? Menu ▸ 🔢 Number pad)", "0 – 9"],
     ["OK", "What's on now", "Enter"],
     ["◀", "TV guide", "← or G"],
     ["▶", "Menu: subtitles, sleep timer, picture, channels", "→ or O"],
@@ -2175,6 +2218,10 @@ function handleAction(a) {
   }
   if (player.mode === "gesture") {
     player.userGesture();
+    return;
+  }
+  if (numpad.isOpen) {
+    numpad.handle(a);
     return;
   }
   if (a.type === "back") {
@@ -2371,7 +2418,7 @@ tv.addEventListener("click", function (e) {
   // A click on a menu row or dialog button can remove that element before the click gets here (the menu
   // closes and a dialog opens). It was a click on an overlay, not on the picture: don't press OK again.
   if (!tv.contains(e.target)) return;
-  if (e.target.closest && e.target.closest(".touch,.guide,.menu,.dialog,.banner")) return;
+  if (e.target.closest && e.target.closest(".touch,.guide,.menu,.dialog,.banner,.numpad")) return;
   handleAction({ type: "ok" });
 });
 let touchY = null;

@@ -156,12 +156,12 @@ function gradientMap(id, stops, before) {
 // Sin City: black and white with hard contrast, and one color left in. Each mask is an alpha row
 // (r g b a offset); a pixel keeps its color where both masks agree it's that color.
 const POP = {
-  red: ["3 -3 0 0 -0.9", "3 0 -3 0 -0.9"],
-  blue: ["-3 0 3 0 -0.9", "0 -3 3 0 -0.9"],
-  green: ["-3 3 0 0 -0.9", "0 3 -3 0 -0.9"],
-  yellow: ["3 0 -3 0 -1", "0 3 -3 0 -1"],
-  purple: ["3 -3 0 0 -0.8", "0 -3 3 0 -0.8"],
-  cyan: ["-3 3 0 0 -0.8", "-3 0 3 0 -0.8"],
+  red: ["6 -6 0 0 -1.5", "6 0 -6 0 -1.5"],
+  blue: ["-6 0 6 0 -1.2", "0 -6 6 0 -0.6"],
+  green: ["-7 7 0 0 -1.2", "0 7 -7 0 -0.8"],
+  yellow: ["6 0 -6 0 -1.5", "0 6 -6 0 -1.5"],
+  purple: ["7 -7 0 0 -0.9", "0 -7 7 0 -0.9"],
+  cyan: ["-7 7 0 0 -0.9", "-7 0 7 0 -0.9"],
 };
 function popFilter(color) {
   const m = POP[color];

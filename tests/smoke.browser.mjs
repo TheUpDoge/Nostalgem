@@ -113,6 +113,10 @@ try {
   // One context for the TV and, later, the phone: the fake PeerJS links pages within a context.
   const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
   await ctx.addInitScript({ path: join(fixtures, "fake-peer.js") });
+  // No relay here: tests/relay.browser.mjs covers it with a local broker.
+  await ctx.addInitScript(() => {
+    window.NostalGemRelayBrokers = [];
+  });
   const page = await ctx.newPage();
   page.on("pageerror", (e) => errors.push(e.message));
   page.on("console", (m) => {
@@ -363,6 +367,22 @@ try {
   await key("l", 800);
   check(!(await state()).shifted, "L goes back to the schedule");
 
+  // On a YouTube channel, SVG filters run on a see-through layer above the player (browsers won't
+  // filter another site's page directly).
+  {
+    const { LOOKS } = await import("../web/js/looks.js");
+    const pop = LOOKS.findIndex((l) => l.id === "pop-red");
+    for (let i = 0; i < pop; i++) await key("v", 60);
+    await page.waitForTimeout(400);
+    const bd = await page.evaluate(() => {
+      const el = document.querySelector(".lookbd");
+      const cs = getComputedStyle(el);
+      return { display: cs.display, filter: cs.backdropFilter || cs.webkitBackdropFilter || "", yt: getComputedStyle(document.getElementById("yt")).filter };
+    });
+    check(bd.display === "block" && /ng-look-pop-red/.test(bd.filter) && bd.yt === "none", "Sin City on a YouTube channel filters the player through the backdrop layer (" + JSON.stringify(bd) + ")");
+    for (let i = pop; i < LOOKS.length; i++) await key("v", 60);
+  }
+
   await key("4", 2200); // 4 waits a moment in case it's the start of 420
   check((await page.isVisible("#screen")) && !(await page.isVisible("#yt")), "leaving YouTube puts the <video> back");
 
@@ -383,6 +403,31 @@ try {
   st = await state();
   check(st.channel >= 30 && /Rodeo/.test(st.name), `a new channel was built and tuned (CH ${st.channel} ${st.name})`);
   check(st.program === "Test Rodeo", `it plays the search result (${st.program})`);
+
+  // The number pad, for remotes without number buttons: arrows and OK only. 1, 5, 2 → GO tunes CH 15-2.
+  {
+    await key("ArrowRight", 300);
+    for (let i = 0; i < 40; i++) {
+      const label = await page.textContent(".m-item.focus .l");
+      if (/Number pad/.test(label)) break;
+      await key("ArrowDown", 40);
+    }
+    await key("Enter", 300);
+    check(await page.isVisible("#numpad .np-key.focus"), "Menu ▸ Number pad opens the keypad");
+    await key("Enter", 120); // 1
+    await key("ArrowDown", 60);
+    await key("ArrowRight", 60);
+    await key("Enter", 120); // 5
+    check((await page.textContent("#numpad .np-num")).trim() === "15", "…typing 1 5 with arrows and OK (" + (await page.textContent("#numpad .np-num")).trim() + ")");
+    await key("ArrowUp", 60);
+    await key("Enter", 200); // 2: CH 15-2 is complete, so focus moves to GO
+    const focused = (await page.textContent("#numpad .np-key.focus")).trim();
+    check(/GO/.test(focused) && /15-2/.test(await page.textContent("#numpad .np-name")), "…then 2: it shows CH 15-2 and moves to GO (" + (await page.textContent("#numpad .np-name")) + ")");
+    await shot("4i-numpad");
+    await key("Enter", 1500);
+    st = await state();
+    check(!(await page.isVisible("#numpad")) && st.label === "15-2", `…and GO tunes it (CH ${st.label})`);
+  }
 
   // Picture filters: V steps through them; SVG ones draw on the program; all the way round is Off again.
   {
