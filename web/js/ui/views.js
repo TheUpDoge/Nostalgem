@@ -1,6 +1,7 @@
 // What's drawn on screen: the sunset scene, channel number, toast, info banner, full-screen cards, radio.
 
 import { escapeHtml as esc, fmtClock, fmtDuration, fmtLeft, fmtRuntime, pad2, chLabel } from "../util.js";
+import { ARCADE_URL } from "../arcade.js";
 import { standbyText } from "../problems.js";
 
 export function $(id) {
@@ -242,6 +243,24 @@ export function gestureCard() {
     '<div class="card-panel" style="background:none;border:0;box-shadow:none">' +
     LOGO +
     '<div class="logo-tv">TV</div><div class="boot-status blink">PRESS OK TO TURN ON</div></div>'
+  );
+}
+
+// The secret arcade station: a card, not a program. No iframe — Quenq refuses to be
+// framed from here — just a link out to the arcade, opened with OK or a tap.
+export function arcadeCard(ch) {
+  return (
+    SCENE +
+    panel(
+      "A SECRET STATION",
+      "🕹️ THE QUENQ ARCADE",
+      "Hundreds of classic Flash games, preserved and playable — search by title, filter by genre, pin your favorites. Keyboard and touch controls built in.",
+      '<div class="arcade-coin blink">INSERT COIN</div>' +
+        '<a class="arcade-go" href="' +
+        esc(ARCADE_URL) +
+        '" target="_blank" rel="noopener">▶ PLAY AT QUENQ.COM/ARCADE</a>' +
+        '<div class="arcade-hint">Press OK to jump to the arcade — it opens in a new tab</div>'
+    )
   );
 }
 
