@@ -1,7 +1,9 @@
-// NostalGem Remote: the phone side. Opens remote.html#CODE, finds the TV through the PeerJS broker,
-// then sends button presses straight to it over WebRTC and shows what the TV reports back.
+// NostalGem Remote: the phone side. Opens remote.html#CODE, finds the TV through the PeerJS broker and
+// sends button presses straight to it over WebRTC, or through the relay (relay.js) when the two can't
+// reach each other directly, and shows what the TV reports back.
 
 import { cleanCode, peerIdFor, prettyCode, peerClass, peerOptions, linkReport, PROTOCOL } from "./link.js";
+import { relayConnect, relaySupported } from "./relay.js";
 import { escapeHtml as esc, fmtDuration, pad2 } from "./util.js";
 
 const KEY = "nostalgem-remote:";
@@ -30,7 +32,16 @@ const IDEAS = ["lone ranger", "flash gordon", "john wayne", "kung fu", "the shad
 const r = {
   code: "",
   peer: null,
-  conn: null,
+  conn: null, // the link carrying messages
+  connKind: "",
+  p2p: null, // the direct WebRTC attempt
+  relay: null, // the relay attempt
+  p2pFailed: false,
+  relayFailed: false,
+  p2pMsg: "",
+  p2pWhy: "",
+  relayWhy: "",
+  notFound: false,
   status: "idle", // idle | connecting | connected | lost | notfound | unsupported
   tries: 0,
   retryTimer: 0,
@@ -78,14 +89,23 @@ function setStatus(st, msg) {
 
 function dropPeer() {
   clearTimeout(r.openTimer);
-  if (r.conn) {
-    try {
-      r.conn.close();
-    } catch (e) {
-      /* fine */
+  [r.conn, r.p2p, r.relay].forEach(function (c) {
+    if (c) {
+      try {
+        c.close();
+      } catch (e) {
+        /* fine */
+      }
     }
-  }
+  });
   r.conn = null;
+  r.p2p = null;
+  r.relay = null;
+  r.p2pFailed = false;
+  r.relayFailed = false;
+  r.p2pMsg = "";
+  r.p2pWhy = "";
+  r.notFound = false;
   if (r.peer) {
     try {
       r.peer.destroy();
@@ -106,15 +126,25 @@ function retry(why) {
   if (why) $("pairMsg").textContent = why;
 }
 
+// Two ways in, tried at once: straight to the TV over WebRTC (fast, same Wi-Fi), and through the relay
+// (relay.js: works across any networks). The first one up carries the messages; if the direct link comes
+// up after the relay, it takes over.
 function connect() {
   clearTimeout(r.retryTimer);
   if (!r.code) return;
-  if (typeof RTCPeerConnection === "undefined" && !window.NostalGemPeer) {
+  dropPeer();
+  const rtc = !(typeof RTCPeerConnection === "undefined" && !window.NostalGemPeer);
+  if (!rtc && !relaySupported()) {
     setStatus("unsupported", "This browser can't connect to the TV. Try Chrome or Safari.");
     return;
   }
-  dropPeer();
   setStatus(r.state ? "lost" : "connecting", "Step 1 of 3: reaching the pairing service…");
+  $("pairMsg").textContent = "Connecting to your TV (" + prettyCode(r.code) + ")…";
+  startRelay();
+  if (!rtc) {
+    r.p2pFailed = true;
+    return;
+  }
   peerClass("")
     .then(function (Peer) {
       const peer = new Peer(peerOptions());
@@ -122,26 +152,21 @@ function connect() {
       // The pairing service should answer in a second or two.
       clearTimeout(r.openTimer);
       r.openTimer = setTimeout(function () {
-        if (peer === r.peer && !peer.open) {
-          setStatus("lost");
-          retry("Step 1 of 3 failed: this phone can't reach the pairing service (0.peerjs.com). Ad blockers, VPNs, Private DNS and some work or school Wi-Fi block it. Trying again…");
-        }
+        if (peer === r.peer && !peer.open)
+          p2pFail("Step 1 of 3 failed: this phone can't reach the pairing service (0.peerjs.com). Ad blockers, VPNs, Private DNS and some work or school Wi-Fi block it.");
       }, 12000);
       peer.on("open", function () {
         if (peer !== r.peer) return;
         clearTimeout(r.openTimer);
-        $("pairMsg").textContent = "Step 2 of 3: calling your TV (" + prettyCode(r.code) + ")…";
+        if (!(r.conn && r.conn.open)) $("pairMsg").textContent = "Step 2 of 3: calling your TV (" + prettyCode(r.code) + ")…";
         openConn(peer);
       });
       peer.on("error", function (err) {
         if (peer !== r.peer) return;
         if (err && err.type === "peer-unavailable") {
-          setStatus("notfound", "No TV is using code " + prettyCode(r.code) + " right now. Is NostalGem on, with the phone remote turned on?");
-          retry();
-        } else {
-          setStatus("lost");
-          retry("Can't reach the pairing service. Trying again…");
-        }
+          r.notFound = true;
+          p2pFail("No TV is using code " + prettyCode(r.code) + " right now. Is NostalGem on, with the phone remote turned on?");
+        } else p2pFail("Can't reach the pairing service.");
       });
       peer.on("disconnected", function () {
         // The broker dropped us; the data channel to the TV may well still be up.
@@ -155,60 +180,157 @@ function connect() {
       });
     })
     .catch(function () {
-      setStatus("lost");
-      retry("Couldn't load the connection code. Check your internet connection.");
+      p2pFail("Couldn't load the connection code. Check your internet connection.");
     });
 }
 
 function openConn(peer) {
   const conn = peer.connect(peerIdFor(r.code), { serialization: "json", reliable: true });
-  r.conn = conn;
+  r.p2p = conn;
   let failed = false;
   // Some networks never finish the WebRTC handshake; don't wait forever. The details line says how far
   // it got, for a screenshot.
   const fail = function () {
-    if (failed || conn !== r.conn || conn.open) return;
+    if (failed || conn !== r.p2p || conn.open) return;
     failed = true;
-    clearTimeout(r.openTimer);
     linkReport(conn).then(function (why) {
-      if (conn !== r.conn || conn.open) return;
-      setStatus("lost");
-      $("pairWhy").textContent = "Details: " + why;
-      retry(
+      if (conn !== r.p2p || conn.open) return;
+      p2pFail(
         why.indexOf("answered") === 0
-          ? "Step 3 of 3 failed: your TV answered, but the two couldn't reach each other. With both on the same Wi-Fi, the latest NostalGem TV app links directly. Guest Wi-Fi, VPNs and \"AP isolation\" on a router block it. Trying again…"
-          : "Step 3 of 3 failed: the TV didn't answer. Is NostalGem still on, with the phone remote turned on? Trying again…"
+          ? "Step 3 of 3 failed: your TV answered, but the two couldn't reach each other directly. Guest Wi-Fi, VPNs and \"AP isolation\" on a router block it."
+          : "Step 3 of 3 failed: the TV didn't answer. Is NostalGem still on, with the phone remote turned on?",
+        why
       );
     });
   };
   clearTimeout(r.openTimer);
   r.openTimer = setTimeout(fail, 20000);
   conn.on("iceStateChanged", function (st) {
-    if (conn !== r.conn || conn.open) return;
-    if (st === "checking") $("pairMsg").textContent = "Step 3 of 3: your TV answered. Finding a way through…";
+    if (conn !== r.p2p || conn.open) return;
+    if (st === "checking" && !(r.conn && r.conn.open)) $("pairMsg").textContent = "Step 3 of 3: your TV answered. Finding a way through…";
     else if (st === "failed") fail();
   });
   conn.on("open", function () {
-    if (conn !== r.conn) return;
+    if (conn !== r.p2p) return;
     clearTimeout(r.openTimer);
-    r.tries = 0;
-    save("code", r.code);
-    if (window.location.hash.slice(1) !== r.code) history.replaceState(null, "", "#" + r.code);
-    conn.send({ t: "hello", v: PROTOCOL });
-    setStatus("connected", "");
-    buzz(20);
+    adopt(conn, "direct");
   });
   conn.on("data", function (m) {
     if (conn === r.conn) receive(m);
   });
-  const lost = function () {
-    if (conn !== r.conn) return;
-    r.conn = null;
-    setStatus("lost");
-    retry();
+  const gone = function () {
+    if (conn === r.conn) lostLink();
+    else if (conn === r.p2p) {
+      r.p2p = null;
+      p2pFail("The direct link dropped.");
+    }
   };
-  conn.on("close", lost);
-  conn.on("error", lost);
+  conn.on("close", gone);
+  conn.on("error", gone);
+}
+
+function startRelay() {
+  if (!relaySupported()) {
+    r.relayFailed = true;
+    return;
+  }
+  const c = relayConnect({ code: r.code });
+  r.relay = c;
+  let why = "";
+  c.on("open", function () {
+    if (c === r.relay) adopt(c, "relay");
+  });
+  c.on("data", function (m) {
+    if (c === r.conn) receive(m);
+  });
+  c.on("error", function (e) {
+    why = (e && e.message) || "";
+  });
+  c.on("close", function () {
+    if (c === r.conn) {
+      lostLink();
+      return;
+    }
+    if (c !== r.relay) return;
+    r.relay = null;
+    r.relayFailed = true;
+    r.relayWhy = why;
+    giveUpIfBothFailed();
+  });
+}
+
+// The link that carries messages from now on. The direct one is preferred: it replaces the relay.
+function adopt(conn, kind) {
+  if (r.conn === conn) return;
+  const was = r.conn && r.conn.open ? r.conn : null;
+  if (was && r.connKind === "direct") {
+    // Already direct: the relay isn't needed.
+    if (conn === r.relay) r.relay = null;
+    try {
+      conn.close();
+    } catch (e) {
+      /* fine */
+    }
+    return;
+  }
+  r.conn = conn;
+  r.connKind = kind;
+  if (was) {
+    if (was === r.relay) r.relay = null;
+    try {
+      was.close();
+    } catch (e) {
+      /* fine */
+    }
+  }
+  clearTimeout(r.openTimer);
+  clearTimeout(r.retryTimer);
+  r.tries = 0;
+  save("code", r.code);
+  if (window.location.hash.slice(1) !== r.code) history.replaceState(null, "", "#" + r.code);
+  try {
+    conn.send({ t: "hello", v: PROTOCOL });
+  } catch (e) {
+    /* the close handler deals with it */
+  }
+  $("pairWhy").textContent = "";
+  setStatus("connected", "");
+  if (kind === "relay") $("link").querySelector("span").textContent = "Connected · via relay";
+  if (!was) {
+    buzz(20);
+    if (kind === "relay") toast("📶 Linked through the relay");
+  }
+}
+
+function p2pFail(msg, details) {
+  r.p2pFailed = true;
+  r.p2pMsg = msg;
+  if (details) r.p2pWhy = details;
+  if (r.conn && r.conn.open) return; // the relay is carrying it
+  if (!r.relayFailed) {
+    $("pairMsg").textContent = "The direct link didn't work. Trying the relay…";
+    return;
+  }
+  giveUpIfBothFailed();
+}
+
+function giveUpIfBothFailed() {
+  if ((r.conn && r.conn.open) || !r.p2pFailed || !r.relayFailed) return;
+  const relayWords =
+    r.relayWhy === "no tv"
+      ? " The relay didn't hear from a TV with that code either."
+      : r.relayWhy === "no broker"
+        ? " The relay couldn't be reached from this network either."
+        : "";
+  setStatus(r.notFound && r.relayWhy === "no tv" ? "notfound" : "lost");
+  $("pairWhy").textContent = r.p2pWhy ? "Details: " + r.p2pWhy + (r.relayWhy ? " · relay: " + r.relayWhy : "") : r.relayWhy ? "Details: relay: " + r.relayWhy : "";
+  retry((r.p2pMsg || "Couldn't reach the TV.") + relayWords + " Trying again…");
+}
+
+function lostLink() {
+  r.conn = null;
+  setStatus("lost");
+  retry();
 }
 
 function send(msg) {

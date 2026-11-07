@@ -78,6 +78,7 @@ async function pairUp(code, withApp) {
   for (const ctx of [tvCtx, phCtx]) {
     await ctx.addInitScript((o) => {
       window.NostalGemPeerOptions = o;
+      window.NostalGemRelayBrokers = []; // this test is about the direct link
     }, peerOpts);
     await ctx.addInitScript(cannotResolveHidden);
     // Nothing from the internet: programs, the published lineup and YouTube stay out of it.

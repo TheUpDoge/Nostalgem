@@ -34,6 +34,8 @@ const SHELL = [
   "js/linkout.js",
   "js/looks.js",
   "js/ambience.js",
+  "js/relay.js",
+  "js/ui/numpad.js",
   "remote.html",
   "about.html",
   "remote.webmanifest",

@@ -28,6 +28,8 @@ jobs:
         run: npm run test:browser
       - name: Phone remote over real WebRTC on a home-style network (local broker)
         run: npm run test:lan
+      - name: Phone remote through the relay, with WebRTC blocked (local message broker)
+        run: npm run test:relay
 
   # Publishes web/ to GitHub Pages from main. One-time setup: Settings → Pages → Source: GitHub Actions.
   deploy:

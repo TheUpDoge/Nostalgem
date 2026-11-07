@@ -85,9 +85,12 @@ YouTube's player) and rebuilt daily:
   VHS tape, Game Boy, 8-bit, low-res pixels, **ASCII** (mono or color), vaporwave, outrun, thermal camera,
   night vision, dreamy glow and negative. Menu ▸ Picture & sound ▸ 🎨 Filter, or press **V** (a
   controller's Y, or 🎨 on the phone) to step through them. They're drawn by the browser over the
-  picture, so they work on YouTube channels too, where a few become simpler versions (YouTube's player
-  is another site's page, and browsers only allow plain CSS filters over it).
+  picture, so they work on YouTube channels too: browsers won't filter YouTube's player directly (it's
+  another site's page), so there the filter runs on a see-through layer above it. Older TV browsers
+  without that get simpler versions.
 - **Ambience**: lo-fi vinyl crackle, a rainy window, or tape hiss under the program (Menu ▸ Picture & sound).
+- **Number pad** on screen for remotes without number buttons (TCL's Google TV remote has none):
+  Menu ▸ 🔢 Number pad, then the arrows and OK. 1 5 2 GO is CH 15-2.
 - **Channel surfing**: ▲▼, CH+/CH−, or type a number. There's TV snow and a hiss between channels
   (or just snow, or neither), and holding ▲ flips fast.
 - **TV guide**: channels down the side and time across the top, with what's on later and a
@@ -217,9 +220,10 @@ real keyboard for **Search the Archive**.
 
 - Nothing to install. To keep it handy, use your browser's **Add to Home Screen**; it opens like an app.
 - It works with the Android TV app, a TV's web browser, or a computer plugged into or casting to the TV.
-  It's easiest with the phone on the TV's Wi-Fi: the TV app tells the phone its address, so the two
-  link up directly. Guest Wi-Fi, VPNs and "AP isolation" on a router keep devices apart. If it won't
-  link, the phone shows how far the handshake got (small print under the message).
+  On the TV's Wi-Fi the two link up directly. When they can't (guest Wi-Fi, a VPN, "AP isolation" on
+  the router, the phone on mobile data), they link through an encrypted relay instead, and the phone
+  says **Connected · via relay**. If neither works, the phone shows how far each got (small print under
+  the message).
 - The TV keeps its code, so a paired phone reconnects by itself after the TV restarts. **New code** in
   the same dialog disconnects every phone paired before; **Turn off** stops listening.
 - The QR code points at the GitHub Pages copy, so turn on Pages first: Settings ▸ Pages ▸ Source: **GitHub Actions**.
@@ -317,6 +321,7 @@ npm test                  # schedule, remote, Archive parsing, subtitles, lineup
 npm i --no-save playwright@1.63.0 peer@1.0.2 && npx playwright install chromium
 npm run test:browser      # drives the app in Chromium with remote keys; SHOTS=1 saves screenshots
 npm run test:lan          # the phone remote over real WebRTC, through a local PeerJS broker
+npm run test:relay        # the phone remote through the relay with WebRTC blocked (local MQTT broker)
 ```
 
 The browser test needs no network. Small local clips stand in for the Archive, and it checks
@@ -333,6 +338,8 @@ web/
   js/archive.js                Internet Archive client: search, pick the best MP4/MP3, subtitles, filters
   js/remote.js                 keys from keyboards, TV browsers (webOS/Tizen codes) and the Android app
   js/link.js                   phone remote pairing and messages (TV and phone side)
+  js/relay.js                  the encrypted relay the phone remote falls back on
+  js/ui/numpad.js              the on-screen number pad
   remote.html, js/phone.js     the phone remote page (an installable PWA)
   vendor/                      PeerJS and a QR code generator, both MIT (see vendor/README.md)
   js/ui/                       banner, guide, menu, dialogs
@@ -372,6 +379,11 @@ tests/                         node:test unit tests + a Playwright smoke test
   the page its real Wi-Fi address (`window.NostalGemTV`, offered only to this site's pages), and the
   TV sends the phone each hidden address twice: as the browser wrote it, and with the real one. The phone sends the same actions a
   key press makes; the TV sends back what's on. Only whitelisted actions are accepted.
+- **The relay** (`js/relay.js`) runs alongside, for networks where the two can't reach each other. Both
+  sides connect out over secure WebSockets to public MQTT brokers (EMQX, HiveMQ, Mosquitto); the TV
+  listens on all of them, the phone uses the first where the TV answers. The topic is a hash of the code
+  and every message is AES-GCM-encrypted with a key made from the code, so the brokers see only noise.
+  The phone moves to the direct link if that comes up later.
 - **Older TVs.** The app sticks to ES2018 (a test enforces it), ships its own fonts, and uses no frameworks.
 
 ## Disclaimer

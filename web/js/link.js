@@ -12,6 +12,12 @@
 //   TV → phone  { t: "state", ... }              what's on, sent whenever it changes
 //               { t: "channels", list }          the lineup with what's on each channel now
 //               { t: "toast", text }             the TV's own pop-up messages, mirrored
+//
+// When the two can't reach each other directly, the same messages go through a relay instead (relay.js):
+// public message brokers, encrypted with a key made from the code. Both run at once; the phone keeps
+// whichever opens first and moves to the direct link if that comes up later.
+
+import { RelayHost, relaySupported } from "./relay.js";
 
 export const PEER_PREFIX = "nostalgem-";
 export const PROTOCOL = 1;
@@ -257,6 +263,9 @@ export class TvLink {
     this.peer = null;
     this.conns = [];
     this.status = "off";
+    this.peerStatus = "off";
+    this.relay = null;
+    this.relayReady = false;
     this.on = false;
     this.retryTimer = 0;
     this.retries = 0;
@@ -265,16 +274,36 @@ export class TvLink {
     this.channelsAt = 0;
   }
 
+  // The status phones care about: ready if either way in (the pairing service or a relay) is up.
   setStatus(s) {
-    if (this.status === s) return;
-    this.status = s;
-    if (this.o.onStatus) this.o.onStatus(s);
+    this.peerStatus = s;
+    const st = this.on && this.relayReady ? "ready" : s;
+    if (this.status === st) return;
+    this.status = st;
+    if (this.o.onStatus) this.o.onStatus(st);
   }
 
   start() {
     if (this.on) return;
     this.on = true;
+    this.startRelay();
     this.connect();
+  }
+
+  startRelay() {
+    const self = this;
+    if (self.o.relay === false || self.relay || !relaySupported()) return;
+    self.relay = new RelayHost({
+      code: self.code,
+      onConn: function (conn) {
+        self.accept(conn);
+      },
+      onReady: function (ready) {
+        self.relayReady = ready;
+        self.setStatus(self.peerStatus);
+      },
+    });
+    self.relay.start();
   }
 
   stop() {
@@ -289,6 +318,9 @@ export class TvLink {
     });
     this.conns = [];
     this.destroyPeer();
+    if (this.relay) this.relay.stop();
+    this.relay = null;
+    this.relayReady = false;
     this.setStatus("off");
     this.phonesChanged();
   }

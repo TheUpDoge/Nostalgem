@@ -4,15 +4,38 @@
 //   1. A browser as the TV, the usual way.
 //   2. The TV app on home Wi-Fi: neither side can look up the other's hidden ".local" address and no
 //      STUN or TURN server helps, so only the real address the TV app hands the page gets them linked.
+//   3. WebRTC blocked on both sides: only the relay through the public message brokers gets them linked.
 //
-//   node tests/live-link.mjs [https://theupdoge.github.io/Nostalgem/]
+//   node tests/live-link.mjs [https://theupdoge.github.io/Nostalgem/ | local]
+//   ("local" serves this checkout's web/ folder, to try changes before they're published)
 
 import { createRequire } from "node:module";
 import { networkInterfaces } from "node:os";
+import { createServer } from "node:http";
+import { readFile } from "node:fs/promises";
+import { join, extname, normalize, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
 
-const site = (process.argv[2] || "https://theupdoge.github.io/Nostalgem/").replace(/\/?$/, "/");
+let site = (process.argv[2] || "https://theupdoge.github.io/Nostalgem/").replace(/\/?$/, "/");
+if (site === "local/") {
+  const web = join(dirname(fileURLToPath(import.meta.url)), "..", "web");
+  const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png", ".woff2": "font/woff2", ".webmanifest": "application/json" };
+  const srv = createServer(async (q, res) => {
+    const path = new URL(q.url, "http://x").pathname;
+    const file = normalize(join(web, path === "/" ? "index.html" : path));
+    if (!file.startsWith(web)) return res.writeHead(403).end();
+    try {
+      res.writeHead(200, { "content-type": TYPES[extname(file)] || "application/octet-stream" }).end(await readFile(file));
+    } catch {
+      res.writeHead(404).end();
+    }
+  });
+  await new Promise((ok) => srv.listen(0, "127.0.0.1", ok));
+  srv.unref();
+  site = "http://127.0.0.1:" + srv.address().port + "/";
+}
 const ABC = "23456789ABCDEFGHJKMNPQRSTWXYZ"; // the alphabet link.js uses (no 0/O, 1/I/L, U/V)
 const newCode = () => {
   let c = "";
@@ -53,7 +76,7 @@ function cannotResolveHidden() {
   };
 }
 
-async function pairUp(name, app) {
+async function pairUp(name, app, relayOnly) {
   const code = newCode();
   say("test", `--- ${name} (code ${code})`);
   const peerOpts = app ? { debug: 2, config: { iceServers: [] } } : { debug: 2 };
@@ -64,6 +87,11 @@ async function pairUp(name, app) {
       window.NostalGemPeerOptions = o;
     }, peerOpts);
     if (app) await ctx.addInitScript(cannotResolveHidden);
+    if (relayOnly)
+      await ctx.addInitScript(() => {
+        window.RTCPeerConnection = undefined;
+        window.webkitRTCPeerConnection = undefined;
+      });
   }
   await tvCtx.addInitScript(
     ([c, ip, app]) => {
@@ -117,7 +145,7 @@ async function pairUp(name, app) {
       await ph.click('[data-key="chup"]');
       await tv.waitForTimeout(1500);
       const after = await tv.evaluate(() => window.NP.state().channel);
-      say("check", `CH ▲ from the phone: ${before} → ${after}`);
+      say("check", `CH ▲ from the phone: ${before} → ${after} (phone shows "${(await ph.textContent("#link")).trim()}")`);
       ok = after !== before;
     }
   } finally {
@@ -130,5 +158,6 @@ async function pairUp(name, app) {
 
 const plain = await pairUp("browser as the TV", false);
 const app = lanIp ? await pairUp("TV app on home Wi-Fi (address " + lanIp + ")", true) : true;
+const relay = await pairUp("WebRTC blocked: through the relay only", false, true);
 await browser.close();
-process.exit(plain && app ? 0 : 1);
+process.exit(plain && app && relay ? 0 : 1);
