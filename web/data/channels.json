@@ -14,9 +14,12 @@
     "sunday go to meetin' time", "clean pastures", "all this and rabbit stew", "goldilocks and the jivin' bears",
     "angel puss", "hittin' the trail for hallelujah land", "nips the nips", "tokio jokio", "you're a sap, mr. jap",
     "you're a sap mr. jap", "scrap the japs", "commando duck", "blackface", "minstrel",
-    "commentary", "trailer", "trailers", "fan animation", "fan film", "boys beware", "perversion for profit"
+    "commentary", "trailer", "trailers", "fan animation", "fan film", "boys beware", "perversion for profit",
+    "tvrip", "tv rip", "y2mate", "y-2-mate", "kvcd", "strangelove", "deep red", "the pyx", "pink panther", "lone ranger cartoon", "loneranger cartoon", "pixar", "brother's keeper", "top of the pops", "midnight special", "musikladen", "beat club", "1974-12-05-beverly-sills-john-byner", "radio mystery theater", "radiomysterytheater", "cbsrmt"
   ],
-  "excludeFiles": ["yts", "yts.am", "yts.mx", "yify", "rarbg", "bluray", "blu-ray", "brrip", "bdrip", "webrip", "web-dl", "hdrip", "dvdrip", "eztv", "ettv", "amzn", "nf.web"],
+  "excludeFiles": ["yts", "yts.am", "yts.mx", "yify", "rarbg", "bluray", "blu-ray", "brrip", "bdrip", "webrip", "web-dl", "hdrip", "dvdrip", "eztv", "ettv", "amzn", "nf.web",
+    "tvrip", "y2mate", "y-2-mate", "kvcd"
+  ],
   "excludeDescription": ["nudity", "xxx", "porn", "sexploitation", "nsfw", "explicit", "softcore", "full frontal"],
   "channels": [
     {
