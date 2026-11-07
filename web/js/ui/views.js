@@ -1,6 +1,7 @@
 // What's drawn on screen: the sunset scene, channel number, toast, info banner, full-screen cards, radio.
 
 import { escapeHtml as esc, fmtClock, fmtDuration, fmtLeft, fmtRuntime, pad2, chLabel } from "../util.js";
+import { SOUTH_PARK_URL } from "../southpark.js";
 import { standbyText } from "../problems.js";
 
 export function $(id) {
@@ -242,6 +243,24 @@ export function gestureCard() {
     '<div class="card-panel" style="background:none;border:0;box-shadow:none">' +
     LOGO +
     '<div class="logo-tv">TV</div><div class="boot-status blink">PRESS OK TO TURN ON</div></div>'
+  );
+}
+
+// The secret South Park station: a card, not a program. No iframe — the official
+// site only allows framing from its own origin — just a link out, opened with OK or a tap.
+export function southParkCard(ch) {
+  return (
+    SCENE +
+    panel(
+      "A SECRET STATION",
+      "📺 SOUTH PARK",
+      "Full episodes, clips and more from the official South Park site. Oh my God, they killed Kenny!",
+      '<div class="southpark-tag blink">RESPECT MY AUTHORITAH</div>' +
+        '<a class="southpark-go" href="' +
+        esc(SOUTH_PARK_URL) +
+        '" target="_blank" rel="noopener">▶ WATCH AT SOUTHPARK.CC.COM</a>' +
+        '<div class="southpark-hint">Press OK to jump to South Park — it opens in a new tab</div>'
+    )
   );
 }
 
