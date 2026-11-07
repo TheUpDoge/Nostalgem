@@ -278,17 +278,17 @@ export function gestureCard() {
   );
 }
 
-// The secret arcade station: a card, not a program. No iframe — Quenq refuses to be
-// framed from here — just a link out to the arcade, opened with OK or a tap.
+// The secret arcade station: a card, not a program. No iframe —
+// just a link out to the arcade, opened with OK or a tap.
 export function arcadeCard(ch, inApp) {
   return (
     SCENE +
     panel(
       "A SECRET STATION",
-      "🕹️ THE QUENQ ARCADE",
-      "Hundreds of classic Flash games, preserved and playable — search by title, filter by genre, pin your favorites. Keyboard and touch controls built in.",
+      "🕹️ RETROGAMES.CC",
+      "Retro console and arcade games in your browser — NES, SNES, Game Boy, Sega Genesis and more. Pick a game and play.",
       '<div class="arcade-coin blink">INSERT COIN</div>' +
-        linkRow(ARCADE_URL, '<a class="arcade-go" href="' + esc(ARCADE_URL) + '" target="_blank" rel="noopener">▶ PLAY AT QUENQ.COM/ARCADE</a>') +
+        linkRow(ARCADE_URL, '<a class="arcade-go" href="' + esc(ARCADE_URL) + '" target="_blank" rel="noopener">▶ PLAY AT RETROGAMES.CC</a>') +
         '<div class="arcade-hint">' +
         linkHint(inApp, "the arcade") +
         "</div>"
