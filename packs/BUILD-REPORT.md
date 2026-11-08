@@ -543,6 +543,21 @@ or perverted in the packs at all; gore is fine.
 live scheduled channels — skipping would throw the shared clock off and desync
 the guide.
 
+### Card mode (owner's refinement, 2026-11-07)
+
+Instead of (or in addition to) skipping, the player can cover a listed range with a
+card and cut the audio: when playback enters a listed range, the screen switches to a
+full-screen card reading **"EXTREMELY GRAPHIC SCENE IS PLAYING"** and the audio cuts
+out; when the range ends, the card lifts and the picture and sound return. The file
+itself still plays underneath, untouched.
+
+This matters because it works **everywhere skip mode does not**: nothing is skipped,
+so the runtime is preserved and the shared clock stays in sync — card mode works on
+the live scheduled channels too, not just on tapes. Skip mode stays for tapes (or as
+a per-list choice: `"mode": "skip"` or `"mode": "card"`). Same scope as skip mode:
+sexual/perverted content only, gore is never covered. The card text above is the
+owner's wording; the final wording is his call.
+
 ### Draft data format (for Claude)
 
 A skip-list file, e.g. `packs/skip-lists.json` (or a `skipLists` section in a
@@ -570,6 +585,10 @@ pack file):
   sexual-content-only: `sexual-assault`, `attempted-sexual-assault`,
   `sexual-violence`, `sexualized-minor`, `nudity-sexualized`, `sex-scene`,
   `sexual-content`. There are no gore reasons — gore is never listed.
+- `mode` is `"skip"` (jump over the range; tapes only) or `"card"` (cover the
+  range with the card and cut the audio; works on tapes and live channels).
+  `cardText` holds the card wording (default: "EXTREMELY GRAPHIC SCENE IS
+  PLAYING").
 - **Player behavior (Claude's build):** a toggle, "Play TV-safe cut", on the
   tape. When on, the player seeks from `start` to `end` for each listed range;
   an on-screen note shows "TV-safe cut: N scenes skipped" (ideally with a brief
@@ -580,6 +599,15 @@ pack file):
   with guessed timestamps is worse than none: it would cut the wrong seconds.
   The per-title notes below describe the problem scenes in general terms only,
   from parental guides and content descriptions.
+- **Online annotations are the starting map, not the final list.** The owner
+  notes the scenes "should be annotated already online" — parental guides, cut
+  comparisons, and content databases do describe these scenes, and those writeups
+  say WHERE to look, which makes the viewing pass much faster. But timestamps
+  are cut-specific: the theatrical cut, a director's cut, and a TV broadcast
+  all put the same scene at different timecodes, and many Archive copies are
+  alternate cuts. So an online timestamp is never imported blindly — it is
+  checked against the actual Archive file in the viewing pass before it goes in
+  a list.
 
 ### Per-title rescue notes (sexual content only; gore stays)
 
