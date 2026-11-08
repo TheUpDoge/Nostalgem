@@ -19,11 +19,15 @@ export function makeTimeline(channel, opts) {
   const items = (channel.items || []).filter(function (it) {
     return it.d > 0 && !(skip && skip.has(programKey(it)));
   });
+  // A channel may play its films slower than they were made (rate 0.5: half speed, an octave down), which
+  // makes each one take longer on the clock. Durations on the timeline are clock time; positions in a
+  // file are its own seconds (slotAt's into).
+  const rate = channel.rate > 0 ? channel.rate : 1;
   const starts = new Array(items.length + 1);
   let t = 0;
   for (let i = 0; i < items.length; i++) {
     starts[i] = t;
-    t += items[i].d + gap;
+    t += items[i].d / rate + gap;
   }
   starts[items.length] = t;
   const epoch = o.epoch != null ? o.epoch : DEFAULT_EPOCH;
@@ -31,7 +35,7 @@ export function makeTimeline(channel, opts) {
   // A channel may pin its own offset (seconds), e.g. to line a premiere up with a time of day.
   const base = typeof channel.offset === "number" ? channel.offset : hash32(channel.slug || channel.name || "");
   const offset = t > 0 ? ((base % Math.floor(t)) + Math.floor(t)) % Math.floor(t) : 0;
-  return { channel: channel, items: items, starts: starts, total: t, gap: gap, epoch: epoch, offset: offset };
+  return { channel: channel, items: items, starts: starts, total: t, gap: gap, epoch: epoch, offset: offset, rate: rate };
 }
 
 function loopPos(tl, nowMs) {
@@ -57,15 +61,17 @@ export function slotAt(tl, nowMs) {
   const i = findSlot(tl.starts, tl.items.length, p);
   const into = p - tl.starts[i];
   const item = tl.items[i];
+  const rate = tl.rate || 1;
   const startMs = nowMs - into * 1000;
   return {
     index: i,
     item: item,
-    into: into,
+    into: into * rate, // seconds into the file
+    rate: rate,
     startMs: startMs,
-    endMs: startMs + item.d * 1000,
-    slotEndMs: startMs + (item.d + tl.gap) * 1000,
-    inGap: into >= item.d,
+    endMs: startMs + (item.d / rate) * 1000,
+    slotEndMs: startMs + (item.d / rate + tl.gap) * 1000,
+    inGap: into >= item.d / rate,
     next: tl.items[(i + 1) % tl.items.length],
   };
 }
@@ -76,12 +82,14 @@ export function programsBetween(tl, fromMs, toMs, limit) {
   const s = slotAt(tl, fromMs);
   if (!s) return out;
   const max = limit || 400;
+  const rate = tl.rate || 1;
   let startMs = s.startMs;
   let i = s.index;
   while (startMs < toMs && out.length < max) {
     const item = tl.items[i];
-    out.push({ item: item, index: i, startMs: startMs, endMs: startMs + item.d * 1000, slotEndMs: startMs + (item.d + tl.gap) * 1000 });
-    startMs += (item.d + tl.gap) * 1000;
+    const d = item.d / rate;
+    out.push({ item: item, index: i, startMs: startMs, endMs: startMs + d * 1000, slotEndMs: startMs + (d + tl.gap) * 1000 });
+    startMs += (d + tl.gap) * 1000;
     i = (i + 1) % tl.items.length;
   }
   return out;
@@ -92,7 +100,7 @@ export function nextAiring(tl, i, nowMs) {
   if (!tl || !tl.items[i] || !(tl.total > 0)) return null;
   const p = loopPos(tl, nowMs);
   const s = tl.starts[i];
-  const d = tl.items[i].d;
+  const d = tl.items[i].d / (tl.rate || 1);
   if (p >= s && p < s + d) return { startMs: nowMs - (p - s) * 1000, onNow: true };
   const ahead = (((s - p) % tl.total) + tl.total) % tl.total;
   return { startMs: nowMs + ahead * 1000, onNow: false };

@@ -2837,3 +2837,51 @@ body {
     animation: none;
   }
 }
+/* Pearly Gates: 666's opposite. White and gold, a halo, a warm light at the edges of the picture. */
+.intro-pearly-gates {
+  background: radial-gradient(ellipse at 50% 35%, #fffaf0 0%, #ffe9b8 35%, #c9a85a 75%, #5d4a20 100%);
+}
+.in-pg {
+  position: relative;
+  font-family: Georgia, "Times New Roman", serif;
+  color: #5a4210;
+  text-shadow: 0 0 1.2rem rgba(255, 255, 255, 0.9);
+}
+.in-halo {
+  width: 9rem;
+  height: 2.4rem;
+  margin: 0 auto 0.8rem;
+  border-radius: 50%;
+  border: 0.45rem solid #ffd34d;
+  box-shadow: 0 0 1.6rem #fff2b3, inset 0 0 1rem #fff2b3;
+  animation: pg-float 3.2s ease-in-out infinite;
+}
+.in-111 {
+  font-size: 6rem;
+  letter-spacing: 0.3em;
+  color: #fff;
+  text-shadow: 0 0 1.5rem #ffd34d, 0 0 3rem #fff2b3;
+}
+.in-pg .in-name {
+  color: #7a5a14;
+}
+@keyframes pg-float {
+  50% {
+    transform: translateY(-0.5rem);
+  }
+}
+.station-pearly-gates .haunt {
+  display: block;
+  background: radial-gradient(ellipse at center, rgba(255, 240, 200, 0) 55%, rgba(255, 236, 180, 0.35) 100%);
+}
+.station-pearly-gates .bug {
+  color: #ffe39a;
+  opacity: 0.85;
+  text-shadow: 0 0 0.6em #fff2b3;
+  letter-spacing: 0.2em;
+}
+@media (prefers-reduced-motion: reduce) {
+  .in-halo {
+    animation: none;
+  }
+}

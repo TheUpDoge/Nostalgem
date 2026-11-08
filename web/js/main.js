@@ -19,6 +19,7 @@ import { Reader } from "./ui/reader.js";
 import * as Stacks from "./ui/stacks.js";
 import * as Club from "./ui/club.js";
 import { SECRET_STATIONS, SECRET_ABOUT, secretStation, introHtml, introSound, stationQuip, stationClock, bugText } from "./secrets.js";
+import { Church } from "./church.js";
 import { CHANGES, whatsNew, changesHtml, WELCOME_HTML } from "./changes.js";
 import { CanvasLook } from "./fxcanvas.js";
 import { Ambience, AMBIENCES, ambienceName } from "./ambience.js";
@@ -34,7 +35,7 @@ import { loadLineup, builtAt } from "./lineup.js";
 import { loadBumpers } from "./bumpers.js";
 import { pad2, escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder, numberText } from "./util.js";
 
-const VERSION = "1.9.0";
+const VERSION = "1.10.0";
 const NAME = "NostalGem";
 const params = new URLSearchParams(window.location.search);
 const ANDROID = params.get("tv") === "android";
@@ -122,9 +123,10 @@ const frameWatch = new FrameWatch(function (key) {
   s.liteLooks[key] = 1;
   saveSettings();
   applyLook();
-  V.toast("🎨 " + lookById(s.look).name + " was slowing this TV down, so it's on its light version now (Menu ▸ Filter quality)", 6000);
+  V.toast("🎨 " + lookById(lookId()).name + " was slowing this TV down, so it's on its light version now (Menu ▸ Filter quality)", 6000);
 });
 const canvasLook = new CanvasLook({ video: $("screen"), yt: $("yt"), before: $("yt"), rainBefore: $("radio") });
+const church = new Church(); // 111's sound
 const numpad = new Numpad($("numpad"), {
   describe: function (typed) {
     const exact = channelForDigits(typed, false);
@@ -161,6 +163,11 @@ function openNumpad() {
 }
 const player = new Player($("screen"), {
   ytHost: $("yt"),
+  church: church,
+  // After a church film the player swaps in a fresh <video>: the filters draw from that one.
+  media: function (el) {
+    canvasLook.setVideo(el);
+  },
   // The TV app may always start sound by itself; a browser tab once the viewer has pressed something.
   autoplayOk: function () {
     const ua = navigator.userActivation;
@@ -352,6 +359,7 @@ function tuneTo(ch, opts) {
     app.last = app.idx;
     app.idx = i;
     save("last", ch.slug);
+    app.lookPickedOn = "";
   }
   clearTimeout(app.surfTimer);
   app.pendingIdx = -1;
@@ -364,6 +372,13 @@ function tuneTo(ch, opts) {
   app.station = secretStation(ch);
   tv.classList.toggle("station-bible-boys-church", app.station === "bible-boys-church");
   tv.classList.toggle("station-dead-air", app.station === "dead-air");
+  tv.classList.toggle("station-pearly-gates", app.station === "pearly-gates");
+  // A station with a look of its own wears it while it's on, unless the viewer picked another one there.
+  const stationLook = ch.look && app.lookPickedOn !== ch.slug ? ch.look : "";
+  if (stationLook !== (app.stationLook || "")) {
+    app.stationLook = stationLook;
+    applyLook();
+  }
   if (wasStation && wasStation !== app.station) {
     hideIntro(false);
     const bye = stationQuip(wasStation, "leave");
@@ -1844,10 +1859,14 @@ function saveLists() {
 }
 
 // ---------- look ----------
+// The filter on screen: the viewer's, or the station's own while it's on (666's red ASCII, 111's stained glass).
+function lookId() {
+  return app.stationLook || s.look;
+}
 // The filter and mix on screen now, as one key ("vhs", "pop-red+pop-blue"): what Filter quality's
 // automatic light versions remember.
 function lookKey() {
-  const look = lookById(s.look);
+  const look = lookById(lookId());
   const mix = lookById(s.mix);
   return look.id + (mixable(mix) && mix.id !== look.id ? "+" + mix.id : "");
 }
@@ -1860,7 +1879,7 @@ function lookIsLite() {
 }
 
 function applyLook() {
-  const look = lookById(s.look);
+  const look = lookById(lookId());
   const mix = lookById(s.mix);
   const mixOn = mixable(mix) && mix.id !== look.id;
   const lite = look.id !== "off" && lookIsLite();
@@ -1941,10 +1960,16 @@ function installLooks() {
   holder.innerHTML = looksSvg({ height: h });
 }
 window.addEventListener("resize", function () {
-  if (lookById(s.look).svg) installLooks();
+  if (lookById(lookId()).svg) installLooks();
 });
 
 function setLook(id, quiet) {
+  if (app.stationLook) {
+    // Picked on a station with its own look: the viewer's choice wins there until they tune away.
+    const ch = current();
+    app.stationLook = "";
+    app.lookPickedOn = ch ? ch.slug : "";
+  }
   s.look = lookById(id).id;
   saveSettings();
   applyLook();
@@ -2017,7 +2042,7 @@ function looksPage() {
         list.push({
           label: look.name,
           value: function () {
-            return s.look === look.id ? "✓ On" : "";
+            return lookId() === look.id ? "✓ On" : "";
           },
           ok: function () {
             setLook(look.id, true);
@@ -2360,13 +2385,13 @@ function rootPage() {
         label: "🎨 Filter",
         sub: true,
         value: function () {
-          return lookById(s.look).name;
+          return lookById(lookId()).name;
         },
         left: function () {
-          setLook(nextLook(s.look, -1).id, true);
+          setLook(nextLook(lookId(), -1).id, true);
         },
         right: function () {
-          setLook(nextLook(s.look, 1).id, true);
+          setLook(nextLook(lookId(), 1).id, true);
         },
         ok: function () {
           menu.push(looksPage());
@@ -3450,10 +3475,14 @@ function wake() {
   if (current()) tuneTo(current());
 }
 
-// A link-out station's card, with a QR code so a phone can open the site (the TV app can't open other
-// sites itself).
+// The TV app can open a link-out station's site right on the TV (newer versions say so).
+function canOpenHere() {
+  return ANDROID && native.can.indexOf("open") >= 0;
+}
+
+// A link-out station's card, with a QR code so a phone can open the site too.
 function showLinkCard(ch) {
-  V.showCard(linkCardName(ch), V.linkCard(ch, ANDROID));
+  V.showCard(linkCardName(ch), V.linkCard(ch, ANDROID, canOpenHere()));
   loadScript("vendor/qrcode.js")
     .then(function () {
       const box = document.querySelector(".link-qr");
@@ -3465,9 +3494,22 @@ function showLinkCard(ch) {
     });
 }
 
-// OK on a link-out station: a new tab in a browser; in the TV app, which stays on NostalGem, the phone.
+// OK on a link-out station: a new tab in a browser; in the TV app, the site right on the TV (BACK on the
+// remote comes back); in an older TV app that can't, the phone.
 function openLinkOut(ch) {
-  if (ANDROID || !openLinkChannel(ch)) V.toast("Scan the code on the screen with your phone to open it there", 5000);
+  if (canOpenHere()) {
+    V.toast("Opening " + ch.name + "… BACK on the remote comes back here", 4000);
+    const url = linkUrl(ch);
+    setTimeout(function () {
+      window.location.href = url;
+    }, 700);
+    return;
+  }
+  if (ANDROID) {
+    V.toast("Scan the code with your phone, or update the NostalGem TV app to open it right here", 6000);
+    return;
+  }
+  if (!openLinkChannel(ch)) V.toast("Scan the code on the screen with your phone to open it there", 5000);
 }
 
 function restoreCard() {
@@ -3602,7 +3644,7 @@ function rootAction(a) {
       V.toast("Subtitles: " + ccValue());
       break;
     case "look":
-      setLook(nextLook(s.look, 1).id);
+      setLook(nextLook(lookId(), 1).id);
       break;
     case "mute":
       player.setMuted(!player.muted);
@@ -3891,7 +3933,8 @@ window.NP = {
       reader: reader.state(),
       station: app.station || "",
       intro: !$("intro").hidden,
-      look: { id: s.look, mix: s.mix, key: lookKey(), lite: lookIsLite(), quality: s.lookQuality, watching: frameWatch.key, fps: frameWatch.last },
+      look: { id: lookId(), setting: s.look, station: app.stationLook || "", mix: s.mix, key: lookKey(), lite: lookIsLite(), quality: s.lookQuality, watching: frameWatch.key, fps: frameWatch.last },
+      sound: player.soundState(),
     };
   },
 };
@@ -4009,7 +4052,7 @@ function wait(ms) {
 // The TV app (Android) answers what a web page can't find out: this TV's real Wi-Fi address, so a phone
 // on the same Wi-Fi can reach it directly (see link.js), and the app's version. It answers only pages
 // from this site.
-const native = { lan: [], app: "" };
+const native = { lan: [], app: "", can: [] };
 function askApp() {
   const bridge = window.NostalGemTV;
   if (!ANDROID || !bridge || typeof bridge.postMessage !== "function") return;
@@ -4023,6 +4066,15 @@ function askApp() {
     if (!m || typeof m !== "object") return;
     if (Array.isArray(m.lan)) native.lan = m.lan.filter(isIPv4).slice(0, 4);
     if (typeof m.app === "string") native.app = m.app.slice(0, 20);
+    if (Array.isArray(m.can)) {
+      native.can = m.can
+        .filter(function (x) {
+          return typeof x === "string";
+        })
+        .slice(0, 10);
+      // A link-out card on screen now says it opens right here.
+      if (app.state === "on" && isLinkChannel(current())) showLinkCard(current());
+    }
   };
   try {
     bridge.postMessage("hello");

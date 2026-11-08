@@ -86,13 +86,15 @@ YouTube's player) and rebuilt daily:
   *Sin City* (black and white with one color kept: red, blue, green, yellow, purple or cyan; mix two
   Sin City looks and both colors stay), color tints,
   VHS tape, Game Boy, 8-bit, low-res pixels, **ASCII** (green, color, or with **Matrix rain**; the
-  characters shimmer as they play), vaporwave, outrun, thermal camera, night vision, dreamy glow and
-  negative. **Mix with** puts a second color filter on top: ASCII + Vaporwave, Game Boy + Hard noir. Menu ▸ Picture & sound ▸ 🎨 Filter, or press **V** (a
+  characters shimmer as they play), vaporwave, outrun, thermal camera, night vision, dreamy glow,
+  negative, **ASCII · 666** (red, drawn in 666s, 999s, crosses and stars) and **Stained glass** (the
+  picture in the panes of a leaded window, in jewel colors, even for black-and-white films). **Mix with** puts a second color filter on top: ASCII + Vaporwave, Game Boy + Hard noir. Menu ▸ Picture & sound ▸ 🎨 Filter, or press **V** (a
   controller's Y, or 🎨 on the phone) to step through them. They're drawn by the browser over the
   picture, so they work on YouTube channels too: browsers won't filter YouTube's player directly (it's
   another site's page), so there the filter runs on a see-through layer above it. Older TV browsers
   without that get simpler versions. The pixel and ASCII looks are drawn on a canvas (the video drawn
-  small, then scaled up by the graphics chip), so they run at full speed on a TV; on YouTube they get
+  small, then scaled up by the graphics chip; stained glass fills each pane of a Voronoi window with the
+  color of one pixel of a tiny copy), so they run at full speed on a TV; on YouTube they get
   lighter stand-ins, since YouTube's player can't be drawn. **Filter quality** (Auto, Full, Light): on
   Auto, a filter that makes the picture choppy on your TV switches itself to its light version (run on
   a small copy of the picture), and says so.
@@ -171,7 +173,9 @@ channel, play/pause, info, guide and coloured buttons.
    then choose **Install**. NostalGem appears in your apps. Move it to your favorites row.
 
 The app runs the published site, so new channels and fixes reach the TV as soon as they're on GitHub
-Pages, with no reinstall. Reinstall only when the app itself changes: run the workflow again and use
+Pages, with no reinstall. Stations that are another site (777's arcade and the like) open right on the
+TV in the app: press OK, play with the remote or a controller, and press BACK on the remote (or hold
+Select on the controller) to come back. Reinstall only when the app itself changes: run the workflow again and use
 the same link. Your favorites and settings are kept.
 
 > The APK is signed with a key kept in this repo (`android-tv/keystore/`), so new builds install over
@@ -378,7 +382,8 @@ web/
   js/ui/                       banner, guide, menu, dialogs
   js/about.js                  disclaimer & donate: words and links (Menu ▸ Disclaimer & donate, about.html)
   js/looks.js, js/ambience.js  picture filters and lo-fi sound (Menu ▸ Picture & sound, V key)
-  js/fxcanvas.js               the pixel and ASCII looks (and light versions of the others), drawn on a canvas
+  js/fxcanvas.js               the pixel, ASCII and stained-glass looks (and light versions of the others), drawn on a canvas
+  js/church.js                 a church's echo for a station's sound (a convolution reverb in the audio graph)
   js/framewatch.js             notices a filter making the picture choppy (Filter quality: Auto)
   js/library.js, js/ui/club.js the Video Club: library card, checkout rules, the store's shelves and screens
   js/changes.js                What's new: the changes in each version

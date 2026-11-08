@@ -10,6 +10,8 @@
     "test:lan": "node tests/lan-link.browser.mjs",
     "test:relay": "node tests/relay.browser.mjs",
     "test:touch": "node tests/touch.browser.mjs",
+    "test:tvapp": "node tests/tvapp.browser.mjs",
+    "test:stations": "node tests/stations.browser.mjs",
     "lineup": "node tools/build-lineup.mjs"
   },
   "devDependencies": {

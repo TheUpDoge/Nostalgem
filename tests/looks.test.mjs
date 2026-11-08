@@ -130,3 +130,38 @@ test("a filter is too slow for this TV only after a couple of slow measurements 
   assert.equal(tooSlow([60, 12, 58, 14]), false); // one slow moment isn't the filter
   assert.equal(tooSlow([60, 59, 18, 11]), true);
 });
+
+test("the stations' looks are in the filter list for every channel", async () => {
+  const { LOOKS, nextLook } = await import("../web/js/looks.js");
+  const ids = LOOKS.map((l) => l.id);
+  assert.ok(ids.includes("ascii-666") && ids.includes("glass"));
+  // Cycling through the filters reaches them.
+  let id = "off";
+  const seen = new Set();
+  for (let i = 0; i < LOOKS.length; i++) seen.add((id = nextLook(id, 1).id));
+  assert.ok(seen.has("ascii-666") && seen.has("glass"));
+});
+
+test("stained glass: irregular panes that cover the picture without gaps or overlaps", async () => {
+  const { glassPanes } = await import("../web/js/fxcanvas.js");
+  const W = 480;
+  const H = 270;
+  const panes = glassPanes(26, 15, W, H, 111);
+  assert.equal(panes.length, 26 * 15);
+  const area = (pts) => {
+    let a = 0;
+    for (let k = 0; k < pts.length; k++) {
+      const p = pts[k];
+      const q = pts[(k + 1) % pts.length];
+      a += p[0] * q[1] - q[0] * p[1];
+    }
+    return Math.abs(a) / 2;
+  };
+  const total = panes.reduce((t, p) => t + area(p.pts), 0);
+  assert.ok(Math.abs(total - W * H) < 1, "panes cover the picture exactly: " + total);
+  const sides = new Set(panes.map((p) => p.pts.length));
+  assert.ok(sides.size > 2, "panes of different shapes");
+  // Every pane's box is inside the picture, and the same window every time.
+  assert.ok(panes.every((p) => p.x >= -0.01 && p.y >= -0.01 && p.x + p.w <= W + 0.01 && p.y + p.h <= H + 0.01));
+  assert.deepEqual(glassPanes(26, 15, W, H, 111)[100].pts, panes[100].pts);
+});

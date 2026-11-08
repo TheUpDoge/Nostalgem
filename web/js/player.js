@@ -6,6 +6,11 @@
 //
 // Modes: idle, tuning, adbreak (YouTube is showing an ad first), playing, paused, gap (station break / up
 // next), standby, gesture, off, empty
+//
+// A channel can change how its films sound: rate (666 plays them at half speed, an octave down, like a
+// tape running slow) and sound: "church" (111's films ring around a nave, church.js). The church needs the
+// file loaded with CORS, and a <video> whose sound has gone into the church can't come back out, so after a
+// church film the next ordinary one gets a fresh <video> (hooks.media hears about it).
 
 import { slotAt } from "./schedule.js";
 import { downloadUrl, corsUrl } from "./archive.js";
@@ -45,6 +50,9 @@ export class Player {
     this.muted = false;
     this.fadeTimer = 0;
     this.adSince = 0;
+    this.church = this.hooks.church || null;
+    this.routed = null; // the <video> whose sound is in the church
+    this.noCors = {}; // films that wouldn't load for the church: they play the ordinary way
 
     this.wire(video);
   }
@@ -147,7 +155,9 @@ export class Player {
 
   load(startAt) {
     const item = this.slot.item;
-    this.useMedia(isYouTube(item) && this.hooks.ytHost ? this.youtube() : this.video);
+    const yt = isYouTube(item) && this.hooks.ytHost;
+    if (!yt) this.readyVideo(this.wantsChurch(item));
+    this.useMedia(yt ? this.youtube() : this.video);
     const v = this.v;
     const token = ++this.token;
     this.removeTrack();
@@ -161,9 +171,98 @@ export class Player {
     // The media fragment starts the download near the live point instead of at 0:00.
     // A live stream has no "into the program": it is joined wherever it is now.
     const at = startAt > 2 && !item.live ? "#t=" + Math.floor(startAt) : "";
+    if (v === this.video) this.setSpeed(v, this.rate());
     v.src = isYouTube(item) ? "yt:" + videoIdOf(item) + at : downloadUrl(item.id, item.f) + at;
+    if (v === this.video) this.setSpeed(v, this.rate());
     this.tryPlay(token);
     this.applyCaptions(token);
+  }
+
+  // How fast this channel plays its films (1: as made).
+  rate() {
+    return (this.slot && this.slot.rate) || 1;
+  }
+
+  // Seconds into the file that the clock says we should be at.
+  liveTarget(now) {
+    return ((now - this.slot.startMs) / 1000) * this.rate();
+  }
+
+  // Slower and lower together, like a tape running slow; as made otherwise.
+  setSpeed(v, rate) {
+    try {
+      v.defaultPlaybackRate = rate;
+      v.playbackRate = rate;
+    } catch (e) {
+      /* this browser plays at one speed */
+    }
+    const keep = rate === 1;
+    if ("preservesPitch" in v) v.preservesPitch = keep;
+    if ("webkitPreservesPitch" in v) v.webkitPreservesPitch = keep;
+    if ("mozPreservesPitch" in v) v.mozPreservesPitch = keep;
+  }
+
+  wantsChurch(item) {
+    const ch = this.tl && this.tl.channel;
+    return !!(this.church && ch && ch.sound === "church" && item && !isYouTube(item) && !item.live && !this.noCors[item.id]);
+  }
+
+  // The <video> for the next film: one that loads with CORS for the church, an ordinary one otherwise. One
+  // whose sound went into the church is swapped for a fresh one.
+  readyVideo(church) {
+    if (church) {
+      if (this.video.crossOrigin !== "anonymous") this.video.crossOrigin = "anonymous";
+      return;
+    }
+    if (this.routed === this.video) this.freshVideo();
+    else if (this.video.hasAttribute("crossorigin")) this.video.removeAttribute("crossorigin");
+  }
+
+  freshVideo() {
+    const old = this.video;
+    const el = old.cloneNode(false);
+    el.removeAttribute("src");
+    el.removeAttribute("crossorigin");
+    try {
+      old.pause();
+    } catch (e) {
+      /* nothing loaded */
+    }
+    if (old.getAttribute("src")) {
+      old.removeAttribute("src");
+      try {
+        old.load();
+      } catch (e) {
+        /* already empty */
+      }
+    }
+    if (old.parentNode) old.parentNode.replaceChild(el, old);
+    if (this.church && this.routed === old) this.church.detach();
+    this.routed = null;
+    this.video = el;
+    if (this.v === old) this.v = el;
+    this.wire(el);
+    this.emit("media", el);
+  }
+
+  // A church film that's playing: put its sound in the nave (once the browser lets sound start).
+  churchIn() {
+    if (this.v !== this.video || this.routed === this.video || this.video.crossOrigin !== "anonymous") return;
+    if (!this.slot || !this.wantsChurch(this.slot.item)) return;
+    if (this.church.attach(this.video)) this.routed = this.video;
+  }
+
+  // What the sound is doing, for the app's state report and tests.
+  soundState() {
+    const v = this.video;
+    return {
+      rate: this.v === v ? v.playbackRate : 1,
+      pitch: !("preservesPitch" in v) || v.preservesPitch,
+      church: !!(this.slot && this.wantsChurch(this.slot.item)),
+      cors: v.crossOrigin === "anonymous",
+      inChurch: !!this.routed && this.routed === v,
+      level: this.church && this.routed === v ? Math.round(this.church.level() * 10000) / 10000 : 0,
+    };
   }
 
   tryPlay(token) {
@@ -198,7 +297,7 @@ export class Player {
     if (this.shifted || this.slot.item.live) return;
     const v = this.v;
     const dur = v.duration;
-    const target = (Date.now() - this.slot.startMs) / 1000;
+    const target = this.liveTarget(Date.now());
     if (isFinite(dur) && dur > 0 && target >= dur - 1) {
       this.enterGap(); // the file is shorter than its listing; sit out the rest of the slot
       return;
@@ -220,6 +319,7 @@ export class Player {
     this.skips = 0;
     this.emit("buffering", false);
     if (this.v === this.ytm && this.ccWanted) this.ytm.setCaptions(true, this.ccLang);
+    this.churchIn();
     if (this.mode !== "playing") this.setMode("playing");
   }
 
@@ -227,6 +327,14 @@ export class Player {
     const m = this.mode;
     if (m !== "tuning" && m !== "adbreak" && m !== "playing" && m !== "paused") return;
     if (!this.v.getAttribute("src")) return;
+    const item = this.slot && this.slot.item;
+    if (this.v === this.video && this.video.crossOrigin === "anonymous" && item && !this.noCors[item.id]) {
+      // It wouldn't load for the church: try it the ordinary way before giving up on it.
+      this.noCors[item.id] = true;
+      if (this.slot.onDemand) this.load(Math.max(0, this.video.currentTime || this.slot.into || 0));
+      else this.syncToLive();
+      return;
+    }
     this.fail("error");
   }
 
@@ -334,6 +442,8 @@ export class Player {
           break;
         }
         if (v.paused && !v.ended && !v.seeking) this.tryPlay(this.token); // the TV paused us (audio focus etc.)
+        if (this.routed && this.routed === this.video) this.church.context(); // woken if the TV put it to sleep
+        else if (this.church) this.churchIn(); // the browser may let sound start now
         if (!this.shifted && this.slot) {
           if (now >= this.slot.endMs + 1500) {
             // the file runs longer than its listing: the schedule wins
@@ -341,7 +451,7 @@ export class Player {
             else this.enterGap();
             break;
           }
-          const target = (now - this.slot.startMs) / 1000;
+          const target = this.liveTarget(now);
           if (!this.slot.item.live && !v.seeking && v.readyState > 0 && target - v.currentTime > MAX_DRIFT) {
             try {
               v.currentTime = target;
@@ -391,11 +501,13 @@ export class Player {
   playFromStart(item, at) {
     if (!this.tl || !item || item.live || !(item.d > 0)) return false;
     const into = Math.max(0, Math.min(item.d - 5, Number(at) || 0));
+    const rate = this.tl.rate || 1;
     const now = Date.now();
-    const start = now - into * 1000;
+    const start = now - (into / rate) * 1000;
+    const end = start + (item.d / rate) * 1000;
     this.shifted = true;
     this.retryAt = 0;
-    this.slot = { index: -1, item: item, into: into, startMs: start, endMs: start + item.d * 1000, slotEndMs: start + item.d * 1000, inGap: false, next: null, onDemand: true };
+    this.slot = { index: -1, item: item, into: into, rate: rate, startMs: start, endMs: end, slotEndMs: end, inGap: false, next: null, onDemand: true };
     this.emit("program", this.slot);
     this.load(into);
     return true;
@@ -413,15 +525,17 @@ export class Player {
     return true;
   }
 
-  // Seconds into the program and its length, for the info banner.
+  // Seconds into the program and its length (the file's own seconds), and how fast it's playing, for the
+  // info banner.
   position() {
     if (!this.slot) return null;
     const d = this.slot.item.d;
+    const rate = this.rate();
     if ((this.mode === "playing" || this.mode === "paused") && !this.slot.item.live) {
       const t = this.v.currentTime;
-      if (isFinite(t) && t > 0) return { at: Math.min(t, d), d: d };
+      if (isFinite(t) && t > 0) return { at: Math.min(t, d), d: d, rate: rate };
     }
-    return { at: Math.min(d, Math.max(0, (Date.now() - this.slot.startMs) / 1000)), d: d };
+    return { at: Math.min(d, Math.max(0, this.liveTarget(Date.now()))), d: d, rate: rate };
   }
 
   setMuted(m) {

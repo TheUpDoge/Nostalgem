@@ -8,6 +8,12 @@
 //                         characters (sparse "." for dark, dense "@" for bright), tiled from a pattern
 //                         and cut to the cells in that band. The patterns shift every moment, so the
 //                         characters shimmer; "matrix" adds falling Matrix rain on top.
+//                         "666" draws the numbers of the beast, crosses and stars instead, each band in
+//                         its own grey, red or white.
+//   glass                 stained glass: the picture drawn tiny, one pixel per pane, and each pane of an
+//                         irregular window (a Voronoi diagram) filled with its pixel's color, in jewel
+//                         tones. The lead between the panes is drawn once, on the layer above, so it
+//                         shows over YouTube too.
 //   filter                the light version of any SVG look (Menu ▸ Filter quality): the filter runs on
 //                         a small copy of each frame instead of the whole screen, which is far less work
 //                         for a TV, and the graphics chip scales it back up.
@@ -23,6 +29,16 @@ const LITE_COLS = 88; // ASCII cells across in the light version
 const PIXEL_WIDE = { pixel: 192, "8bit": 240, gameboy: 160 };
 const FILTER_WIDE = 640; // the light version of an SVG look runs at this width
 const PALETTE = { "8bit": "url(#ng-pal-8bit)", gameboy: "url(#ng-pal-gameboy)" };
+const GLASS_WIDE = 480; // the panes are drawn at this width
+const GLASS_COLS = 26; // panes across
+const LITE_GLASS_COLS = 17; // panes across in the light version
+const GLASS_MS = 66; // a new picture in the glass at most this often
+const LITE_GLASS_MS = 125;
+const GLASS_SEED = 111; // the same window every time
+// The light through the window: the picture brightened and mostly gray, then each pane's own glass color on
+// top (multiplied, as light through colored glass is), so black-and-white films come out in colors too.
+const GLASS_LIGHT = "grayscale(0.55) contrast(1.35) brightness(1.5) saturate(1.5)";
+const GLASS_COLORS = ["#ff3b4a", "#e0303c", "#3b6bff", "#2f4fe0", "#2fe07a", "#ffc53b", "#ffb02e", "#b45cff", "#3be0ff", "#fff1d0", "#fff1d0"];
 
 // Characters for each band, sparse to dense. Matrix uses half-width katakana and digits.
 const GLYPHS = [".,`'", ":;-'", "=~+-", "+*<>x", "#X%&$", "@#M%W"];
@@ -30,6 +46,15 @@ const MATRIX = ["..:", ":ｰﾊ", "ﾐﾋｰ1", "ｳｼﾅﾓﾆ7", "ｻﾜﾂ�
 // Katakana where the TV has the font (Android TVs do), digits and symbols everywhere.
 const RAIN = "ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾗﾘﾜ0123456789Z:=*+<>|";
 const TILE = 16; // a pattern tile is TILE × TILE cells of random characters
+// 666: what each band (dark to bright) writes, and in what color. A token takes a cell per character.
+const HELL = [
+  { t: ["*"], c: "#575757" },
+  { t: ["†", "*"], c: "#9a9a9a" },
+  { t: ["999"], c: "#8c0010" },
+  { t: ["666"], c: "#d10019" },
+  { t: ["666", "†"], c: "#ff3030" },
+  { t: ["666", "†", "999"], c: "#ffffff" },
+];
 
 function canvas(w, h) {
   const c = document.createElement("canvas");
@@ -48,6 +73,86 @@ export function fitRect(vw, vh, w, h, fit) {
   const dw = vw * k;
   const dh = vh * k;
   return [(w - dw) / 2, (h - dh) / 2, dw, dh];
+}
+
+// A small random-number source with a seed, so the window is laid out the same way every time.
+function seeded(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// The part of polygon poly that is nearer point a than point b.
+function nearer(poly, a, b) {
+  const mx = (a[0] + b[0]) / 2;
+  const my = (a[1] + b[1]) / 2;
+  const nx = b[0] - a[0];
+  const ny = b[1] - a[1];
+  const out = [];
+  for (let k = 0; k < poly.length; k++) {
+    const p = poly[k];
+    const q = poly[(k + 1) % poly.length];
+    const sp = (p[0] - mx) * nx + (p[1] - my) * ny;
+    const sq = (q[0] - mx) * nx + (q[1] - my) * ny;
+    if (sp <= 0) out.push(p);
+    if ((sp < 0 && sq > 0) || (sp > 0 && sq < 0)) {
+      const t = sp / (sp - sq);
+      out.push([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]);
+    }
+  }
+  return out;
+}
+
+// A stained-glass window over a W × H picture: cols × rows irregular panes, each the area nearest one point
+// of a jittered grid (a Voronoi diagram). Pane (i, j) takes its color from pixel (i, j) of the picture drawn
+// cols × rows small. Returns [{ i, j, pts: [[x, y], …], cx, cy (its point), x, y, w, h (its box) }].
+export function glassPanes(cols, rows, W, H, seed) {
+  const rnd = seeded(seed || 1);
+  const cw = W / cols;
+  const ch = H / rows;
+  const at = [];
+  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) at.push([(i + 0.5 + (rnd() - 0.5) * 0.72) * cw, (j + 0.5 + (rnd() - 0.5) * 0.72) * ch]);
+  const panes = [];
+  for (let j = 0; j < rows; j++) {
+    for (let i = 0; i < cols; i++) {
+      const p = at[j * cols + i];
+      const x0 = Math.max(0, p[0] - 2.5 * cw);
+      const x1 = Math.min(W, p[0] + 2.5 * cw);
+      const y0 = Math.max(0, p[1] - 2.5 * ch);
+      const y1 = Math.min(H, p[1] + 2.5 * ch);
+      let poly = [
+        [x0, y0],
+        [x1, y0],
+        [x1, y1],
+        [x0, y1],
+      ];
+      for (let dj = -2; dj <= 2; dj++) {
+        for (let di = -2; di <= 2; di++) {
+          const ni = i + di;
+          const nj = j + dj;
+          if ((!di && !dj) || ni < 0 || nj < 0 || ni >= cols || nj >= rows) continue;
+          poly = nearer(poly, p, at[nj * cols + ni]);
+        }
+      }
+      let bx0 = W;
+      let by0 = H;
+      let bx1 = 0;
+      let by1 = 0;
+      poly.forEach(function (q) {
+        bx0 = Math.min(bx0, q[0]);
+        by0 = Math.min(by0, q[1]);
+        bx1 = Math.max(bx1, q[0]);
+        by1 = Math.max(by1, q[1]);
+      });
+      panes.push({ i: i, j: j, pts: poly, cx: p[0], cy: p[1], x: bx0, y: by0, w: bx1 - bx0, h: by1 - by0 });
+    }
+  }
+  return panes;
 }
 
 export class CanvasLook {
@@ -73,9 +178,18 @@ export class CanvasLook {
     this.timers = [];
   }
 
+  // The player swapped in a fresh <video> (after a church film, player.js): draw from that one.
+  setVideo(el) {
+    if (!el || el === this.video) return;
+    const was = this.running;
+    this.stop();
+    this.video = el;
+    if (was && this.look) this.start();
+  }
+
   // look: a looks.js look (or null to stop), or { id, canvas: "filter", filter: "<CSS filter>" } for the
   // light version of an SVG look; fit: the picture setting; mix: a CSS filter on top; lite: fewer ASCII
-  // characters.
+  // characters, fewer and slower panes of glass.
   set(look, fit, mix, lite) {
     const was = this.setupKey;
     this.look = look && look.canvas ? look : null;
@@ -102,6 +216,7 @@ export class CanvasLook {
     const aspect = tv && tv.clientWidth ? tv.clientHeight / tv.clientWidth : 9 / 16;
     this.drops = null;
     this.offsets = null;
+    this.panes = null;
     if (look.canvas === "ascii") {
       this.cols = this.lite ? LITE_COLS : COLS;
       this.rows = Math.max(16, Math.round(COLS * aspect * 1.0));
@@ -114,7 +229,7 @@ export class CanvasLook {
       this.out.height = h;
       this.work = canvas(w, h);
       this.patterns = [];
-      for (let k = 1; k <= ASCII_BANDS; k++) this.patterns.push(this.makeTile(k, look.ascii === "matrix" ? MATRIX : GLYPHS));
+      for (let k = 1; k <= ASCII_BANDS; k++) this.patterns.push(look.ascii === "666" ? this.makeHellTile(k) : this.makeTile(k, look.ascii === "matrix" ? MATRIX : GLYPHS));
       const wctx = this.work.getContext("2d");
       this.fills = this.patterns.map(function (p) {
         return wctx.createPattern(p, "repeat");
@@ -129,6 +244,8 @@ export class CanvasLook {
         this.drops = [];
         for (let c = 0; c < this.cols; c++) this.drops.push(Math.random() < 0.5 ? -Math.floor(Math.random() * this.rows) : Math.floor(Math.random() * this.rows));
       }
+    } else if (look.canvas === "glass") {
+      this.setupGlass(aspect);
     } else if (look.canvas === "filter") {
       this.out.width = FILTER_WIDE;
       this.out.height = Math.max(2, Math.round(FILTER_WIDE * aspect));
@@ -154,6 +271,151 @@ export class CanvasLook {
     const set = sets[k - 1];
     for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) ctx.fillText(pick(set), x * CELL + CELL / 2, y * CELL + CELL / 2 + 1);
     return tile;
+  }
+
+  // 666: band k's tokens laid end to end along each row, in the band's own color.
+  makeHellTile(k) {
+    const band = HELL[Math.min(HELL.length, k) - 1];
+    const tile = canvas(TILE * CELL, TILE * CELL);
+    const ctx = tile.getContext("2d");
+    ctx.font = "bold " + (CELL + 2) + "px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = band.c;
+    for (let y = 0; y < TILE; y++) {
+      let row = "";
+      while (row.length < TILE) row += band.t[Math.floor(Math.random() * band.t.length)];
+      for (let x = 0; x < TILE; x++) ctx.fillText(row.charAt(x), x * CELL + CELL / 2, y * CELL + CELL / 2 + 1);
+    }
+    return tile;
+  }
+
+  // Stained glass: the panes, one pixel each on a tiny canvas, and the lead and the light on the layer above.
+  setupGlass(aspect) {
+    const W = GLASS_WIDE;
+    const H = Math.max(2, Math.round(W * aspect));
+    const cols = this.lite ? LITE_GLASS_COLS : GLASS_COLS;
+    const rows = Math.max(6, Math.round(cols * aspect * 1.05));
+    this.out.width = W;
+    this.out.height = H;
+    this.out.classList.remove("pix");
+    this.small = canvas(cols, rows);
+    this.panes = glassPanes(cols, rows, W, H, GLASS_SEED);
+    // Each pane's glass, one pixel each: no two neighbors alike.
+    this.hues = canvas(cols, rows);
+    const hc = this.hues.getContext("2d");
+    const rnd = seeded(GLASS_SEED + 1);
+    const picked = [];
+    for (let j = 0; j < rows; j++) {
+      for (let i = 0; i < cols; i++) {
+        let c = 0;
+        for (let tries = 0; tries < 8; tries++) {
+          c = Math.floor(rnd() * GLASS_COLORS.length);
+          const left = i ? picked[j * cols + i - 1] : -1;
+          const up = j ? picked[(j - 1) * cols + i] : -1;
+          if (GLASS_COLORS[c] !== GLASS_COLORS[left] && GLASS_COLORS[c] !== GLASS_COLORS[up]) break;
+        }
+        picked.push(c);
+        hc.fillStyle = GLASS_COLORS[c];
+        hc.fillRect(i, j, 1, 1);
+      }
+    }
+    let size = 0;
+    this.panes.forEach(function (p) {
+      p.path = new Path2D();
+      p.pts.forEach(function (q, k) {
+        if (k) p.path.lineTo(q[0], q[1]);
+        else p.path.moveTo(q[0], q[1]);
+      });
+      p.path.closePath();
+      size = Math.max(size, p.w, p.h);
+    });
+    this.paneSize = Math.ceil(size) + 2;
+    this.lastGlass = 0;
+    this.drawLead(aspect);
+  }
+
+  // The lead between the panes, each pane a little darker at its edges, and light coming in from above.
+  // Drawn once, at about the screen's own size so the lines stay sharp.
+  drawLead(aspect) {
+    const tv = this.out.parentNode;
+    const LW = Math.max(640, Math.min(1920, (tv && tv.clientWidth) || 1280));
+    const LH = Math.round(LW * aspect);
+    const k = LW / this.out.width;
+    const c = this.rain.getContext("2d");
+    this.rain.width = LW;
+    this.rain.height = LH;
+    c.clearRect(0, 0, LW, LH);
+    const trace = function (p) {
+      c.beginPath();
+      p.pts.forEach(function (q, n) {
+        if (n) c.lineTo(q[0] * k, q[1] * k);
+        else c.moveTo(q[0] * k, q[1] * k);
+      });
+      c.closePath();
+    };
+    this.panes.forEach(function (p) {
+      const r = Math.max(p.w, p.h) * k * 0.75;
+      const g = c.createRadialGradient(p.cx * k, p.cy * k, r * 0.15, p.cx * k, p.cy * k, r);
+      g.addColorStop(0, "rgba(255,250,235,0.10)");
+      g.addColorStop(0.6, "rgba(0,0,0,0)");
+      g.addColorStop(1, "rgba(0,0,0,0.30)");
+      c.fillStyle = g;
+      trace(p);
+      c.fill();
+    });
+    const light = c.createLinearGradient(0, 0, LW * 0.3, LH);
+    light.addColorStop(0, "rgba(255,236,190,0.16)");
+    light.addColorStop(0.5, "rgba(255,236,190,0)");
+    c.fillStyle = light;
+    c.fillRect(0, 0, LW, LH);
+    const lead = Math.max(3, LW / 300);
+    c.lineJoin = "round";
+    c.strokeStyle = "#17120d";
+    c.lineWidth = lead;
+    this.panes.forEach(function (p) {
+      trace(p);
+      c.stroke();
+    });
+    // A glint along the top of each lead line.
+    c.strokeStyle = "rgba(255,255,255,0.10)";
+    c.lineWidth = Math.max(1, lead / 3);
+    c.save();
+    c.translate(-lead / 4, -lead / 4);
+    this.panes.forEach(function (p) {
+      trace(p);
+      c.stroke();
+    });
+    c.restore();
+    // The window's frame.
+    c.strokeStyle = "#17120d";
+    c.lineWidth = lead * 2.5;
+    c.strokeRect(0, 0, LW, LH);
+  }
+
+  // Each pane in its pixel's color: the tiny picture as a pattern, scaled up so that pixel covers the pane.
+  drawGlass() {
+    const o = this.out.getContext("2d");
+    const K = this.paneSize;
+    const small = this.small;
+    o.imageSmoothingEnabled = false;
+    o.fillStyle = "#000";
+    o.fillRect(0, 0, this.out.width, this.out.height);
+    const pat = typeof DOMMatrix === "function" ? o.createPattern(small, "no-repeat") : null;
+    if (pat && pat.setTransform) {
+      this.panes.forEach(function (p) {
+        pat.setTransform(new DOMMatrix([K, 0, 0, K, p.x - p.i * K, p.y - p.j * K]));
+        o.fillStyle = pat;
+        o.fill(p.path);
+      });
+      return;
+    }
+    this.panes.forEach(function (p) {
+      o.save();
+      o.clip(p.path);
+      o.drawImage(small, p.i, p.j, 1, 1, p.x, p.y, K, K);
+      o.restore();
+    });
   }
 
   start() {
@@ -219,8 +481,9 @@ export class CanvasLook {
   visibility() {
     const onVideo = this.showingVideo();
     this.out.hidden = !onVideo;
-    // Rain falls over YouTube too: it's our own drawing, laid over the player.
-    this.rain.hidden = !(this.look && this.look.rain);
+    // Rain falls over YouTube too, and the lead of the stained glass stays: they're our own drawing, laid
+    // over the player.
+    this.rain.hidden = !(this.look && (this.look.rain || this.look.canvas === "glass"));
   }
 
   draw() {
@@ -228,6 +491,12 @@ export class CanvasLook {
     if (!look || !this.showingVideo()) {
       this.out.hidden = true;
       return;
+    }
+    if (look.canvas === "glass") {
+      // Glass doesn't need every frame: a TV has better things to do.
+      const now = Date.now();
+      if (now - this.lastGlass < (this.lite ? LITE_GLASS_MS : GLASS_MS) && !this.video.paused) return;
+      this.lastGlass = now;
     }
     this.out.hidden = false;
     const v = this.video;
@@ -241,6 +510,7 @@ export class CanvasLook {
     s.imageSmoothingEnabled = true;
     if (PALETTE[look.canvas]) s.filter = PALETTE[look.canvas];
     else if (look.canvas === "filter") s.filter = look.filter;
+    else if (look.canvas === "glass") s.filter = GLASS_LIGHT;
     try {
       s.drawImage(v, r[0], r[1], r[2], r[3]);
     } catch (e) {
@@ -248,6 +518,12 @@ export class CanvasLook {
     }
     s.filter = "none";
     if (look.canvas === "ascii") this.drawAscii();
+    else if (look.canvas === "glass") {
+      s.globalCompositeOperation = "multiply";
+      s.drawImage(this.hues, 0, 0);
+      s.globalCompositeOperation = "source-over";
+      this.drawGlass();
+    }
   }
 
   drawAscii() {
@@ -279,6 +555,8 @@ export class CanvasLook {
       t.drawImage(this.band, 0, 0, W, H);
       o.drawImage(this.work, 0, 0);
     }
+    // 666's characters come in their own colors.
+    if (look.ascii === "666") return;
     // Color the characters: each cell's own color, or one phosphor color.
     o.globalCompositeOperation = "source-in";
     if (look.ascii === "color") {

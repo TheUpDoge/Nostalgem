@@ -8,9 +8,9 @@
 // A look is { id, name, group } plus one of:
 //   css     a CSS filter list ("grayscale(1) contrast(1.2)")
 //   svg     true: an SVG filter, #ng-look-<id>, made by looksSvg()
-//   canvas  "pixel" | "8bit" | "gameboy" | "ascii": drawn by fxcanvas.js instead. These were far too
-//           slow as SVG filters; there the video is drawn small onto a canvas and the graphics chip
-//           scales it up. ascii: "green" | "color" | "matrix"; rain: Matrix rain on top.
+//   canvas  "pixel" | "8bit" | "gameboy" | "ascii" | "glass": drawn by fxcanvas.js instead. These were
+//           far too slow as SVG filters; there the video is drawn small onto a canvas and the graphics chip
+//           scales it up. ascii: "green" | "color" | "matrix" | "666"; rain: Matrix rain on top.
 // and optionally overlay: an extra layer drawn over the picture (scanline roll, grain), see app.css.
 //
 // YouTube's player is another site's page inside ours, and browsers won't run SVG filters over another
@@ -63,6 +63,10 @@ export const LOOKS = [
   { id: "nightvision", name: "Night vision", group: "Wild", svg: true, yt: "grayscale(1) sepia(1) hue-rotate(75deg) saturate(5) brightness(1.35) contrast(1.15)", overlay: "grain" },
   { id: "dream", name: "Dreamy glow", group: "Wild", svg: true, yt: "saturate(1.4) brightness(1.08) contrast(0.92) blur(0.8px)" },
   { id: "negative", name: "Negative", group: "Wild", css: "invert(1)" },
+
+  // Channel 666's and channel 111's own looks, for any channel.
+  { id: "ascii-666", name: "ASCII · 666", group: "Heaven & hell", canvas: "ascii", ascii: "666", yt: "grayscale(1) sepia(1) hue-rotate(-50deg) saturate(6) contrast(1.7) brightness(0.95)", ytMask: true },
+  { id: "glass", name: "Stained glass", group: "Heaven & hell", canvas: "glass", yt: "saturate(2.2) contrast(1.25) brightness(1.08)" },
 ];
 
 export function lookById(id) {

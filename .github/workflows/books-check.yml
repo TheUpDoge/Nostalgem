@@ -1,7 +1,10 @@
-name: Reading Room check
+name: Live Archive check
 
-# Runs the Reading Room against the real Internet Archive on a GitHub runner (real internet): every shelf
-# finds books, page lists and page images load in a browser, and the app borrows and shows real pages.
+# Runs the app against the real Internet Archive on a GitHub runner (real internet).
+#   Reading Room: every shelf finds books, page lists and page images load in a browser, and the app
+#   borrows and shows real pages.
+#   Secret stations: every film on 069, 666 and 111 plays, 111's with CORS for the church sound, and in the
+#   app 111's sound goes to church and 666 plays slow and low.
 # "local" tests this checkout's web/ folder; a URL tests a published copy.
 
 on:
@@ -23,10 +26,14 @@ jobs:
         with:
           node-version: 22
       - run: npm install --no-save playwright@1.63.0 && npx playwright install --with-deps chromium
-      - run: node tests/live-books.mjs "${{ github.event.inputs.site }}"
+      - name: Reading Room
+        run: node tests/live-books.mjs "${{ github.event.inputs.site }}"
+      - name: Secret stations (films, church sound, slow and low)
+        if: always()
+        run: node tests/live-stations.mjs "${{ github.event.inputs.site }}"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: reading-room-screens
+          name: live-screens
           path: live-*.png
           if-no-files-found: ignore

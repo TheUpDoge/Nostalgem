@@ -104,7 +104,8 @@ export function bannerHtml(d) {
   let main;
   if (item) {
     const pct = d.pos ? Math.max(0, Math.min(100, (d.pos.at / d.pos.d) * 100)) : 0;
-    const left = d.pos ? d.pos.d - d.pos.at : item.d;
+    // Time left on the clock: a channel playing slower (666) takes longer than the film's own length.
+    const left = d.pos ? (d.pos.d - d.pos.at) / (d.pos.rate || 1) : item.d;
     main =
       '<div class="b-title">' +
       esc(item.t) +
@@ -319,7 +320,7 @@ export function adBreakCard(quip) {
 
 // The secret arcade station: a card, not a program. No iframe —
 // just a link out to the arcade, opened with OK or a tap.
-export function arcadeCard(ch, inApp) {
+export function arcadeCard(ch, inApp, here) {
   return (
     SCENE +
     panel(
@@ -329,7 +330,7 @@ export function arcadeCard(ch, inApp) {
       '<div class="arcade-coin blink">INSERT COIN</div>' +
         linkRow(ARCADE_URL, '<a class="arcade-go" href="' + esc(ARCADE_URL) + '" target="_blank" rel="noopener">▶ PLAY AT RETROGAMES.CC</a>') +
         '<div class="arcade-hint">' +
-        linkHint(inApp, "the arcade") +
+        linkHint(inApp, "the arcade", here, true) +
         "</div>"
     )
   );
@@ -337,7 +338,7 @@ export function arcadeCard(ch, inApp) {
 
 // The secret South Park station: a card, not a program. No iframe — the official
 // site only allows framing from its own origin — just a link out, opened with OK or a tap.
-export function southParkCard(ch, inApp) {
+export function southParkCard(ch, inApp, here) {
   return (
     SCENE +
     panel(
@@ -347,14 +348,14 @@ export function southParkCard(ch, inApp) {
       '<div class="southpark-tag blink">RESPECT MY AUTHORITAH</div>' +
         linkRow(SOUTH_PARK_URL, '<a class="southpark-go" href="' + esc(SOUTH_PARK_URL) + '" target="_blank" rel="noopener">▶ WATCH AT SOUTHPARK.CC.COM</a>') +
         '<div class="southpark-hint">' +
-        linkHint(inApp, "South Park") +
+        linkHint(inApp, "South Park", here) +
         "</div>"
     )
   );
 }
 
 // The secret City Wire station (555): a link out to ASCII City, a city drawn in text.
-export function cityWireCard(ch, inApp) {
+export function cityWireCard(ch, inApp, here) {
   return (
     SCENE +
     panel(
@@ -364,27 +365,32 @@ export function cityWireCard(ch, inApp) {
       '<div class="citywire-tag blink">ALL THE WORLD\'S A TERMINAL</div>' +
         linkRow(CITY_WIRE_URL, '<a class="citywire-go" href="' + esc(CITY_WIRE_URL) + '" target="_blank" rel="noopener">▶ VISIT ASCIICITY.COM</a>') +
         '<div class="southpark-hint">' +
-        linkHint(inApp, "ASCII City") +
+        linkHint(inApp, "ASCII City", here) +
         "</div>"
     )
   );
 }
 
-// A link-out station's card. inApp: the Android TV app, which never leaves NostalGem, so the phone
-// opens the site instead (main.js draws the QR code into .link-qr).
-export function linkCard(ch, inApp) {
-  if (ch && ch.slug === SOUTH_PARK_CHANNEL.slug) return southParkCard(ch, inApp);
-  if (ch && ch.slug === CITY_WIRE_CHANNEL.slug) return cityWireCard(ch, inApp);
-  return arcadeCard(ch, inApp);
+// A link-out station's card. inApp: the Android TV app. here: it can open the site right on the TV
+// (newer apps); an older app can't, so the phone opens it (main.js draws the QR code into .link-qr).
+export function linkCard(ch, inApp, here) {
+  if (ch && ch.slug === SOUTH_PARK_CHANNEL.slug) return southParkCard(ch, inApp, here);
+  if (ch && ch.slug === CITY_WIRE_CHANNEL.slug) return cityWireCard(ch, inApp, here);
+  return arcadeCard(ch, inApp, here);
 }
 
 function linkRow(url, button) {
   return '<div class="link-row"><div class="link-qr" data-url="' + esc(url) + '"></div>' + button + "</div>";
 }
 
-function linkHint(inApp, what) {
+function linkHint(inApp, what, here, games) {
+  if (inApp && here) {
+    return games
+      ? "Press OK (or A on a controller) to play on this TV · BACK on the remote, or hold Select on the controller, comes back"
+      : "Press OK to open " + what + " on this TV · BACK on the remote comes back";
+  }
   return inApp
-    ? "Scan the code with your phone to open " + what + " there"
+    ? "Scan the code with your phone to open " + what + " there · update the NostalGem TV app to open it right here"
     : "Press OK to open " + what + " in a new tab — or scan the code with your phone";
 }
 

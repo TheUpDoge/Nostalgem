@@ -32,6 +32,10 @@ jobs:
         run: npm run test:relay
       - name: Touch screens, a phone held sideways (dock, dragging the menu and guide, swipes)
         run: npm run test:touch
+      - name: Inside the TV app, with a stand-in for the app (link-out stations open on the TV)
+        run: npm run test:tvapp
+      - name: Stations with their own picture and sound (666 slow and red, 111 stained glass and church echo)
+        run: npm run test:stations
 
   # Publishes web/ to GitHub Pages from main. One-time setup: Settings → Pages → Source: GitHub Actions.
   deploy:

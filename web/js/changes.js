@@ -4,6 +4,16 @@
 
 export const CHANGES = [
   {
+    v: "1.10.0",
+    title: "Heaven, hell and the arcade on your TV",
+    items: [
+      "666 now comes in red ASCII made of 666s, 999s, crosses and stars, slowed to half speed and an octave down.",
+      "There's a third station that isn't on any list, and it's 666's opposite. Try 1 1 1: stained glass, and its films ring around a church.",
+      "Both looks are in Menu ▸ Filter for every channel: ASCII · 666 and Stained glass.",
+      "In the TV app, 777's arcade opens right on the TV: play with the remote or a controller, and BACK (or hold Select on the controller) comes back. Needs the newest TV app.",
+    ],
+  },
+  {
     v: "1.9.0",
     title: "Touch screens, two secret stations, a better Reading Room",
     items: [

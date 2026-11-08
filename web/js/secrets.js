@@ -1,14 +1,21 @@
-// Two stations that aren't on any list, tuned by number only:
+// Three stations that aren't on any list, tuned by number only:
 //
 //   069  ⛪ Bible Boys Church ("BBC"): for whoever types 69 hoping for something naughty. Sunday service
 //        instead: the silent era's Bible films, from a 1902 congregation leaving church to The King of
 //        Kings. Sit up straight.
 //   666  🔥 Dead Air: "this frequency was not assigned." The silent era's devils and damnation — Méliès's
-//        House of the Devil, Häxan, L'Inferno, Faust, Nosferatu — under a red glow, with a clock that
-//        reads 6:66.
+//        House of the Devil, Häxan, L'Inferno, Faust, Nosferatu — in red ASCII made of 666s, 999s, crosses
+//        and stars, at half speed and an octave down, under a red glow, with a clock that reads 6:66.
+//   111  😇 Pearly Gates ("PG"): 666's opposite. Angels, saints and second chances — Beyond Tomorrow,
+//        Heaven Only Knows, The Bells of St. Mary's, Scrooge, Chaplin's Kid and Pilgrim — through stained
+//        glass, ringing around a church (church.js), with a clock stuck at 11:11. Every program rated PG.
 //
-// All of it public domain and on the Internet Archive. Each station opens with its own card and sound
+// A station's look (looks.js) is its filter while it's on; Menu ▸ Filter can still change it there, and both
+// looks are in the filter list for every channel. rate and sound are how the player plays its films
+// (player.js). All of it is on the Internet Archive. Each station opens with its own card and sound
 // (main.js shows them); this module is the data, the words and the sounds.
+
+import { naveImpulse } from "./church.js";
 
 export const BBC_CHANNEL = {
   slug: "bible-boys-church",
@@ -44,6 +51,8 @@ export const DEAD_AIR_CHANNEL = {
   kind: "video",
   secret: true,
   offset: 0,
+  look: "ascii-666",
+  rate: 0.5, // half speed: slow, and an octave down
   items: [
     { id: "le-manoir-du-diable-1896", f: "Le_Manoir_du_Diable_(1896).mp4", t: "The House of the Devil (Le Manoir du diable)", d: 195, y: 1896 },
     { id: "Haxan1922", f: "Haxan (1922).mp4", t: "Häxan: Witchcraft Through the Ages", d: 6293, y: 1922 },
@@ -55,7 +64,34 @@ export const DEAD_AIR_CHANNEL = {
   ],
 };
 
-export const SECRET_STATIONS = [BBC_CHANNEL, DEAD_AIR_CHANNEL];
+export const PEARLY_GATES_CHANNEL = {
+  slug: "pearly-gates",
+  number: 111,
+  name: "Pearly Gates",
+  short: "PG",
+  tagline: "Every program rated PG.",
+  icon: "😇",
+  color: "#ffe39a",
+  kind: "video",
+  secret: true,
+  offset: 0,
+  look: "glass",
+  sound: "church",
+  items: [
+    { id: "BeyondTomorrow_750", f: "BeyondTomorrow.mp4", t: "Beyond Tomorrow", d: 5035, y: 1940 },
+    { id: "heaven-only-knows-1947-classic-western-dramady", f: "Heaven Only Knows (1947 +++++ Classic Western Dramady).ia.mp4", t: "Heaven Only Knows", d: 5878, y: 1947 },
+    { id: "the-kid-1921_202208", f: "The Kid 1921.mp4", t: "The Kid", d: 3209, y: 1921 },
+    { id: "tbosm3543543177", f: "tbosm3543543177.mp4", t: "The Bells of St. Mary's", d: 7548, y: 1945 },
+    { id: "AChristmasCarol", f: "AChristmasCarol.mp4", t: "A Christmas Carol", d: 659, y: 1910 },
+    { id: "angel_and_the_badman", f: "angel_and_the_badman.mp4", t: "Angel and the Badman", d: 5971, y: 1947 },
+    { id: "the-pilgrim-1923-directed-by-charlie-chaplin", f: "The Pilgrim (1923) Directed by Charlie Chaplin.mp4", t: "The Pilgrim", d: 2480, y: 1923 },
+    { id: "the-passion-of-joan-of-arc", f: "The Passion of Joan of Arc.ia.mp4", t: "The Passion of Joan of Arc", d: 4929, y: 1928 },
+    { id: "Scrooge_1935", f: "Scrooge_1935.mp4", t: "Scrooge", d: 4655, y: 1935 },
+    { id: "Our_Town", f: "OurTown.mp4", t: "Our Town", d: 5217, y: 1940 },
+  ],
+};
+
+export const SECRET_STATIONS = [BBC_CHANNEL, DEAD_AIR_CHANNEL, PEARLY_GATES_CHANNEL];
 
 // What each film is, for the info banner.
 export const SECRET_ABOUT = {
@@ -74,10 +110,25 @@ export const SECRET_ABOUT = {
   "Faust1926_201808": "Murnau's 1926 Faust: a scholar, a deal with Mephisto, and the price.",
   "ThePhantomCarriage_201405": "Whoever dies last on New Year's Eve must drive Death's carriage for a year. Sweden, 1921.",
   SORROWSOFSATANSilent: "D. W. Griffith, 1926: a starving writer, a charming stranger, and a very expensive bargain.",
+  BeyondTomorrow_750: "Christmas Eve, 1940: three old men's ghosts stay behind to look after the young couple they brought together.",
+  "heaven-only-knows-1947-classic-western-dramady": "An angel comes down to a Montana boomtown to find the one soul missing from the Book of Life. 1947.",
+  "the-kid-1921_202208": "Chaplin, 1921: the Tramp raises a foundling, and dreams of a heaven where everyone has wings.",
+  tbosm3543543177: "Bing Crosby's Father O'Malley and Ingrid Bergman's Sister Benedict save a parish school. 1945.",
+  AChristmasCarol: "Edison's 1910 Christmas Carol: Marley's ghost and the three spirits in eleven minutes.",
+  angel_and_the_badman: "John Wayne, 1947: a wounded gunfighter, a Quaker family, and a slow ride toward grace.",
+  "the-pilgrim-1923-directed-by-charlie-chaplin": "Chaplin, 1923: an escaped convict in a stolen parson's suit preaches David and Goliath to a small-town church.",
+  "the-passion-of-joan-of-arc": "Carl Th. Dreyer's 1928 trial of Joan of Arc, told almost entirely in close-ups.",
+  Scrooge_1935: "Seymour Hicks, 1935: three spirits, one long night, and a miser who wakes up on Christmas morning a new man.",
+  Our_Town: "Thornton Wilder's Grover's Corners, 1940: a town's ordinary days, and the quiet hill above it.",
 };
 
 export function secretStation(ch) {
-  return ch && (ch.slug === BBC_CHANNEL.slug || ch.slug === DEAD_AIR_CHANNEL.slug) ? ch.slug : "";
+  return ch &&
+    SECRET_STATIONS.some(function (st) {
+      return st.slug === ch.slug;
+    })
+    ? ch.slug
+    : "";
 }
 
 // The card each station opens with.
@@ -94,6 +145,17 @@ export function introHtml(ch) {
       "</div>"
     );
   }
+  if (ch.slug === PEARLY_GATES_CHANNEL.slug) {
+    return (
+      '<div class="in-pg">' +
+      '<div class="in-halo"></div>' +
+      '<div class="in-111">1 1 1</div>' +
+      '<div class="in-name">PEARLY GATES</div>' +
+      '<div class="in-line">Your name is on the list.</div>' +
+      '<div class="in-small">Every program rated PG. Wipe your feet.</div>' +
+      "</div>"
+    );
+  }
   return (
     '<div class="in-dead">' +
     '<div class="in-warn" data-text="THIS FREQUENCY WAS NOT ASSIGNED">THIS FREQUENCY WAS NOT ASSIGNED</div>' +
@@ -107,18 +169,22 @@ export function introHtml(ch) {
 export function stationQuip(slug, what) {
   if (slug === BBC_CHANNEL.slug && what === "pause") return "⛪ Pausing the sermon? Bold.";
   if (slug === DEAD_AIR_CHANNEL.slug && what === "leave") return "🔥 It'll be here when you get back.";
+  if (slug === PEARLY_GATES_CHANNEL.slug && what === "pause") return "😇 Take all the time you need.";
+  if (slug === PEARLY_GATES_CHANNEL.slug && what === "leave") return "👼 Go in peace.";
   return "";
 }
 
-// The clock on the info banner: 6:66 on Dead Air.
+// The clock on the info banner: 6:66 on Dead Air, and 11:11 (make a wish) at the Pearly Gates.
 export function stationClock(slug, clock24) {
-  if (slug !== DEAD_AIR_CHANNEL.slug) return "";
-  return clock24 ? "06:66" : "6:66 AM";
+  if (slug === DEAD_AIR_CHANNEL.slug) return clock24 ? "06:66" : "6:66 AM";
+  if (slug === PEARLY_GATES_CHANNEL.slug) return clock24 ? "11:11" : "11:11 AM";
+  return "";
 }
 
 export function bugText(ch, fallback) {
   if (ch && ch.slug === BBC_CHANNEL.slug) return "✝ BBC";
   if (ch && ch.slug === DEAD_AIR_CHANNEL.slug) return "666";
+  if (ch && ch.slug === PEARLY_GATES_CHANNEL.slug) return "✦ 111";
   return fallback;
 }
 
@@ -195,12 +261,81 @@ function dread(a) {
   }
 }
 
+// A choir's "aah" on a D major chord and a few bells, in a church: sawtooth voices through the formants of
+// an open vowel, swelling in, with the reverb of church.js around them.
+function choir(a) {
+  const t = a.currentTime;
+  const verb = a.createConvolver();
+  const n = Math.floor(2.8 * a.sampleRate);
+  const buf = a.createBuffer(2, n, a.sampleRate);
+  for (let c = 0; c < 2; c++) buf.getChannelData(c).set(naveImpulse(n, a.sampleRate, c));
+  verb.buffer = buf;
+  const wet = a.createGain();
+  wet.gain.value = 0.7;
+  verb.connect(wet);
+  wet.connect(a.destination);
+  const out = a.createGain();
+  out.gain.setValueAtTime(0.0001, t);
+  out.gain.exponentialRampToValueAtTime(0.07, t + 1.1);
+  out.gain.setValueAtTime(0.07, t + 3.2);
+  out.gain.exponentialRampToValueAtTime(0.0001, t + 5);
+  out.connect(a.destination);
+  out.connect(verb);
+  // The vowel: three formant filters every voice sings through.
+  const formants = [800, 1150, 2900].map(function (f, k) {
+    const bp = a.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.value = f;
+    bp.Q.value = k === 2 ? 8 : 5;
+    const g = a.createGain();
+    g.gain.value = k === 2 ? 0.35 : 1;
+    bp.connect(g);
+    g.connect(out);
+    return bp;
+  });
+  [146.83, 220, 293.66, 369.99, 440].forEach(function (note, i) {
+    [-0.004, 0.004].forEach(function (det) {
+      const o = a.createOscillator();
+      o.type = "sawtooth";
+      o.frequency.value = note * (1 + det + (i % 2 ? 0.001 : 0));
+      const vib = a.createOscillator();
+      const depth = a.createGain();
+      vib.frequency.value = 5 + i * 0.3;
+      depth.gain.value = note * 0.004;
+      vib.connect(depth);
+      depth.connect(o.frequency);
+      formants.forEach(function (bp) {
+        o.connect(bp);
+      });
+      o.start(t);
+      o.stop(t + 5.1);
+      vib.start(t);
+      vib.stop(t + 5.1);
+    });
+  });
+  [1174.66, 1479.98, 1760, 2349.32].forEach(function (f, i) {
+    const at = t + 1.3 + i * 0.45;
+    const o = a.createOscillator();
+    const g = a.createGain();
+    o.type = "sine";
+    o.frequency.value = f;
+    g.gain.setValueAtTime(0.06, at);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + 1.6);
+    o.connect(g);
+    g.connect(a.destination);
+    g.connect(verb);
+    o.start(at);
+    o.stop(at + 1.7);
+  });
+}
+
 export function introSound(slug) {
   try {
     const a = ctx();
     if (!a) return;
     if (slug === BBC_CHANNEL.slug) organ(a);
     else if (slug === DEAD_AIR_CHANNEL.slug) dread(a);
+    else if (slug === PEARLY_GATES_CHANNEL.slug) choir(a);
   } catch (e) {
     /* no sound: the card still shows */
   }
