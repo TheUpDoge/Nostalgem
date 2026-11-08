@@ -35,7 +35,7 @@ import { loadLineup, builtAt } from "./lineup.js";
 import { loadBumpers } from "./bumpers.js";
 import { pad2, escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder, numberText } from "./util.js";
 
-const VERSION = "1.10.1";
+const VERSION = "1.10.2";
 const NAME = "NostalGem";
 const params = new URLSearchParams(window.location.search);
 const ANDROID = params.get("tv") === "android";
@@ -164,6 +164,9 @@ function openNumpad() {
 const player = new Player($("screen"), {
   ytHost: $("yt"),
   church: church,
+  // 111's films echo around the nave. The full reverb needs CORS, which the Archive's video servers don't
+  // send; ?reverb=1 tries it anyway (tests, or the day they do).
+  corsReverb: params.get("reverb") === "1",
   // After a church film the player swaps in a fresh <video>: the filters draw from that one.
   media: function (el) {
     canvasLook.setVideo(el);

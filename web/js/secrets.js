@@ -12,7 +12,7 @@
 //
 // A station's look (looks.js) is its filter while it's on; Menu ▸ Filter can still change it there, and both
 // looks are in the filter list for every channel. rate and sound are how the player plays its films
-// (player.js). All of it is on the Internet Archive. Each station opens with its own card and sound
+// (player.js): 111's films echo around the nave (church.js). All of it is on the Internet Archive. Each station opens with its own card and sound
 // (main.js shows them); this module is the data, the words and the sounds.
 
 import { naveImpulse } from "./church.js";
@@ -82,7 +82,7 @@ export const PEARLY_GATES_CHANNEL = {
     { id: "heaven-only-knows-1947-classic-western-dramady", f: "Heaven Only Knows (1947 +++++ Classic Western Dramady).ia.mp4", t: "Heaven Only Knows", d: 5878, y: 1947 },
     { id: "the-kid-1921_202208", f: "The Kid 1921.mp4", t: "The Kid", d: 3209, y: 1921 },
     { id: "tbosm3543543177", f: "tbosm3543543177.mp4", t: "The Bells of St. Mary's", d: 7548, y: 1945 },
-    { id: "AChristmasCarol", f: "AChristmasCarol.mp4", t: "A Christmas Carol", d: 659, y: 1910 },
+    { id: "silent-a-christmas-carol", f: "A Christmas Carol.mp4", t: "A Christmas Carol", d: 631, y: 1910 },
     { id: "angel_and_the_badman", f: "angel_and_the_badman.mp4", t: "Angel and the Badman", d: 5971, y: 1947 },
     { id: "the-pilgrim-1923-directed-by-charlie-chaplin", f: "The Pilgrim (1923) Directed by Charlie Chaplin.mp4", t: "The Pilgrim", d: 2480, y: 1923 },
     { id: "the-passion-of-joan-of-arc", f: "The Passion of Joan of Arc.ia.mp4", t: "The Passion of Joan of Arc", d: 4929, y: 1928 },
@@ -114,7 +114,7 @@ export const SECRET_ABOUT = {
   "heaven-only-knows-1947-classic-western-dramady": "An angel comes down to a Montana boomtown to find the one soul missing from the Book of Life. 1947.",
   "the-kid-1921_202208": "Chaplin, 1921: the Tramp raises a foundling, and dreams of a heaven where everyone has wings.",
   tbosm3543543177: "Bing Crosby's Father O'Malley and Ingrid Bergman's Sister Benedict save a parish school. 1945.",
-  AChristmasCarol: "Edison's 1910 Christmas Carol: Marley's ghost and the three spirits in eleven minutes.",
+  "silent-a-christmas-carol": "Edison's 1910 Christmas Carol: Marley's ghost and the three spirits in ten minutes.",
   angel_and_the_badman: "John Wayne, 1947: a wounded gunfighter, a Quaker family, and a slow ride toward grace.",
   "the-pilgrim-1923-directed-by-charlie-chaplin": "Chaplin, 1923: an escaped convict in a stolen parson's suit preaches David and Goliath to a small-town church.",
   "the-passion-of-joan-of-arc": "Carl Th. Dreyer's 1928 trial of Joan of Arc, told almost entirely in close-ups.",

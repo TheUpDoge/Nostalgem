@@ -8,7 +8,7 @@ export const CHANGES = [
     title: "111 rings out",
     items: [
       "The church sound on 111 now works with every film: the Archive's servers won't let a page into a film's sound, so the nave echoes the film itself.",
-      "666's Phantom Carriage is the full restored film, not a five-minute clip.",
+      "666's Phantom Carriage is the full restored film, not a five-minute clip, and 111's Christmas Carol shows its picture.",
     ],
   },
   {

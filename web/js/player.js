@@ -8,11 +8,12 @@
 // next), standby, gesture, off, empty
 //
 // A channel can change how its films sound: rate (666 plays them at half speed, an octave down, like a
-// tape running slow) and sound: "church" (111's films ring around a nave, church.js). The full reverb
-// needs the file loaded with CORS, and a <video> whose sound has gone into it can't come back out, so after
-// a church film the next ordinary one gets a fresh <video> (hooks.media hears about it). A file that won't
-// load with CORS (the Archive's won't: after the first, the rest aren't tried) plays the ordinary way, with
-// echoes.
+// tape running slow) and sound: "church" (111's films ring around a nave, church.js): echoes of the film.
+// A reverb needs the file loaded with CORS, which the Archive's video servers don't allow (checked
+// November 2026), so it's only tried when hooks.corsReverb says so; then a <video> whose sound has gone into
+// it can't come back out, so the next ordinary film gets a fresh <video> (hooks.media hears about it), and a
+// file that won't load with CORS plays the ordinary way, with echoes (after the first, the rest aren't
+// tried).
 
 import { slotAt } from "./schedule.js";
 import { downloadUrl, corsUrl } from "./archive.js";
@@ -55,7 +56,7 @@ export class Player {
     this.church = this.hooks.church || null;
     this.routed = null; // the <video> whose sound is in the church
     this.noCors = {}; // films that wouldn't load with CORS: they play the ordinary way, with echoes
-    this.corsBroken = false; // none will this session: don't keep trying
+    this.corsBroken = !this.hooks.corsReverb; // no CORS this session: don't keep trying
 
     this.wire(video);
   }
