@@ -151,8 +151,8 @@ YouTube's player) and rebuilt daily:
   those scenes by time (sexual content only: gore and violence are never cut), and the file is never
   touched. On a live channel the scene goes under a full-screen card, **EXTREMELY GRAPHIC SCENE IS
   PLAYING**, with the sound cut, and the film plays on underneath, so the clock and the guide stay right.
-  On a Video Club tape with its **TV-safe cut** on, the scene can be jumped over instead, with a word on
-  screen. Times only ever come from a real viewing pass of the Archive's own file, so none ship yet:
+  A Video Club tape plays as it is unless you turn its **TV-safe cut** on (on the tape's box); then the
+  scene is jumped over instead, with a word on screen. Times only ever come from a real viewing pass of the Archive's own file, so none ship yet:
   `web/data/skip-lists.json` is empty, and a pack can carry its own (see [PACKS.md](PACKS.md)).
 - **📱 Phone remote**: Menu ▸ Phone remote shows a QR code; the phone opens it and becomes a
   remote for that TV — channels, volume, guide — over a direct connection. The pairing code is

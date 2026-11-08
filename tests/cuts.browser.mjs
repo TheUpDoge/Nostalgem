@@ -2,8 +2,8 @@
 //
 //   Live channel: a listed scene goes under a full-screen card with the sound cut, and the card lifts after;
 //   the program isn't skipped (the clock stays right).
-//   Video Club tape: with its TV-safe cut on, a listed scene is jumped over, with a word on screen; turned
-//   off on the tape's box, the tape plays as it is.
+//   Video Club tape: its TV-safe cut is off until the viewer turns it on, so it plays as it is; turned on
+//   (on the tape's box), a listed scene is jumped over, with a word on screen.
 //   Reading Room: the club's catalog shelves (checked public domain), and the empty manga shelf's note.
 //
 // The scenes here are TEST VALUES on a 12-second test video. Real lists come only from a viewing pass of
@@ -54,7 +54,7 @@ const check = (ok, what) => {
   if (!ok) failures++;
 };
 
-// Test lists (not real scenes): 069's first film gets a card from 6 s to 9 s; the test tape skips 3–6 s.
+// Test lists (not real scenes): 069's first film gets a card from 6 s to 9 s; the test tape skips 7–10 s.
 const BBC_FIRST = BBC_CHANNEL.items[0];
 const TAPE = { id: "test_tape", f: "test_tape.mp4", t: "Test Tape", d: 3600, y: 1950 };
 const skipFile = {
@@ -62,7 +62,7 @@ const skipFile = {
   note: "TEST VALUES for tests/cuts.browser.mjs: not real scenes.",
   lists: [{ item: BBC_FIRST.id, title: BBC_FIRST.t, mode: "card", skips: [{ start: 6, end: 9, reason: "sexual-content", note: "test" }] }],
 };
-const packLists = [{ item: TAPE.id, file: TAPE.f, title: TAPE.t, mode: "skip", enabled: true, skips: [{ start: 3, end: 6, reason: "sexual-content", note: "test" }] }];
+const packLists = [{ item: TAPE.id, file: TAPE.f, title: TAPE.t, mode: "skip", enabled: true, skips: [{ start: 7, end: 10, reason: "sexual-content", note: "test" }] }];
 const catalog = {
   catalog: "test",
   version: 1,
@@ -156,45 +156,59 @@ await page.waitForFunction(() => !window.NP.state().cutCard, null, { timeout: 80
 const t2 = await page.evaluate(() => document.getElementById("screen").currentTime);
 check(!(await st()).cutCard && t2 >= 9 && !(await page.evaluate(() => document.getElementById("screen").muted)), `after the scene the card lifts and the sound is back (${t2.toFixed(2)} s)`);
 
-// ---------- a Video Club tape: skipped ----------
-await page.keyboard.press("ArrowRight");
-await page.waitForTimeout(300);
-await page.click('#menu .m-item:has-text("Video Club")');
-await page.waitForTimeout(300);
-await page.click('#menu .m-item:has-text("📼 Test Tape")');
-await page.waitForTimeout(300);
-check(/TV-safe cut: 1 scene skipped/.test(await dialogText()) && /Play TV-safe cut: On/.test(await dialogText()), "the tape's box says it has a TV-safe cut, and it's on");
+// ---------- a Video Club tape: uncut unless the viewer turns its TV-safe cut on ----------
+const openTapeBox = async () => {
+  for (let i = 0; i < 6 && (await st()).overlay; i++) await page.keyboard.press("Escape");
+  await page.keyboard.press("ArrowRight");
+  await page.waitForTimeout(300);
+  await page.click('#menu .m-item:has-text("Video Club")');
+  await page.waitForTimeout(300);
+  await page.click('#menu .m-item:has-text("📼 Test Tape")');
+  await page.waitForTimeout(300);
+};
+await openTapeBox();
+check(/Play TV-safe cut: Off/.test(await dialogText()) && /plays as it is/.test(await dialogText()), "a tape's TV-safe cut is off to begin with: it plays as it is");
 await btn(/▶ Play/, 300);
 check(await playing(), "the tape plays");
 s = await st();
-check(s.cut && s.cut.mode === "skip" && /TV-safe cut: 1 scene skipped/.test(await page.textContent("#toast")), `…with its TV-safe cut: ${JSON.stringify(s.cut)} · ${await page.textContent("#toast")}`);
-check(/TV-SAFE CUT/.test(await page.textContent("#banner")), "…and the banner says so");
-await page.waitForFunction(() => window.NP.state().cut && window.NP.state().cut.skipped === 1, null, { timeout: 9000 }).catch(() => {});
+check(s.cut === null && /uncut/.test(await page.textContent("#toast")), `…uncut, and says where the TV-safe cut is: ${await page.textContent("#toast")}`);
+check(!/TV-SAFE CUT/.test(await page.textContent("#banner")), "…no TV-safe cut on the banner");
+// Turned on, on the tape's box, while it plays (the test scene is at 7–10 s).
+await openTapeBox();
+await btn(/Play TV-safe cut: Off/, 400);
+check(/Play TV-safe cut: On/.test(await dialogText()) && /TV-safe cut: 1 scene skipped/.test(await dialogText()), "turned on, the tape's box says so");
+check(await page.evaluate(() => JSON.parse(localStorage.getItem("nostalgem:library")).loans[0].cut === true), "…remembered with the tape");
+await btn(/Close/);
+s = await st();
+const before = await page.evaluate(() => document.getElementById("screen").currentTime);
+check(s.cut && s.cut.mode === "skip" && before < 7, `…and the tape playing now gets it (${JSON.stringify(s.cut)}, at ${before.toFixed(2)} s)`);
+await page.waitForFunction(() => window.NP.state().cut && window.NP.state().cut.skipped === 1, null, { timeout: 12000 }).catch(() => {});
 const t3 = await page.evaluate(() => document.getElementById("screen").currentTime);
 s = await st();
-check(s.cut && s.cut.skipped === 1 && t3 >= 6 && !s.cutCard, `the scene is jumped over (now ${t3.toFixed(2)} s, past 6)`);
+check(s.cut && s.cut.skipped === 1 && t3 >= 10 && !s.cutCard, `the scene is jumped over (now ${t3.toFixed(2)} s, past 10)`);
 check(/skipped a scene \(1 of 1\)/.test(await page.textContent("#toast")), "…with a word on screen, so it doesn't look like a glitch: " + (await page.textContent("#toast")));
-// Off on the tape's box: the tape plays as it is.
-await page.keyboard.press("ArrowRight");
+await page.evaluate(() => window.NP.remote("info"));
 await page.waitForTimeout(300);
-await page.click('#menu .m-item:has-text("Video Club")');
-await page.waitForTimeout(300);
-await page.click('#menu .m-item:has-text("📼 Test Tape")');
-await page.waitForTimeout(300);
+check(/TV-SAFE CUT/.test(await page.textContent("#banner")), "…and the banner says so");
+// Off again: untouched.
+await openTapeBox();
 await btn(/Play TV-safe cut: On/, 400);
-check(/Play TV-safe cut: Off/.test(await dialogText()) && /plays as it is/.test(await dialogText()), "the TV-safe cut turns off on the tape's box");
-check((await st()).cut === null, "…and the tape playing now is untouched");
-check(await page.evaluate(() => JSON.parse(localStorage.getItem("nostalgem:library")).loans[0].uncut === true), "…remembered with the tape");
+check(/Play TV-safe cut: Off/.test(await dialogText()) && (await st()).cut === null, "turned off again, the tape plays as it is");
+check(await page.evaluate(() => JSON.parse(localStorage.getItem("nostalgem:library")).loans[0].cut === false), "…remembered with the tape");
 await btn(/Close/);
 
 // ---------- the Reading Room: the club's catalog ----------
-for (let i = 0; i < 6 && (await st()).overlay; i++) await page.keyboard.press("Escape");
+// A fresh start, so nothing from the tape is still on screen.
+await page.reload();
+await page.waitForFunction(() => window.NP && window.NP.state().app === "on", null, { timeout: 15000 });
+await page.waitForTimeout(800);
 await page.keyboard.press("ArrowRight");
-await page.waitForTimeout(300);
-await page.click('#menu .m-item:has-text("Reading Room")');
-await page.waitForTimeout(600);
+await page.waitForFunction(() => window.NP.state().overlay === "menu", null, { timeout: 5000 }).catch(() => {});
+await page.waitForTimeout(500);
+await page.locator("#menu .m-item", { hasText: "📚 Reading Room" }).first().click();
+await page.waitForFunction(() => /Checked public domain/i.test(document.getElementById("menu").textContent), null, { timeout: 5000 }).catch(() => {});
 const room = await page.textContent("#menu");
-check(/Checked public domain/i.test(room) && /📜 Public-domain books/.test(room) && /💥 Public-domain comics/.test(room) && /🗾 Public-domain manga/.test(room) && /none yet/.test(room), "the Reading Room has the club's catalog: books, comics, and manga (none yet)");
+check(/Checked public domain/i.test(room) && /📜 Public-domain books/.test(room) && /💥 Public-domain comics/.test(room) && /🗾 Public-domain manga/.test(room) && /none yet/.test(room), "the Reading Room has the club's catalog: books, comics, and manga (none yet) · " + room.replace(/\s+/g, " ").slice(0, 160));
 check((room.match(/🗾 Manga/g) || []).length === 1, "…apart from the Archive's own 🗾 Manga shelf (one of those)");
 await page.click('#menu .m-item:has-text("🗾 Public-domain manga")');
 await page.waitForTimeout(300);

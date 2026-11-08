@@ -9,6 +9,9 @@
 //   skip  jumps over the scene. Video Club tapes only (a tape is watched at your own pace, so jumping
 //         doesn't throw any clock off), and only with the tape's "TV-safe cut" on.
 //
+// A tape's TV-safe cut is off until the viewer turns it on for that tape: off, the tape plays as it is,
+// card or no card.
+//
 // Scope: sexual content ONLY. Gore and violence are never listed — a list with any other reason is
 // refused. Times come from a real viewing pass of the Archive's own file (a scene sits at different times
 // in different cuts); none are ever guessed. Until real lists exist, the shipped file has none.

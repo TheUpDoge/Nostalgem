@@ -13,7 +13,7 @@ import { LINK_CHANNELS, isLinkChannel, isGuideVisible, linkCardName, linkUrl, op
 import { createGamepad } from "./gamepad.js";
 import { LOOKS, asciiMask, comboCss, lookById, lookCss, lookYtCss, looksSvg, mixable, nextLook } from "./looks.js";
 import { FrameWatch } from "./framewatch.js";
-import { MAX_TAPES, LOAN_HOURS, MAX_BOOKS, BOOK_DAYS, cleanLibrary, issueCard, cancelCard, loanFor, checkOut, setPosition, setUncut, isRewound, rewind, returnTape, overdue, storeShelves, staffPicks, searchStore, bookLoan, borrowBook, returnBook, overdueBooks, setMark, markFor } from "./library.js";
+import { MAX_TAPES, LOAN_HOURS, MAX_BOOKS, BOOK_DAYS, cleanLibrary, issueCard, cancelCard, loanFor, checkOut, setPosition, setSafeCut, isRewound, rewind, returnTape, overdue, storeShelves, staffPicks, searchStore, bookLoan, borrowBook, returnBook, overdueBooks, setMark, markFor } from "./library.js";
 import { bookSearchUrl, parseBookSearch, bookFromMetadata, pageNumbersUrl, parsePageNumbers, scandataUrl, parseScandata, parseShelves, parseCatalog } from "./books.js";
 import { Reader } from "./ui/reader.js";
 import * as Stacks from "./ui/stacks.js";
@@ -189,15 +189,15 @@ function openNumpad() {
 const player = new Player($("screen"), {
   ytHost: $("yt"),
   church: church,
-  // Clean cuts: a tape (Video Club) skips its scenes when its list says so and its TV-safe cut is on;
-  // anything else covers them with a card.
+  // Clean cuts: a tape (Video Club) plays as it is unless its TV-safe cut is on (then it skips its scenes,
+  // or covers them when its list says so); anything else covers them with a card.
   cutsFor: function (slot) {
     const item = slot && slot.item;
     if (!item) return null;
     const tapeKey = app.tapeLoading || app.tape;
     const tape = !!(slot.onDemand && tapeKey && programKey(item) === tapeKey);
     const loan = tape ? loanFor(lib, tapeKey) : null;
-    return cutsFor(allSkipLists(), item, tape, !!(loan && loan.uncut));
+    return cutsFor(allSkipLists(), item, tape, !(loan && loan.cut));
   },
   cut: onCut,
   // 111's films echo around the nave. The full reverb needs CORS, which the Archive's video servers don't
@@ -1123,20 +1123,25 @@ function openTape(film, focusLabel) {
       },
     });
     if (list) {
-      // Clean cuts: this film has a few scenes that can't air. On, they're skipped (or covered with a
-      // card); off, the tape plays as it is.
+      // Clean cuts: this film has a few scenes that can't air. The tape plays as it is unless the viewer
+      // turns its TV-safe cut on; then they're skipped (or covered with a card).
+      const cutLabel = function (on) {
+        return on ? "✂ Play TV-safe cut: On" : "✂ Play TV-safe cut: Off";
+      };
       buttons.push({
-        label: loan.uncut ? "✂ Play TV-safe cut: Off" : "✂ Play TV-safe cut: On",
+        label: cutLabel(loan.cut),
         action: function (d) {
           const now = loanFor(lib, film.key);
-          lib = setUncut(lib, film.key, !(now && now.uncut));
+          lib = setSafeCut(lib, film.key, !(now && now.cut));
           saveLib();
           if (app.tape === film.key) player.refreshCuts();
           d.close();
-          openTape(film, loanFor(lib, film.key).uncut ? "✂ Play TV-safe cut: Off" : "✂ Play TV-safe cut: On");
+          openTape(film, cutLabel(loanFor(lib, film.key).cut));
         },
       });
-      note = loan.uncut ? "TV-safe cut off: plays as it is" : "✂ TV-safe cut: " + list.skips.length + " scene" + (list.skips.length === 1 ? "" : "s") + (list.mode === "skip" ? " skipped" : " covered");
+      note = loan.cut
+        ? "✂ TV-safe cut: " + list.skips.length + " scene" + (list.skips.length === 1 ? "" : "s") + (list.mode === "skip" ? " skipped" : " covered")
+        : "TV-safe cut off: plays as it is";
     }
     if (!isRewound(loan)) {
       buttons.push({
@@ -1158,7 +1163,7 @@ function openTape(film, focusLabel) {
       },
     });
   } else if (!lib.card) {
-    note = "On the shelf · a free library card checks it out" + (list ? " · ✂ TV-safe cut" : "");
+    note = "On the shelf · a free library card checks it out" + (list ? " · ✂ TV-safe cut available" : "");
     buttons.push({
       label: "📇 Get a library card",
       action: function (d) {
@@ -1185,7 +1190,7 @@ function openTape(film, focusLabel) {
       },
     });
   } else {
-    note = "On the shelf · " + LOAN_HOURS / 24 + "-day rental" + (list ? " · ✂ TV-safe cut" : "");
+    note = "On the shelf · " + LOAN_HOURS / 24 + "-day rental" + (list ? " · ✂ TV-safe cut available" : "");
     buttons.push({
       label: "⏏ Check out & play",
       action: function (d) {
@@ -1243,6 +1248,7 @@ function playTape(key) {
     let note = "";
     if (c && c.mode === "skip") note = " · ✂ TV-safe cut: " + c.scenes + " scene" + (c.scenes === 1 ? "" : "s") + " skipped";
     else if (c) note = " · ✂ TV-safe cut: " + c.scenes + " scene" + (c.scenes === 1 ? "" : "s") + " covered";
+    else if (filmList(film.item)) note = " · uncut (its TV-safe cut is on the tape's box)";
     V.toast("📼 Now playing your tape: " + film.item.t + (at > 2 ? " · from " + fmtDuration(at) : "") + note, 5000);
   }
 }
@@ -3187,7 +3193,7 @@ function handlePackText(text, label) {
       cuts.length +
       " film" +
       (cuts.length === 1 ? "" : "s") +
-      ": scenes covered with a card, or skipped on a tape with its TV-safe cut on.";
+      ": scenes covered with a card, or skipped on a tape whose TV-safe cut is turned on.";
   }
   if (v.warnings.length) {
     html += "<br><br>Heads up:<br>" + v.warnings.map(esc).join("<br>");

@@ -119,7 +119,8 @@ touching the file. Add a `skipLists` section, either a list of lists or the whol
   copy — the same scene sits at different times in different cuts — and never guess them.
 - `mode`: `"card"` covers the scene with a full-screen card (`cardText`, default *EXTREMELY GRAPHIC
   SCENE IS PLAYING*) and cuts the sound while the film plays on; it works everywhere, live channels
-  included. `"skip"` jumps over the scene, on Video Club tapes only, when the tape's *TV-safe cut* is on;
+  included. `"skip"` jumps over the scene, on Video Club tapes only, when the viewer has turned the tape's
+  *TV-safe cut* on (a tape plays as it is until then);
   live, the card is used instead, so the clock never slips.
 - A pack can be only clean cuts, with no `channels`. Lists are kept on this TV; a newer list for the same
   film replaces the older one. The app's own lists are `web/data/skip-lists.json` (none yet).
