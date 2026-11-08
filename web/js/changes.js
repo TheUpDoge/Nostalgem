@@ -4,11 +4,16 @@
 
 export const CHANGES = [
   {
+    v: "1.10.2",
+    title: "Small fixes",
+    items: ["111's films start a little sooner.", "111's 1910 Christmas Carol shows its picture, not just its sound."],
+  },
+  {
     v: "1.10.1",
     title: "111 rings out",
     items: [
       "The church sound on 111 now works with every film: the Archive's servers won't let a page into a film's sound, so the nave echoes the film itself.",
-      "666's Phantom Carriage is the full restored film, not a five-minute clip, and 111's Christmas Carol shows its picture.",
+      "666's Phantom Carriage is the full restored film, not a five-minute clip.",
     ],
   },
   {
