@@ -6,14 +6,17 @@ import { Player } from "./player.js";
 import { Static } from "./static.js";
 import { actionFor, isTypingTarget, registerTvKeys } from "./remote.js";
 import { load, save } from "./store.js";
-import { archiveLinkQuery, buildChannel, browserFetchJson } from "./archive.js";
+import { archiveLinkQuery, buildChannel, browserFetchJson, metadataUrl } from "./archive.js";
 import { archiveAboutHtml } from "./about.js";
 import { buildItemsChannel, packChannelDef, parsePack, validatePack, PACK_MIN_NUMBER, PACK_MAX_NUMBER } from "./packs.js";
 import { LINK_CHANNELS, isLinkChannel, isGuideVisible, linkCardName, linkUrl, openLinkChannel } from "./linkout.js";
 import { createGamepad } from "./gamepad.js";
 import { LOOKS, asciiMask, comboCss, lookById, lookCss, lookYtCss, looksSvg, mixable, nextLook } from "./looks.js";
 import { FrameWatch } from "./framewatch.js";
-import { MAX_TAPES, LOAN_HOURS, cleanLibrary, issueCard, cancelCard, loanFor, checkOut, setPosition, isRewound, rewind, returnTape, overdue, storeShelves, staffPicks, searchStore } from "./library.js";
+import { MAX_TAPES, LOAN_HOURS, MAX_BOOKS, BOOK_DAYS, cleanLibrary, issueCard, cancelCard, loanFor, checkOut, setPosition, isRewound, rewind, returnTape, overdue, storeShelves, staffPicks, searchStore, bookLoan, borrowBook, returnBook, overdueBooks, setMark, markFor } from "./library.js";
+import { bookSearchUrl, parseBookSearch, bookFromMetadata, pageNumbersUrl, parsePageNumbers, parseShelves } from "./books.js";
+import { Reader } from "./ui/reader.js";
+import * as Stacks from "./ui/stacks.js";
 import * as Club from "./ui/club.js";
 import { CanvasLook } from "./fxcanvas.js";
 import { Ambience, AMBIENCES, ambienceName } from "./ambience.js";
@@ -29,7 +32,7 @@ import { loadLineup, builtAt } from "./lineup.js";
 import { loadBumpers } from "./bumpers.js";
 import { pad2, escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder, numberText } from "./util.js";
 
-const VERSION = "1.7.0";
+const VERSION = "1.8.0";
 const NAME = "NostalGem";
 const params = new URLSearchParams(window.location.search);
 const ANDROID = params.get("tv") === "android";
@@ -39,7 +42,7 @@ const ON_PAGES = window.location.href.indexOf(PAGES_BASE) === 0;
 const LIVE_LINEUP = ANDROID && !ON_PAGES ? PAGES_BASE + "data/lineup.json" : "";
 const LINEUP_RECHECK = 3 * 3600 * 1000; // coming back to the app after this long: look for a newer lineup
 
-const DEFAULTS = { crt: "light", fit: "contain", cc: "off", staticFx: "sound", bug: true, clock24: false, surf: "all", phone: false, region: "auto", look: "off", mix: "off", ambience: "off", lookQuality: "auto", liteLooks: {} };
+const DEFAULTS = { crt: "light", fit: "contain", cc: "off", staticFx: "sound", bug: true, clock24: false, surf: "all", phone: false, region: "auto", look: "off", mix: "off", ambience: "off", lookQuality: "auto", liteLooks: {}, readMode: "auto", readPaper: "day" };
 const SLEEP_STEPS = [0, 15, 30, 45, 60, 90, 120];
 const STILL_AFTER = 4 * 3600 * 1000; // no button pressed for four hours: ask
 const STILL_GRACE = 2 * 60 * 1000; // then switch off two minutes later
@@ -67,6 +70,7 @@ function pruneBad(bad) {
 const app = {
   lineup: null,
   adCount: Math.floor(Math.random() * 1000), // which ad-break quip comes next
+  boxToken: 0, // the book box showing now (its details arrive later)
   adQuip: "",
   about: {},
   bumpers: [],
@@ -202,6 +206,33 @@ const guide = new Guide($("guide"), {
 });
 const menu = new Menu($("menu"), updateBug);
 const dialog = new Dialog($("dialog"));
+// The Reading Room's reader (see the Reading Room below).
+const reader = new Reader($("reader"), {
+  pages: loadPages,
+  onMark: function (id, m) {
+    lib = setMark(lib, id, m, Date.now());
+    clearTimeout(app.markTimer);
+    app.markTimer = setTimeout(saveLib, 800);
+  },
+  onPrefs: function (pr) {
+    s.readMode = pr.mode;
+    s.readPaper = pr.paper;
+    saveSettings();
+  },
+  onClose: function () {
+    saveLib();
+    // Back to the TV: the channel comes back on if reading switched it off.
+    if (app.readStopped) {
+      app.readStopped = false;
+      if (app.state === "on" && !app.suspended && current()) tuneTo(current(), { quiet: true });
+    }
+    updateBug();
+  },
+  sound: function () {
+    return fx.sound;
+  },
+});
+
 // A picture that won't load (a box with no cover art) just stays blank.
 $("dialog").addEventListener(
   "error",
@@ -823,8 +854,8 @@ function openStoreSearch() {
 }
 
 // The sign-up: what the club is, what the Archive is, and the fine print to sign. readOnly: just reading
-// the rules again (a member). film: the tape they were looking at, to go back to afterwards.
-function openSignup(i, film, readOnly) {
+// the rules again (a member). ret: { label, go } back to the tape or book they were looking at.
+function openSignup(i, ret, readOnly) {
   const pages = Club.SIGNUP_PAGES;
   const p = pages[i];
   const last = i === pages.length - 1;
@@ -842,7 +873,7 @@ function openSignup(i, film, readOnly) {
         lib = r.lib;
         saveLib();
         d.close();
-        showMyCard(true, film);
+        showMyCard(true, ret);
       },
     });
   } else if (!last) {
@@ -850,7 +881,7 @@ function openSignup(i, film, readOnly) {
       label: "Next ▶",
       action: function (d) {
         d.close();
-        openSignup(i + 1, film, readOnly);
+        openSignup(i + 1, ret, readOnly);
       },
     });
   }
@@ -859,7 +890,7 @@ function openSignup(i, film, readOnly) {
       label: "◀ Back",
       action: function (d) {
         d.close();
-        openSignup(i - 1, film, readOnly);
+        openSignup(i - 1, ret, readOnly);
       },
     });
   }
@@ -877,23 +908,34 @@ function openSignup(i, film, readOnly) {
   });
 }
 
-function showMyCard(welcome, film) {
+function shortTitle(t) {
+  return t.length > 24 ? t.slice(0, 23) + "…" : t;
+}
+
+function showMyCard(welcome, ret) {
   if (!lib.card) return;
   const buttons = [];
-  if (film) {
+  if (ret) {
     buttons.push({
-      label: "📼 Back to " + (film.item.t.length > 24 ? film.item.t.slice(0, 23) + "…" : film.item.t),
+      label: ret.label,
       action: function (d) {
         d.close();
-        openTape(film);
+        ret.go();
       },
     });
   }
   buttons.push({
-    label: "📼 Browse the shelves",
+    label: "📼 Video Club",
     action: function (d) {
       d.close();
       openClub();
+    },
+  });
+  buttons.push({
+    label: "📚 Reading Room",
+    action: function (d) {
+      d.close();
+      openStacks();
     },
   });
   buttons.push({
@@ -911,15 +953,18 @@ function showMyCard(welcome, film) {
       },
     });
   }
-  const seen = lib.history.length;
+  const books = lib.history.filter(function (h) {
+    return h.kind === "book";
+  }).length;
+  const tapes = lib.history.length - books;
   dialog.open({
     title: welcome ? "🎉 Welcome to the club!" : "📇 Your library card",
     html:
       Club.cardHtml(lib.card) +
       '<div class="club-sub">' +
       (welcome
-        ? "Pick a tape off a shelf: up to " + MAX_TAPES + " at a time, " + LOAN_HOURS / 24 + " days each."
-        : lib.loans.length + " of " + MAX_TAPES + " tapes out · " + seen + (seen === 1 ? " tape" : " tapes") + " returned") +
+        ? "Tapes: up to " + MAX_TAPES + " at a time, " + LOAN_HOURS / 24 + " days each. Books: up to " + MAX_BOOKS + ", " + BOOK_DAYS + " days each."
+        : lib.loans.length + " of " + MAX_TAPES + " tapes and " + (lib.books || []).length + " of " + MAX_BOOKS + " books out · " + tapes + (tapes === 1 ? " tape" : " tapes") + " and " + books + (books === 1 ? " book" : " books") + " returned") +
       "</div>",
     buttons: buttons,
   });
@@ -989,7 +1034,16 @@ function openTape(film, focusLabel) {
       label: "📇 Get a library card",
       action: function (d) {
         d.close();
-        openSignup(0, film, false);
+        openSignup(
+          0,
+          {
+            label: "📼 Back to " + shortTitle(film.item.t),
+            go: function () {
+              openTape(film);
+            },
+          },
+          false
+        );
       },
     });
   } else if (lib.loans.length >= MAX_TAPES) {
@@ -1103,7 +1157,14 @@ function clubTick(now) {
       lib = returnTape(lib, l.key, now, true).lib;
       V.toast("📼 " + l.t + " was due back, so it went back on the shelf. No late fees. Be kind, rewind!", 6000);
     });
-    if (late.length) saveLib();
+    const lateBooks = overdueBooks(lib, now).filter(function (b) {
+      return !(reader.isOpen && reader.book && reader.book.id === b.id); // the one being read goes back after
+    });
+    lateBooks.forEach(function (b) {
+      lib = returnBook(lib, b.id, now, true).lib;
+      V.toast("📚 " + b.t + " was due back, so it went back on the shelf. Your bookmark is kept.", 6000);
+    });
+    if (late.length || lateBooks.length) saveLib();
   }
 }
 
@@ -1154,6 +1215,407 @@ function returnTapeNow(key) {
   lib = r.lib;
   saveLib();
   V.toast("⏏ Returned " + (loan ? loan.t : "the tape") + ". Thanks for rewinding!", 4000);
+  return r;
+}
+
+// ---------- the Reading Room: books, comics, manga and magazines ----------
+let shelvesDef = null;
+function bookShelves() {
+  if (!shelvesDef) {
+    shelvesDef = fetch("data/books.json", { credentials: "omit" })
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(parseShelves)
+      .catch(function () {
+        shelvesDef = null;
+        return [];
+      });
+  }
+  return shelvesDef;
+}
+
+// A shelf's books, a page of search results at a time: { books, page, loading, error, done }.
+const shelfState = {};
+function loadShelf(shelf) {
+  const st = shelfState[shelf.id] || (shelfState[shelf.id] = { books: [], page: 0, loading: false, error: "", done: false });
+  if (st.loading || st.done) return st;
+  st.loading = true;
+  st.error = "";
+  browserFetchJson(bookSearchUrl(shelf.q, 48, st.page + 1))
+    .then(function (json) {
+      const have = {};
+      st.books.forEach(function (b) {
+        have[b.id] = 1;
+      });
+      const got = parseBookSearch(json);
+      st.page++;
+      st.books = st.books.concat(
+        got.filter(function (b) {
+          return !have[b.id];
+        })
+      );
+      st.done = got.length < 48;
+    })
+    .catch(function () {
+      st.error = "Couldn't reach the Archive's catalog.";
+    })
+    .then(function () {
+      st.loading = false;
+      if (menu.isOpen) menu.render();
+    });
+  return st;
+}
+
+const bookCache = {};
+function bookMeta(id) {
+  if (!bookCache[id]) {
+    bookCache[id] = browserFetchJson(metadataUrl(id))
+      .then(function (m) {
+        if (!m || !m.metadata) throw new Error("no such item");
+        return bookFromMetadata(m);
+      })
+      .catch(function (e) {
+        delete bookCache[id];
+        throw e;
+      });
+  }
+  return bookCache[id];
+}
+
+const pageCache = {};
+function loadPages(book, v) {
+  const vol = book.volumes[v];
+  if (!vol) return Promise.resolve(null);
+  const key = book.id + "/" + vol.stem;
+  if (!pageCache[key]) {
+    pageCache[key] = browserFetchJson(pageNumbersUrl(book.id, vol.stem))
+      .then(parsePageNumbers)
+      .catch(function () {
+        delete pageCache[key];
+        return null;
+      });
+  }
+  return pageCache[key];
+}
+
+function openStacks() {
+  hideBanner();
+  guide.close();
+  if (!menu.isOpen) menu.open(rootPage());
+  menu.push(stacksPage());
+  updateBug();
+}
+
+function stacksPage() {
+  bookShelves().then(function () {
+    if (menu.isOpen) menu.render();
+  });
+  return {
+    title: "📚 Reading Room",
+    sub: function () {
+      return lib.card
+        ? lib.card.name + " · " + (lib.books || []).length + " of " + MAX_BOOKS + " books out · " + BOOK_DAYS + "-day loans"
+        : "Books, comics, manga and magazines from the Internet Archive. Your library card works here.";
+    },
+    items: function () {
+      const now = Date.now();
+      const list = [];
+      if (!lib.card) {
+        list.push({
+          label: "📇 Get a library card",
+          sub: true,
+          ok: function () {
+            openSignup(0, null, false);
+          },
+        });
+      } else {
+        list.push({
+          label: "📇 My library card",
+          sub: true,
+          value: lib.card.number,
+          ok: function () {
+            showMyCard(false, null);
+          },
+        });
+      }
+      const mine = lib.books || [];
+      list.push({ head: true, label: "Your books · " + mine.length + " of " + MAX_BOOKS });
+      if (!mine.length) list.push({ head: true, label: lib.card ? "None out. Pick one off a shelf below." : "Get a card, then pick one off a shelf." });
+      mine.forEach(function (b) {
+        const m = markFor(lib, b.id);
+        list.push({
+          label: "📖 " + b.t,
+          sub: true,
+          value: function () {
+            return (m ? "p. " + (m.p + 1) + " · " : "") + Stacks.dueSlipText(b, now);
+          },
+          ok: function () {
+            openBookBox({ id: b.id, t: b.t, by: b.by, y: b.y });
+          },
+        });
+      });
+      list.push({ head: true, label: "Shelves" });
+      list.push({
+        label: "🔎 Search the stacks",
+        sub: true,
+        ok: function () {
+          openBookSearch();
+        },
+      });
+      list.push({
+        label: "🔗 Open an archive.org link",
+        sub: true,
+        ok: function () {
+          openBookLink();
+        },
+      });
+      (shelvesCacheList || []).forEach(function (sh) {
+        list.push({
+          label: sh.icon + " " + sh.name,
+          sub: true,
+          ok: function () {
+            menu.push(bookShelfPage(sh));
+          },
+        });
+      });
+      list.push({
+        label: "📜 Library rules & the fine print",
+        sub: true,
+        ok: function () {
+          openSignup(0, null, true);
+        },
+      });
+      return list;
+    },
+  };
+}
+let shelvesCacheList = null;
+bookShelves().then(function (list) {
+  shelvesCacheList = list;
+});
+
+function bookShelfPage(shelf) {
+  loadShelf(shelf);
+  return {
+    title: shelf.icon + " " + shelf.name,
+    sub: function () {
+      const st = shelfState[shelf.id];
+      return st && st.books.length ? st.books.length + " on the shelf · OK to look at one" : "From the Internet Archive";
+    },
+    items: function () {
+      const st = shelfState[shelf.id] || { books: [] };
+      const list = st.books.map(function (b) {
+        return {
+          label: b.t,
+          value: function () {
+            return (bookLoan(lib, b.id) ? "📚 YOURS · " : "") + (b.y ? String(b.y) : "");
+          },
+          ok: function () {
+            openBookBox(b);
+          },
+        };
+      });
+      if (st.loading) list.push({ head: true, label: "Fetching the shelf from the Archive…" });
+      else if (st.error) {
+        list.push({
+          label: "⚠ " + st.error + " Try again",
+          ok: function () {
+            loadShelf(shelf);
+          },
+        });
+      } else if (!st.done) {
+        list.push({
+          label: "More from this shelf…",
+          ok: function () {
+            loadShelf(shelf);
+          },
+        });
+      } else if (!st.books.length) list.push({ head: true, label: "Nothing on this shelf right now." });
+      return list;
+    },
+  };
+}
+
+function openBookSearch() {
+  dialog.open({
+    title: "🔎 Search the stacks",
+    html: "A title, an author or a subject, like <b>sherlock</b>, <b>jules verne</b>, <b>astounding</b> or <b>popular mechanics</b>.",
+    input: { placeholder: "What would you like to read?" },
+    buttons: [
+      {
+        label: "Search",
+        action: function (d) {
+          const text = d.value().replace(/[():"]/g, " ").replace(/\s+/g, " ").trim();
+          if (text.length < 2) {
+            d.status("Type a word or two first.");
+            return;
+          }
+          d.close();
+          const shelf = { id: "search:" + text.toLowerCase(), name: text, icon: "🔎", q: "(" + text + ")" };
+          if (!menu.isOpen) menu.open(rootPage());
+          menu.push(bookShelfPage(shelf));
+        },
+      },
+      {
+        label: "Cancel",
+        action: function (d) {
+          d.close();
+        },
+      },
+    ],
+  });
+}
+
+function openBookLink() {
+  dialog.open({
+    title: "🔗 Open an archive.org link",
+    html: "The address of a book, comic or magazine on archive.org, like <b>archive.org/details/alicesadventures00carr</b>.",
+    input: { placeholder: "archive.org/details/…" },
+    buttons: [
+      {
+        label: "Open",
+        action: function (d) {
+          const link = archiveLinkQuery(d.value());
+          const id = link && /^\(identifier:/.test(link.q) ? link.id : /^[\w.-]{3,}$/.test(d.value()) ? d.value() : "";
+          if (!id) {
+            d.status("That doesn't look like an archive.org page. Try archive.org/details/…");
+            return;
+          }
+          openBookBox({ id: id, t: id });
+        },
+      },
+      {
+        label: "Cancel",
+        action: function (d) {
+          d.close();
+        },
+      },
+    ],
+  });
+}
+
+// A book's box: cover and details (fetched from the Archive), and what you can do with it.
+function openBookBox(entry) {
+  const token = ++app.boxToken;
+  const show = function (book, err) {
+    if (token !== app.boxToken) return;
+    const now = Date.now();
+    const loan = bookLoan(lib, entry.id);
+    const mark = markFor(lib, entry.id);
+    const buttons = [];
+    let note = err || "";
+    if (book && book.restricted) note = "The Archive only lends this one: borrow it on archive.org with a free account.";
+    else if (book && !book.volumes.length) note = "No pages to turn in this one (it's text or audio only). It's on archive.org.";
+    else if (book && loan) {
+      buttons.push({
+        label: mark ? "📖 Read · page " + (mark.p + 1) : "📖 Read",
+        action: function (d) {
+          d.close();
+          readBook(book);
+        },
+      });
+      buttons.push({
+        label: "⏏ Return",
+        action: function (d) {
+          returnBookNow(book.id);
+          d.close();
+        },
+      });
+    } else if (book && !lib.card) {
+      note = "On the shelf · a free library card borrows it";
+      buttons.push({
+        label: "📇 Get a library card",
+        action: function (d) {
+          d.close();
+          openSignup(
+            0,
+            {
+              label: "📚 Back to " + shortTitle(book.title),
+              go: function () {
+                openBookBox(entry);
+              },
+            },
+            false
+          );
+        },
+      });
+    } else if (book && (lib.books || []).length >= MAX_BOOKS) {
+      note = "You have " + MAX_BOOKS + " books out. Return one to make room.";
+      buttons.push({
+        label: "📚 Your books",
+        action: function (d) {
+          d.close();
+          openStacks();
+        },
+      });
+    } else if (book) {
+      note = "On the shelf · " + BOOK_DAYS + "-day loan";
+      buttons.push({
+        label: "📖 Borrow & read",
+        action: function (d) {
+          const r = borrowBook(lib, { id: book.id, t: book.title, by: book.by, y: book.y }, Date.now());
+          if (r.error) {
+            d.status(r.text);
+            return;
+          }
+          lib = r.lib;
+          saveLib();
+          d.close();
+          readBook(book);
+          V.toast("📚 Borrowed " + book.title + " · stamped due " + Stacks.stampDate(r.loan.due), 5000);
+        },
+      });
+    }
+    buttons.push({
+      label: "Close",
+      action: function (d) {
+        d.close();
+      },
+    });
+    dialog.open({
+      title: "📚 Reading Room",
+      html: Stacks.bookBoxHtml(entry, book, book ? loan : null, mark, now, note),
+      buttons: buttons,
+      onClose: function () {
+        if (app.boxToken === token) app.boxToken++;
+      },
+    });
+    if (book && (book.restricted || !book.volumes.length)) drawDonateQr();
+  };
+  show(null);
+  bookMeta(entry.id).then(
+    function (book) {
+      show(book);
+    },
+    function () {
+      show(null, "Couldn't reach the Archive for this one. Try again in a moment.");
+    }
+  );
+}
+
+// Open a borrowed book. A TV channel stops while you read (a radio station keeps playing).
+function readBook(book) {
+  closeOverlays();
+  hideBanner();
+  const ch = current();
+  if (app.state === "on" && player.mode !== "off" && !(ch && ch.kind === "audio")) {
+    player.off();
+    app.readStopped = true;
+  }
+  reader.open(book, markFor(lib, book.id), { mode: s.readMode, paper: s.readPaper });
+  updateBug();
+}
+
+function returnBookNow(id) {
+  const b = bookLoan(lib, id);
+  const r = returnBook(lib, id, Date.now(), false);
+  if (r.error) return r;
+  if (reader.isOpen && reader.book && reader.book.id === id) reader.close();
+  lib = r.lib;
+  saveLib();
+  V.toast("📚 Returned " + (b ? b.t : "the book") + ". Your bookmark is kept if you borrow it again.", 4500);
   return r;
 }
 
@@ -1567,7 +2029,7 @@ function hideBanner() {
 
 // ---------- overlays ----------
 function overlayOpen() {
-  return dialog.isOpen || menu.isOpen || guide.isOpen || numpad.isOpen;
+  return dialog.isOpen || menu.isOpen || guide.isOpen || numpad.isOpen || reader.isOpen;
 }
 function closeOverlays() {
   numpad.close();
@@ -1736,6 +2198,16 @@ function rootPage() {
         },
         ok: function () {
           menu.push(clubPage());
+        },
+      });
+      list.push({
+        label: "📚 Reading Room",
+        sub: true,
+        value: function () {
+          return lib.card ? (lib.books || []).length + " of " + MAX_BOOKS + " books out" : "Books, comics & manga";
+        },
+        ok: function () {
+          menu.push(stacksPage());
         },
       });
       list.push({
@@ -2928,6 +3400,10 @@ function handleAction(a) {
     wake();
     return;
   }
+  if (reader.isOpen && !dialog.isOpen) {
+    reader.handle(a);
+    return;
+  }
   if (player.mode === "gesture") {
     player.userGesture();
     return;
@@ -3053,6 +3529,10 @@ function back() {
     dialog.close();
     return true;
   }
+  if (reader.isOpen) {
+    reader.handle({ type: "back" });
+    return true;
+  }
   if (menu.isOpen) {
     menu.pop();
     return true;
@@ -3137,7 +3617,7 @@ tv.addEventListener("click", function (e) {
   // A click on a menu row or dialog button can remove that element before the click gets here (the menu
   // closes and a dialog opens). It was a click on an overlay, not on the picture: don't press OK again.
   if (!tv.contains(e.target)) return;
-  if (e.target.closest && e.target.closest(".touch,.guide,.menu,.dialog,.banner,.numpad")) return;
+  if (e.target.closest && e.target.closest(".touch,.guide,.menu,.dialog,.banner,.numpad,.reader")) return;
   handleAction({ type: "ok" });
 });
 let touchY = null;
@@ -3242,7 +3722,11 @@ window.NP = {
           return { t: l.t, pos: Math.round(l.pos), rewound: isRewound(l) };
         }),
         returned: lib.history.length,
+        books: (lib.books || []).map(function (b) {
+          return { id: b.id, t: b.t, mark: markFor(lib, b.id) };
+        }),
       },
+      reader: reader.state(),
       look: { id: s.look, mix: s.mix, key: lookKey(), lite: lookIsLite(), quality: s.lookQuality, watching: frameWatch.key, fps: frameWatch.last },
     };
   },

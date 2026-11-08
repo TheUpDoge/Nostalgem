@@ -69,9 +69,43 @@ const thumb = await readFile(join(web, "icons/icon-192.png"));
 
 // Stand-in for archive.org. `failing` makes every program download fail, to test the stand-by card.
 const fake = { failing: false, downloads: 0 };
+// The Reading Room's books: a 7-page book, a two-volume manga (5 and 4 pages), and one the Archive only lends.
+const BOOKS = {
+  test_book: { md: { identifier: "test_book", title: "Test Book", creator: "Carroll, Lewis, 1832-1898", date: "1911", imagecount: "7", description: "A book made for testing." }, vols: { test_book: 7 } },
+  test_manga: { md: { identifier: "test_manga", title: "MANGA: Test Manga", collection: ["manga_library"] }, vols: { "Test Manga v01 (Digital) (grp)": 5, "Test Manga v02 (Digital) (grp)": 4 } },
+  test_lent: { md: { identifier: "test_lent", title: "Lent Book", "access-restricted-item": "true" }, vols: { test_lent: 9 } },
+};
+const json = (route, body) => route.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify(body) });
 async function archive(route) {
   const url = new URL(route.request().url());
   const p = url.pathname;
+  const page = /^\/download\/([^/]+)\/(?:(.+)\/)?page\/n(\d+)(?:_w\d+)?\.jpg$/.exec(p);
+  if (page) {
+    const book = BOOKS[page[1]];
+    const vol = page[2] ? decodeURIComponent(page[2]) : page[1];
+    const n = book && book.vols[vol];
+    fake.pages = (fake.pages || 0) + 1;
+    if (!n || Number(page[3]) >= n) return route.fulfill({ status: 404, body: "" });
+    // A portrait page that shows its own number, so a screenshot shows the order.
+    const k = Number(page[3]) + 1;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="900"><rect width="600" height="900" fill="#f4ecd8"/><rect x="40" y="60" width="520" height="300" fill="hsl(${k * 47},55%,60%)"/><text x="300" y="560" font-size="160" text-anchor="middle" font-family="serif" fill="#3a2a18">${k}</text><text x="300" y="820" font-size="36" text-anchor="middle" font-family="serif" fill="#6b5634">${page[1]} · page ${k}</text></svg>`;
+    return route.fulfill({ status: 200, contentType: "image/svg+xml", body: svg });
+  }
+  const numbers = /^\/cors\/([^/]+)\/(.+)_page_numbers\.json$/.exec(p);
+  if (numbers) {
+    const book = BOOKS[numbers[1]];
+    const n = book && book.vols[decodeURIComponent(numbers[2])];
+    if (!n) return route.fulfill({ status: 404, body: "" });
+    return json(route, { pages: Array.from({ length: n }, (_, i) => ({ leafNum: i + 1, pageNumber: i < 2 ? "" : String(i - 1) })) });
+  }
+  const meta = /^\/metadata\/(test_book|test_manga|test_lent)$/.exec(p);
+  if (meta) {
+    const book = BOOKS[meta[1]];
+    return json(route, { metadata: book.md, files: Object.keys(book.vols).map((v) => ({ name: v + "_jp2.zip" })) });
+  }
+  if (p === "/advancedsearch.php" && /mediatype:texts/.test(url.searchParams.get("q") || "")) {
+    return json(route, { response: { numFound: 3, docs: Object.values(BOOKS).map((b) => ({ identifier: b.md.identifier, title: b.md.title, creator: b.md.creator, date: b.md.date })) } });
+  }
   if (p.startsWith("/download/")) {
     fake.downloads++;
     if (fake.failing) return route.fulfill({ status: 503, body: "busy" });
@@ -702,6 +736,107 @@ try {
     await key("Escape", 200);
     await key("Escape", 200);
     await key("Escape", 200);
+    await key("l", 800);
+  }
+
+  // The Reading Room: borrow a book on the library card, turn its pages two at a time, a manga right to
+  // left, volumes, the end of the book, a book the Archive only lends, and returning one.
+  {
+    const dialogText = () => page.textContent("#dialog");
+    const btn = async (re, wait) => {
+      await page.locator("#dialog .d-btn", { hasText: re }).first().click();
+      await page.waitForTimeout(wait == null ? 300 : wait);
+    };
+    const reading = async () => (await state()).reader;
+    const toShelf = async () => {
+      for (let i = 0; i < 6 && (await state()).overlay; i++) await key("Escape", 150);
+      await key("ArrowRight", 300);
+      await page.click('#menu .m-item:has-text("Reading Room")');
+      await page.waitForTimeout(400);
+      await page.click('#menu .m-item:has-text("🗾 Manga")');
+      await page.waitForFunction(() => /Lent Book/.test(document.getElementById("menu").textContent), null, { timeout: 5000 }).catch(() => {});
+    };
+    await toShelf();
+    check(/Test Book/.test(await page.textContent("#menu")) && /Test Manga/.test(await page.textContent("#menu")), "Menu ▸ 📚 Reading Room ▸ a shelf lists books from the Archive");
+    await page.click('#menu .m-item:has-text("Test Book")');
+    await page.waitForFunction(() => /Borrow/.test(document.getElementById("dialog").textContent), null, { timeout: 5000 }).catch(() => {});
+    const box = await dialogText();
+    check(/Lewis Carroll/.test(box) && /1911/.test(box) && /Borrow & read/.test(box) && (await page.$("#dialog .bk-cover img")) !== null, "a book's box: cover, author, year and ⏏ Borrow & read");
+    await shot("4n-book-box");
+    const pagesBefore = fake.pages || 0;
+    await btn(/Borrow/, 1200);
+    let rd = await reading();
+    check(rd.open && rd.id === "test_book" && rd.two && JSON.stringify(rd.view) === "[0]" && rd.count === 7 && (await state()).mode === "off", `borrowed, it opens on its cover, alone, and the TV channel pauses (${JSON.stringify(rd)}, TV ${(await state()).mode})`);
+    check((fake.pages || 0) > pagesBefore, "…the pages come from the Archive's page images");
+    await key("ArrowRight", 700);
+    rd = await reading();
+    check(JSON.stringify(rd.view) === "[1,2]" && (await page.$$("#reader .rd-page.ok")).length === 2, `▶ turns to two pages side by side, like an open book (${JSON.stringify(rd.view)})`);
+    await shot("4o-reader-spread");
+    await key("5", 100);
+    check(/Go to page 5/.test(await page.textContent("#reader .rd-osd")), "typing a number shows Go to page 5");
+    await page.waitForTimeout(1700);
+    rd = await reading();
+    check(rd.view.includes(4), `…and goes to page 5 (${JSON.stringify(rd.view)}, counter ${await page.textContent("#reader .rd-folio")})`);
+    const beforeTap = (await reading()).p;
+    await page.mouse.click(1850, 540);
+    await page.waitForTimeout(500);
+    rd = await reading();
+    check(rd.p > beforeTap && !rd.controls, `tapping the right edge turns the page, and only that (${beforeTap} → ${rd.p}, settings ${rd.controls ? "open" : "closed"})`);
+    await page.mouse.click(960, 540);
+    await page.waitForTimeout(300);
+    check((await reading()).controls, "…tapping the middle opens the reader's settings");
+    await page.mouse.click(960, 540);
+    await page.waitForTimeout(300);
+    for (let i = 0; i < 4 && !(await reading()).end; i++) await key("ArrowRight", 500);
+    check((await reading()).end && /THE END/.test(await page.textContent("#reader .rd-end")) && (await reading()).p === 5, "past the last pages (6–7): THE END");
+    await key("Enter", 1200);
+    st = await state();
+    check(!st.reader.open && st.mode !== "off", `OK closes the book and the TV comes back on (${st.mode})`);
+    check(st.club.books.length === 1 && st.club.books[0].mark && st.club.books[0].mark.p === 5, "…with a bookmark where it was left: " + JSON.stringify(st.club.books));
+
+    // A manga: right to left, two volumes.
+    await toShelf();
+    await page.click('#menu .m-item:has-text("Test Manga")');
+    await page.waitForFunction(() => /Borrow/.test(document.getElementById("dialog").textContent), null, { timeout: 5000 }).catch(() => {});
+    check(/right to left/.test(await dialogText()) && /2 volumes/.test(await dialogText()), "a manga's box says it reads right to left, and has 2 volumes");
+    await btn(/Borrow/, 1200);
+    rd = await reading();
+    check(rd.open && rd.rtl && rd.count === 5, `the manga opens right to left (${JSON.stringify(rd)})`);
+    await key("ArrowLeft", 700);
+    rd = await reading();
+    const order = await page.$$eval("#reader .rd-page", (f) => f.map((x) => Number(x.getAttribute("data-k"))));
+    check(JSON.stringify(rd.view) === "[1,2]" && JSON.stringify(order) === "[2,1]", `◀ turns a manga forward, and its pages sit right to left (on screen: ${JSON.stringify(order)})`);
+    await shot("4p-reader-manga");
+    await key("Enter", 300);
+    check((await reading()).controls && /Volume/.test(await page.textContent("#reader .rd-controls")), "OK opens the reader's settings, with the volume");
+    for (let i = 0; i < 8 && !/Volume/.test(await page.textContent("#reader .rd-c-item.focus")); i++) await key("ArrowDown", 80);
+    await key("ArrowRight", 900);
+    rd = await reading();
+    check(rd.v === 1 && rd.p === 0 && rd.count === 4, `…▶ on Volume goes to volume 2 (${JSON.stringify(rd)})`);
+    await key("Escape", 200);
+    await key("Escape", 900);
+    check(!(await reading()).open, "BACK closes the settings, then the book");
+
+    // One the Archive only lends: no borrowing here, a code to open it on archive.org instead.
+    await toShelf();
+    await page.click('#menu .m-item:has-text("Lent Book")');
+    await page.waitForFunction(() => /only lends/.test(document.getElementById("dialog").textContent), null, { timeout: 5000 }).catch(() => {});
+    check(/only lends/.test(await dialogText()) && !(await page.locator("#dialog .d-btn", { hasText: /Borrow/ }).count()) && (await page.$("#dialog .link-qr")) !== null, "a book the Archive only lends can't be borrowed here: it has a code to open it on archive.org");
+    await btn(/Close/);
+
+    // Returning a book.
+    for (let i = 0; i < 6 && (await state()).overlay; i++) await key("Escape", 150);
+    await key("ArrowRight", 300);
+    await page.click('#menu .m-item:has-text("Reading Room")');
+    await page.waitForTimeout(300);
+    await page.click('#menu .m-item:has-text("📖 Test Book")');
+    await page.waitForFunction(() => /Return/.test(document.getElementById("dialog").textContent), null, { timeout: 5000 }).catch(() => {});
+    check(/DATE DUE/.test(await dialogText()) && /bookmark at page \d/.test(await dialogText()), "a borrowed book's box has its stamped due date and the bookmark");
+    await shot("4q-book-due");
+    await btn(/Return/, 400);
+    st = await state();
+    check(st.club.books.length === 1 && st.club.books[0].id === "test_manga", "⏏ Return puts it back: one book out (" + JSON.stringify(st.club.books.map((b) => b.id)) + ")");
+    for (let i = 0; i < 6 && (await state()).overlay; i++) await key("Escape", 150);
     await key("l", 800);
   }
 

@@ -34,6 +34,7 @@ export const SIGNUP_PAGES = [
         "A tape you have out is yours to play, pause and pick up where you left off: Menu ▸ 📼 Video Club.",
         "When you're done, <b>◀◀ rewind</b> it and <b>⏏ return</b> it to make room for the next one.",
         "A tape still out when it's due goes back by itself. No late fees, ever.",
+        "The same card borrows <b>books, comics, manga and magazines</b> in the 📚 Reading Room: up to three at a time, for two weeks.",
       ]),
   },
   {
@@ -41,7 +42,7 @@ export const SIGNUP_PAGES = [
     html:
       list([
         "The <b>Internet Archive</b> (archive.org) is a non-profit library: millions of films, TV shows, radio programs and recordings, free for everyone, since 1996.",
-        "Every tape in this store is one of its items, played straight from archive.org. NostalGem doesn't copy, store or sell anything.",
+        "Every tape and book here is one of its items, played or read straight from archive.org. NostalGem doesn't copy, store or sell anything.",
         "It runs on donations. If the Video Club brings you joy, consider giving to it at <b>archive.org/donate</b> (Menu ▸ 📜 Disclaimer &amp; donate has a QR code).",
       ]),
   },
@@ -49,9 +50,9 @@ export const SIGNUP_PAGES = [
     title: "📜 The fine print",
     html:
       list([
-        "Your card is part of this app and lives on this TV only. It is <b>not an archive.org account</b>, and checking out a tape here doesn't borrow anything from the Archive's own lending library (that takes a free archive.org account, on archive.org).",
+        "Your card is part of this app and lives on this TV only. It is <b>not an archive.org account</b>, and checking out a tape or book here doesn't borrow anything from the Archive's own lending library (that takes a free archive.org account, on archive.org). Books the Archive only lends aren't on these shelves.",
         "What you watch comes from archive.org, and the Archive's <b>terms of use</b> apply (archive.org/about/terms). Its items come from many uploaders; their rights belong to their owners.",
-        "Tapes are for the cardholder and household: personal, non-commercial viewing for learning and entertainment. NostalGem is free and isn't sold.",
+        "Tapes and books are for the cardholder and household: personal, non-commercial use for learning and entertainment. NostalGem is free and isn't sold.",
         "Be kind, rewind.",
       ]) + '<div class="club-sign">Sign below with your name to agree and get your card.</div>',
     sign: true,

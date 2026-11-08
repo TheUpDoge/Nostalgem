@@ -128,6 +128,16 @@ YouTube's player) and rebuilt daily:
   and **⏏ return** it. A tape still out when it's due goes back by itself, with no late fees. The card
   lives on that TV only: it isn't an archive.org account and doesn't borrow from the Archive's own
   lending library. Menu ▸ 📼 Video Club.
+- **📚 Reading Room**: the Archive's scanned books, comics, manga and magazines, read like a book open on a
+  desk under a reading lamp. On a TV it shows two pages side by side (the cover on its own); **manga reads
+  right to left**; there's one page at a time, and *Fit width* for small print (▲▼ scroll). Day, sepia or
+  night paper; type a number to jump to a page; series come as volumes. Shelves: manga, Golden Age
+  comics, comics, pulp magazines, classic novels, children's classics, movie magazines, game and computer
+  magazines, plus a search and *open an archive.org link*. The same library card borrows up to **three
+  books for two weeks**, stamped with a due date; a bookmark keeps your page. Books the Archive only lends
+  (with an archive.org account) aren't on the shelves; opened from a link, they show a code to read them
+  on archive.org. Menu ▸ 📚 Reading Room. Remote: ◀▶ turn, OK settings, BACK close; touch: tap the
+  edges or swipe.
 - **Search the Archive** builds a channel from words, Archive search terms, or a pasted archive.org link
   (one item or a whole collection). A channel number typed there just tunes that channel.
 
@@ -368,6 +378,9 @@ web/
   js/fxcanvas.js               the pixel and ASCII looks (and light versions of the others), drawn on a canvas
   js/framewatch.js             notices a filter making the picture choppy (Filter quality: Auto)
   js/library.js, js/ui/club.js the Video Club: library card, checkout rules, the store's shelves and screens
+  js/books.js, js/ui/reader.js the Reading Room: Archive books as page images, and the reader
+  js/ui/stacks.js              the Reading Room's book box and due-date slip
+  data/books.json              the Reading Room's shelves (Archive searches)
   js/packs.js                  channel packs: format, validator, loader (Menu ▸ Load a channel pack)
   js/main.js                   wires it all together
   data/channels.json           channel definitions

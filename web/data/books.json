@@ -1,0 +1,14 @@
+{
+  "about": "The Reading Room's shelves. Each is an Internet Archive search; books.js adds the rest (scanned pages, nothing lending-only, family-friendly). Most-read first.",
+  "shelves": [
+    { "id": "manga", "name": "Manga", "icon": "🗾", "q": "collection:manga_library AND title:MANGA" },
+    { "id": "golden-age", "name": "Golden Age comics", "icon": "💥", "q": "collection:comics AND date:[1930-01-01 TO 1959-12-31]" },
+    { "id": "comics", "name": "Comics", "icon": "🦸", "q": "collection:comics AND -collection:manga_library" },
+    { "id": "pulps", "name": "Pulp magazines", "icon": "🕵️", "q": "collection:pulpmagazinearchive" },
+    { "id": "classics", "name": "Classic novels", "icon": "📚", "q": "subject:fiction AND date:[1850-01-01 TO 1928-12-31]" },
+    { "id": "children", "name": "Children's classics", "icon": "🧸", "q": "subject:\"juvenile fiction\" AND date:[1850-01-01 TO 1928-12-31]" },
+    { "id": "movie-mags", "name": "Movie magazines", "icon": "🎬", "q": "collection:mediahistory AND (title:photoplay OR title:\"modern screen\" OR title:\"picture play\" OR title:screenland OR title:\"silver screen\" OR title:\"motion picture magazine\")" },
+    { "id": "game-mags", "name": "Game magazines", "icon": "🎲", "q": "collection:gamemagazines" },
+    { "id": "computer-mags", "name": "Computer magazines", "icon": "💾", "q": "collection:computermagazines" }
+  ]
+}

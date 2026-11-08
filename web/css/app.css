@@ -2102,3 +2102,512 @@ body {
     align-items: center;
   }
 }
+
+/* ---------- the Reading Room (books.js, ui/reader.js, ui/stacks.js) ---------- */
+.reader {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 39;
+}
+/* A book open on a wooden desk under a reading lamp. */
+.rd-room {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  color: #f3e6d0;
+  background: radial-gradient(ellipse at 50% 30%, rgba(255, 196, 110, 0.22) 0%, rgba(255, 196, 110, 0) 55%),
+    repeating-linear-gradient(92deg, rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 0) 2.2rem, rgba(0, 0, 0, 0.12) 2.3rem, rgba(0, 0, 0, 0) 2.6rem),
+    linear-gradient(180deg, #3b2614 0%, #24170c 60%, #120b05 100%);
+}
+.rd-room.paper-night {
+  background: radial-gradient(ellipse at 50% 30%, rgba(120, 140, 255, 0.12) 0%, rgba(0, 0, 0, 0) 55%), #07060b;
+}
+.rd-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 3vh 3vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mode-width .rd-stage {
+  display: block;
+  overflow-y: auto;
+  padding: 2vh 4vw 10vh;
+  scroll-behavior: smooth;
+}
+.rd-pages {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+.mode-width .rd-pages {
+  height: auto;
+}
+.rd-page {
+  position: relative;
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.two .rd-pages.spread .rd-page {
+  width: 50%;
+}
+.two .rd-pages.spread .rd-page:first-child {
+  justify-content: flex-end;
+}
+.two .rd-pages.spread .rd-page:last-child {
+  justify-content: flex-start;
+}
+/* The sheet sizes to its page, so the fold's shadow sits on the paper, not on the desk. */
+.rd-sheet {
+  position: relative;
+  display: block;
+  line-height: 0;
+}
+.rd-page img {
+  display: block;
+  max-width: 94vw;
+  max-height: 94vh;
+  object-fit: contain;
+  background: #f4ecd8;
+  box-shadow: 0 1rem 2.6rem rgba(0, 0, 0, 0.65), 0 0 0 0.06rem rgba(0, 0, 0, 0.4);
+}
+.mode-width .rd-page {
+  height: auto;
+}
+.two .rd-pages.spread .rd-page img {
+  max-width: 46.5vw;
+}
+.mode-width .rd-page img {
+  width: min(92vw, 1500px);
+  max-width: none;
+  max-height: none;
+  height: auto;
+}
+/* The fold between two facing pages: each page darkens toward the spine. */
+.rd-pages.spread .rd-sheet::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 14%;
+  pointer-events: none;
+}
+.rd-pages.spread .rd-page:first-child .rd-sheet::after {
+  right: 0;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.32));
+}
+.rd-pages.spread .rd-page:last-child .rd-sheet::after {
+  left: 0;
+  background: linear-gradient(270deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.32));
+}
+/* A page still on its way: blank paper with a note. */
+.rd-page:not(.ok) img {
+  width: min(44vw, 58vh);
+  height: min(64vw, 86vh);
+  background: repeating-linear-gradient(180deg, rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 0) 1.6rem, rgba(90, 70, 40, 0.12) 1.7rem), #efe4cb;
+}
+.rd-page.bad img {
+  visibility: hidden;
+}
+.rd-page figcaption {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 80%;
+  text-align: center;
+  font-family: "Courier New", var(--font-mono);
+  font-size: 1.1rem;
+  color: #6b5634;
+  pointer-events: none;
+}
+.rd-page.bad figcaption {
+  color: #f3e6d0;
+}
+.rd-page.ok figcaption {
+  display: none;
+}
+.paper-sepia .rd-page img {
+  filter: sepia(0.38) brightness(0.96) contrast(1.03);
+}
+.paper-night .rd-page img {
+  filter: invert(0.9) hue-rotate(180deg) brightness(0.9);
+}
+.turn-next .rd-page {
+  animation: rd-next 0.22s ease-out;
+}
+.turn-back .rd-page {
+  animation: rd-back 0.22s ease-out;
+}
+.rtl .turn-next .rd-page {
+  animation-name: rd-back;
+}
+.rtl .turn-back .rd-page {
+  animation-name: rd-next;
+}
+@keyframes rd-next {
+  from {
+    opacity: 0.35;
+    transform: translateX(2.5%);
+  }
+}
+@keyframes rd-back {
+  from {
+    opacity: 0.35;
+    transform: translateX(-2.5%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .turn-next .rd-page,
+  .turn-back .rd-page {
+    animation: none;
+  }
+}
+/* Title, page number and hints: shown for a moment after each turn, and with the settings open. */
+.rd-head,
+.rd-folio,
+.rd-hint,
+.rd-close {
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.hud .rd-head,
+.hud .rd-folio,
+.hud .rd-hint,
+.hud .rd-close {
+  opacity: 1;
+}
+.rd-head {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 1rem;
+  align-items: baseline;
+  padding: 2.4vh 9vw 4vh 4vw;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0));
+  pointer-events: none;
+}
+.rd-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.2rem;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rd-badge {
+  flex: none;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  color: var(--pink);
+}
+.rd-folio {
+  position: absolute;
+  bottom: 2.6vh;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.3rem 1rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.65);
+  font-family: var(--font-mono);
+  font-size: 1.4rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.rd-hint {
+  position: absolute;
+  right: 3vw;
+  bottom: 2.8vh;
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  color: rgba(243, 230, 208, 0.7);
+  pointer-events: none;
+}
+.rd-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 0.25rem;
+  display: flex;
+  background: rgba(255, 255, 255, 0.07);
+}
+.rd-progress i {
+  display: block;
+  height: 100%;
+  background: var(--focus);
+}
+.rd-progress.rtl {
+  justify-content: flex-end;
+}
+.rd-close {
+  position: absolute;
+  top: 1.6vh;
+  right: 2vw;
+  width: 3.2rem;
+  width: max(52px, 3.2rem);
+  height: 3.2rem;
+  height: max(52px, 3.2rem);
+  border-radius: 50%;
+  border: 0.12rem solid rgba(243, 230, 208, 0.5);
+  background: rgba(0, 0, 0, 0.6);
+  color: #f3e6d0;
+  font-size: 1.4rem;
+  cursor: pointer;
+}
+@media (hover: none) {
+  .rd-close {
+    opacity: 0.85;
+  }
+}
+.rd-osd {
+  position: absolute;
+  top: 12vh;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.4rem 1.4rem;
+  border-radius: 0.6rem;
+  background: rgba(0, 0, 0, 0.8);
+  font-family: var(--font-mono);
+  font-size: 2.4rem;
+  color: #ffcf7a;
+}
+/* The reader's settings: a card on the right, ▲▼ to choose, ◀▶ to change. */
+.rd-controls {
+  position: absolute;
+  top: 50%;
+  right: 3vw;
+  transform: translateY(-50%);
+  width: 32rem;
+  max-width: 92vw;
+  padding: 1rem;
+  border-radius: 1rem;
+  background: rgba(24, 14, 6, 0.95);
+  border: 0.12rem solid #8a6a3c;
+  box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.6);
+}
+.rd-c-title {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 1.2rem;
+  color: #ffcf7a;
+  margin: 0 0 0.5rem 0.4rem;
+}
+.rd-c-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  min-height: 3rem;
+  min-height: max(48px, 3rem);
+  padding: 0.4rem 0.9rem;
+  border-radius: 0.6rem;
+  font-size: 1.05rem;
+  cursor: pointer;
+}
+.rd-c-item .v {
+  color: #ffcf7a;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rd-c-item.focus {
+  background: var(--focus);
+}
+.rd-c-item.focus .v {
+  color: #fff;
+}
+.rd-c-hint {
+  margin: 0.6rem 0 0 0.4rem;
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  color: rgba(243, 230, 208, 0.6);
+}
+.rd-end {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 7, 5, 0.8);
+}
+.rd-end-box {
+  text-align: center;
+  max-width: 80vw;
+}
+.rd-end-title {
+  font-family: "Courier New", var(--font-mono);
+  font-weight: 700;
+  font-size: 3.6rem;
+  letter-spacing: 0.25em;
+}
+.rd-end-sub {
+  margin-top: 0.6rem;
+  font-size: 1.2rem;
+  color: rgba(243, 230, 208, 0.75);
+}
+.rd-end-row {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 1.6rem;
+}
+.rd-end-hint {
+  margin-top: 1rem;
+  font-size: 0.95rem;
+  color: rgba(243, 230, 208, 0.6);
+}
+.rd-btn {
+  min-height: 3.2rem;
+  min-height: max(52px, 3.2rem);
+  padding: 0 1.4rem;
+  border-radius: 0.7rem;
+  border: 0.12rem solid #8a6a3c;
+  background: rgba(0, 0, 0, 0.5);
+  color: #f3e6d0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.rd-btn.focus {
+  background: var(--focus);
+  border-color: transparent;
+}
+/* A book's box in the Reading Room dialog. */
+.bk-box {
+  display: flex;
+  gap: 1.2rem;
+  align-items: flex-start;
+}
+.bk-cover {
+  flex: 0 0 9rem;
+  height: 13rem;
+  border-radius: 0.3rem 0.6rem 0.6rem 0.3rem;
+  overflow: hidden;
+  background: linear-gradient(180deg, #3b2614, #1c120a);
+  box-shadow: inset 0.5rem 0 0.6rem -0.4rem rgba(0, 0, 0, 0.6), 0 0.4rem 1rem rgba(0, 0, 0, 0.5);
+}
+.bk-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.bk-text {
+  min-width: 0;
+}
+.bk-title {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 1.35rem;
+  line-height: 1.2;
+  color: var(--ink);
+}
+.bk-meta {
+  margin-top: 0.3rem;
+  color: var(--cyan);
+}
+.bk-rtl {
+  margin-top: 0.3rem;
+  color: var(--pink);
+}
+.bk-about {
+  margin-top: 0.5rem;
+  font-size: 0.95rem;
+}
+.bk-state {
+  margin-top: 0.7rem;
+  color: var(--yellow);
+}
+.bk-out {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-top: 0.6rem;
+}
+.bk-out .bk-state {
+  margin-top: 0;
+}
+.bk-link {
+  margin-top: 0.3rem;
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+/* The library pocket card, stamped with the due date. */
+.due-slip {
+  flex: none;
+  width: 11rem;
+  padding: 0.5rem 0.7rem 0.4rem;
+  border-radius: 0.25rem;
+  background: #f6edd3;
+  color: #3a2a18;
+  font-family: "Courier New", var(--font-mono);
+  box-shadow: 0 0.3rem 0.8rem rgba(0, 0, 0, 0.45);
+  transform: rotate(-2deg);
+}
+.due-head {
+  text-align: center;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  font-size: 0.85rem;
+  border-bottom: 0.12rem solid #3a2a18;
+  padding-bottom: 0.2rem;
+}
+.due-line {
+  height: 1.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 0.06rem solid #b9a77f;
+}
+.due-stamp {
+  color: #c8102e;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  border: 0.12rem solid #c8102e;
+  border-radius: 0.2rem;
+  padding: 0 0.3rem;
+  transform: rotate(-5deg);
+  opacity: 0.88;
+}
+.due-foot {
+  margin-top: 0.3rem;
+  text-align: center;
+  font-size: 0.7rem;
+}
+@media (max-aspect-ratio: 1/1) {
+  .bk-box,
+  .bk-out {
+    flex-direction: column;
+    align-items: center;
+  }
+}
