@@ -86,13 +86,15 @@ YouTube's player) and rebuilt daily:
   *Sin City* (black and white with one color kept: red, blue, green, yellow, purple or cyan; mix two
   Sin City looks and both colors stay), color tints,
   VHS tape, Game Boy, 8-bit, low-res pixels, **ASCII** (green, color, or with **Matrix rain**; the
-  characters shimmer as they play), vaporwave, outrun, thermal camera, night vision, dreamy glow and
-  negative. **Mix with** puts a second color filter on top: ASCII + Vaporwave, Game Boy + Hard noir. Menu ▸ Picture & sound ▸ 🎨 Filter, or press **V** (a
+  characters shimmer as they play), vaporwave, outrun, thermal camera, night vision, dreamy glow,
+  negative, **ASCII · 666** (red, drawn in 666s, 999s, crosses and stars) and **Stained glass** (the
+  picture in the panes of a leaded window, in jewel colors, even for black-and-white films). **Mix with** puts a second color filter on top: ASCII + Vaporwave, Game Boy + Hard noir. Menu ▸ Picture & sound ▸ 🎨 Filter, or press **V** (a
   controller's Y, or 🎨 on the phone) to step through them. They're drawn by the browser over the
   picture, so they work on YouTube channels too: browsers won't filter YouTube's player directly (it's
   another site's page), so there the filter runs on a see-through layer above it. Older TV browsers
   without that get simpler versions. The pixel and ASCII looks are drawn on a canvas (the video drawn
-  small, then scaled up by the graphics chip), so they run at full speed on a TV; on YouTube they get
+  small, then scaled up by the graphics chip; stained glass fills each pane of a Voronoi window with the
+  color of one pixel of a tiny copy), so they run at full speed on a TV; on YouTube they get
   lighter stand-ins, since YouTube's player can't be drawn. **Filter quality** (Auto, Full, Light): on
   Auto, a filter that makes the picture choppy on your TV switches itself to its light version (run on
   a small copy of the picture), and says so.
@@ -120,7 +122,10 @@ YouTube's player) and rebuilt daily:
   day. If several fail in a row, it shows colour bars and *PLEASE STAND BY* and retries by itself.
 - Sized for a TV across the room, inside overscan margins. It also works with a mouse, a keyboard,
   or a touch screen: big CH ▲▼ buttons on the right, a dock along the bottom (guide, info, pause,
-  number pad, menu, back), and swipe up/down to change channel.
+  number pad, menu, back), and swipe up/down to change channel. With the guide or a menu open, drag it
+  to move through it, and the dock becomes ▲ ▼ ◀ ▶ OK BACK (hold an arrow to keep going).
+- **What's new**: after an update, a page says what changed since the version you last saw (a welcome
+  on a first start); Menu ▸ 📰 What's new shows it again, with the version number.
 - **📼 Video Club**: the Archive's feature films, checked out like tapes from a neighborhood video store.
   Sign up for a free **library card** (three short pages: how the club works, what the Internet Archive
   is, and the fine print, signed with your name), then take up to **two tapes** at a time for **three
@@ -129,6 +134,16 @@ YouTube's player) and rebuilt daily:
   lives on that TV only: it isn't an archive.org account and doesn't borrow from the Archive's own
   lending library. Any channel that's all feature films becomes a shelf of its own in the club, so
   any film on it can be checked out like a tape. Menu ▸ 📼 Video Club.
+- **📚 Reading Room**: the Archive's scanned books, comics, manga and magazines, read like a book open on a
+  desk under a reading lamp. On a TV it shows two pages side by side (the cover on its own); **manga reads
+  right to left**; there's one page at a time, and *Fit width* for small print (▲▼ scroll). Day, sepia or
+  night paper; type a number to jump to a page; series come as volumes. Shelves: manga, Golden Age
+  comics, comics, pulp magazines, classic novels, children's classics, movie magazines, game and computer
+  magazines, plus a search and *open an archive.org link*. The same library card borrows up to **three
+  books for two weeks**, stamped with a due date; a bookmark keeps your page. Books the Archive only lends
+  (with an archive.org account) aren't on the shelves; opened from a link, they show a code to read them
+  on archive.org. Menu ▸ 📚 Reading Room. Remote: ◀▶ turn, OK settings, BACK close; touch: tap the
+  edges or swipe.
 - **📱 Phone remote**: Menu ▸ Phone remote shows a QR code; the phone opens it and becomes a
   remote for that TV — channels, volume, guide — over a direct connection. The pairing code is
   kept, so a paired phone reconnects after the TV restarts.
@@ -162,7 +177,9 @@ channel, play/pause, info, guide and coloured buttons.
    then choose **Install**. NostalGem appears in your apps. Move it to your favorites row.
 
 The app runs the published site, so new channels and fixes reach the TV as soon as they're on GitHub
-Pages, with no reinstall. Reinstall only when the app itself changes: run the workflow again and use
+Pages, with no reinstall. Stations that are another site (777's arcade and the like) open right on the
+TV in the app: press OK, play with the remote or a controller, and press BACK on the remote (or hold
+Select on the controller) to come back. Reinstall only when the app itself changes: run the workflow again and use
 the same link. Your favorites and settings are kept.
 
 > The APK is signed with a key kept in this repo (`android-tv/keystore/`), so new builds install over
@@ -306,7 +323,7 @@ Two packs ship with the repo: [1980s Sci-Fi — Public Domain](packs/1980s-sci-f
 (CH 30: 33 public-domain sci-fi features; CH 31: 45 Shuttle-era NASA and space-age films)
 and [1990s Horror — Public Domain](packs/1990s-horror-pd.json) (CH 32: 36 public-domain
 horror features), plus a [library catalog](packs/library-catalog.json) of public-domain
-books and Golden Age comics for the club's reading shelf. The 1980s/90s features
+books and Golden Age comics, kept as a link-out list until the app reads it. The 1980s/90s features
 themselves are still under copyright, so they can't ship in a public pack — those live
 on your own TV by pack, if you choose.
 
@@ -377,9 +394,15 @@ web/
   js/ui/                       banner, guide, menu, dialogs
   js/about.js                  disclaimer & donate: words and links (Menu ▸ Disclaimer & donate, about.html)
   js/looks.js, js/ambience.js  picture filters and lo-fi sound (Menu ▸ Picture & sound, V key)
-  js/fxcanvas.js               the pixel and ASCII looks (and light versions of the others), drawn on a canvas
+  js/fxcanvas.js               the pixel, ASCII and stained-glass looks (and light versions of the others), drawn on a canvas
+  js/church.js                 a church's echo for a station's sound (echoes of the film itself; a reverb when a file allows CORS)
   js/framewatch.js             notices a filter making the picture choppy (Filter quality: Auto)
   js/library.js, js/ui/club.js the Video Club: library card, checkout rules, the store's shelves and screens
+  js/changes.js                What's new: the changes in each version
+  js/ui/drag.js                touch: a finger dragged over the guide or a menu moves through it
+  js/books.js, js/ui/reader.js the Reading Room: Archive books as page images, and the reader
+  js/ui/stacks.js              the Reading Room's book box and due-date slip
+  data/books.json              the Reading Room's shelves (Archive searches)
   js/packs.js                  channel packs: format, validator, loader (Menu ▸ Load a channel pack)
   js/main.js                   wires it all together
   data/channels.json           channel definitions
