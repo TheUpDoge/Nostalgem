@@ -398,7 +398,7 @@ b {
 .chip,
 .side button,
 .pad button {
-  min-height: 46px;
+  min-height: 52px;
   border-radius: 14px;
   border: 1px solid var(--line);
   background: var(--key);
@@ -431,12 +431,13 @@ button:disabled {
   opacity: 0.4;
 }
 
+/* The deck grows with the phone: a tall screen gets a bigger channel rocker and D-pad. */
 .deck {
   display: grid;
-  grid-template-columns: 58px 1fr 58px;
-  gap: 12px;
+  grid-template-columns: clamp(64px, 18vw, 84px) 1fr clamp(56px, 15vw, 72px);
+  gap: 8px;
   align-items: center;
-  margin: 4px 0 18px;
+  margin: 10px 0 22px;
 }
 .rocker {
   display: flex;
@@ -449,17 +450,20 @@ button:disabled {
   overflow: hidden;
 }
 .rocker button {
-  height: 74px;
+  height: clamp(80px, 13vh, 120px);
   border: 0;
   background: transparent;
-  font-size: 20px;
+  font-size: 30px;
   color: var(--pink);
+}
+.rocker button:active {
+  background: rgba(255, 42, 109, 0.18);
 }
 .rocker span {
   text-align: center;
   font-family: var(--display);
   font-weight: 900;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--dim);
   padding: 6px 0;
   border-top: 1px solid var(--line);
@@ -471,19 +475,19 @@ button:disabled {
   gap: 10px;
 }
 .side button {
-  min-height: 52px;
+  min-height: clamp(56px, 8.5vh, 76px);
   padding: 0;
-  font-size: 14px;
+  font-size: 18px;
 }
 #liveBtn {
-  font-size: 10px;
+  font-size: 12px;
 }
 
 /* A round D-pad: four wedges around an OK button. */
 .dpad {
   position: relative;
   width: 100%;
-  max-width: 240px;
+  max-width: min(300px, 36vh);
   aspect-ratio: 1;
   justify-self: center;
   border-radius: 50%;

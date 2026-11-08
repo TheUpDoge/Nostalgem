@@ -6,12 +6,13 @@ import { Player } from "./player.js";
 import { Static } from "./static.js";
 import { actionFor, isTypingTarget, registerTvKeys } from "./remote.js";
 import { load, save } from "./store.js";
-import { buildChannel, browserFetchJson } from "./archive.js";
+import { archiveLinkQuery, buildChannel, browserFetchJson } from "./archive.js";
 import { archiveAboutHtml } from "./about.js";
 import { buildItemsChannel, packChannelDef, parsePack, validatePack, PACK_MIN_NUMBER, PACK_MAX_NUMBER } from "./packs.js";
 import { LINK_CHANNELS, isLinkChannel, isGuideVisible, linkCardName, linkUrl, openLinkChannel } from "./linkout.js";
 import { createGamepad } from "./gamepad.js";
-import { LOOKS, asciiMask, lookById, lookCss, lookYtCss, looksSvg, mixable, nextLook } from "./looks.js";
+import { LOOKS, asciiMask, comboCss, lookById, lookCss, lookYtCss, looksSvg, mixable, nextLook } from "./looks.js";
+import { FrameWatch } from "./framewatch.js";
 import { CanvasLook } from "./fxcanvas.js";
 import { Ambience, AMBIENCES, ambienceName } from "./ambience.js";
 import { pickSubtitle, subtitleLabel } from "./captions.js";
@@ -23,9 +24,9 @@ import * as V from "./ui/views.js";
 import { TvLink, makeCode, cleanCode, remoteUrl, prettyCode, qrSvg, loadScript, isIPv4, PAGES_BASE } from "./link.js";
 import { loadLineup, builtAt } from "./lineup.js";
 import { loadBumpers } from "./bumpers.js";
-import { pad2, escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder } from "./util.js";
+import { pad2, escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder, numberText } from "./util.js";
 
-const VERSION = "1.5.0";
+const VERSION = "1.6.0";
 const NAME = "NostalGem";
 const params = new URLSearchParams(window.location.search);
 const ANDROID = params.get("tv") === "android";
@@ -35,7 +36,7 @@ const ON_PAGES = window.location.href.indexOf(PAGES_BASE) === 0;
 const LIVE_LINEUP = ANDROID && !ON_PAGES ? PAGES_BASE + "data/lineup.json" : "";
 const LINEUP_RECHECK = 3 * 3600 * 1000; // coming back to the app after this long: look for a newer lineup
 
-const DEFAULTS = { crt: "light", fit: "contain", cc: "off", staticFx: "sound", bug: true, clock24: false, surf: "all", phone: false, region: "auto", look: "off", mix: "off", ambience: "off" };
+const DEFAULTS = { crt: "light", fit: "contain", cc: "off", staticFx: "sound", bug: true, clock24: false, surf: "all", phone: false, region: "auto", look: "off", mix: "off", ambience: "off", lookQuality: "auto", liteLooks: {} };
 const SLEEP_STEPS = [0, 15, 30, 45, 60, 90, 120];
 const STILL_AFTER = 4 * 3600 * 1000; // no button pressed for four hours: ask
 const STILL_GRACE = 2 * 60 * 1000; // then switch off two minutes later
@@ -62,6 +63,8 @@ function pruneBad(bad) {
 
 const app = {
   lineup: null,
+  adCount: Math.floor(Math.random() * 1000), // which ad-break quip comes next
+  adQuip: "",
   about: {},
   bumpers: [],
   channels: [],
@@ -101,6 +104,15 @@ const s = app.s;
 
 const fx = new Static($("static"));
 const ambience = new Ambience();
+// Filter quality "auto": a filter that keeps the frame rate down gets its light version on this TV.
+const frameWatch = new FrameWatch(function (key) {
+  if (s.lookQuality !== "auto" || key !== lookKey() || lookIsLite()) return;
+  s.liteLooks = Object.assign({}, s.liteLooks || {});
+  s.liteLooks[key] = 1;
+  saveSettings();
+  applyLook();
+  V.toast("🎨 " + lookById(s.look).name + " was slowing this TV down, so it's on its light version now (Menu ▸ Filter quality)", 6000);
+});
 const canvasLook = new CanvasLook({ video: $("screen"), yt: $("yt"), before: $("yt"), rainBefore: $("radio") });
 const numpad = new Numpad($("numpad"), {
   describe: function (typed) {
@@ -126,6 +138,7 @@ const numpad = new Numpad($("numpad"), {
 $("numpad").addEventListener("click", function (e) {
   const b = e.target.closest ? e.target.closest("[data-i]") : null;
   if (b) numpad.click(Number(b.getAttribute("data-i")));
+  else if (!(e.target.closest && e.target.closest(".np-box"))) numpad.close(); // a tap beside the pad
 });
 
 function openNumpad() {
@@ -137,6 +150,11 @@ function openNumpad() {
 }
 const player = new Player($("screen"), {
   ytHost: $("yt"),
+  // The TV app may always start sound by itself; a browser tab once the viewer has pressed something.
+  autoplayOk: function () {
+    const ua = navigator.userActivation;
+    return ANDROID || !!(ua && ua.hasBeenActive);
+  },
   state: onPlayerState,
   program: onProgram,
   bad: onBad,
@@ -377,6 +395,17 @@ function channelForDigits(typed, firstSub) {
   })[0];
 }
 
+// A channel number typed into a search box (a remote with no number buttons) tunes that channel instead of
+// building a channel out of an Archive search for "777". Returns true when it did.
+function tuneTypedNumber(text) {
+  const digits = numberText(text);
+  const ch = digits ? channelForDigits(digits, true) : null;
+  if (!ch) return false;
+  closeOverlays();
+  tuneTo(ch);
+  return true;
+}
+
 function commitDigits() {
   clearTimeout(app.digitTimer);
   const typed = app.digits;
@@ -448,6 +477,12 @@ function onPlayerState(mode, extra) {
       fx.release();
       hideRadio();
       V.showCard("gesture", V.gestureCard());
+      break;
+    case "adbreak":
+      fx.release();
+      hideRadio();
+      app.adQuip = V.adQuip(app.adCount++);
+      V.showCard("adbreak", V.adBreakCard(app.adQuip));
       break;
     case "off":
       fx.release();
@@ -528,6 +563,7 @@ function openFind(text) {
         label: "Find",
         action: function (d) {
           const t = d.value();
+          if (tuneTypedNumber(t)) return;
           if (t.replace(/\s+/g, "").length < 2) {
             d.status("Type a few letters first, like: popeye");
             return;
@@ -760,10 +796,26 @@ function saveLists() {
 }
 
 // ---------- look ----------
+// The filter and mix on screen now, as one key ("vhs", "pop-red+pop-blue"): what Filter quality's
+// automatic light versions remember.
+function lookKey() {
+  const look = lookById(s.look);
+  const mix = lookById(s.mix);
+  return look.id + (mixable(mix) && mix.id !== look.id ? "+" + mix.id : "");
+}
+// Light version (Menu ▸ Filter quality): SVG looks run on a small copy of the picture, and on YouTube
+// as CSS only; ASCII uses fewer characters. "auto" picks it for a filter that slowed this TV down.
+function lookIsLite() {
+  if (s.lookQuality === "light") return true;
+  if (s.lookQuality === "full") return false;
+  return !!(s.liteLooks && s.liteLooks[lookKey()]);
+}
+
 function applyLook() {
   const look = lookById(s.look);
   const mix = lookById(s.mix);
   const mixOn = mixable(mix) && mix.id !== look.id;
+  const lite = look.id !== "off" && lookIsLite();
   const join = function (a, b) {
     return [a, b]
       .filter(function (x) {
@@ -772,7 +824,10 @@ function applyLook() {
       .join(" ");
   };
   // On the picture (Archive programs). Canvas looks draw their own picture, with the mix on top.
-  const screenCss = look.canvas ? "" : join(lookCss(look), mixOn ? lookCss(mix) : "");
+  const full = look.canvas ? "" : comboCss(look, mixOn ? mix : null);
+  const svgFull = /url\(/.test(full);
+  // The light version of an SVG look draws on a small canvas instead: nothing filters the full screen.
+  const screenCss = lite && svgFull ? "" : full;
   // On YouTube's player: CSS filter functions only, unless the backdrop layer can run the SVG ones.
   const ytCss = join(lookYtCss(look), mixOn ? lookYtCss(mix) : "");
   const svg = /url\(/.test(screenCss);
@@ -805,12 +860,22 @@ function applyLook() {
     tv.style.setProperty("--look-mask", m.url);
     tv.style.setProperty("--look-mask-size", m.size);
   }
-  if (svg || look.canvas) installLooks();
-  canvasLook.set(look.canvas ? look : null, s.fit, mixOn ? lookCss(mix) : "");
+  if (svgFull || look.canvas) installLooks();
+  if (look.canvas) canvasLook.set(look, s.fit, mixOn ? lookCss(mix) : "", lite);
+  else if (lite && svgFull) canvasLook.set({ id: "lite-" + lookKey(), canvas: "filter", filter: full }, s.fit, "", true);
+  else canvasLook.set(null);
+  app.lookHeavy = svgFull || !!look.canvas;
+  frameWatch.watch("");
   ambience.set(s.ambience);
   fx.sound = s.staticFx === "sound";
   updateBug();
   if (!banner.hidden) renderBanner();
+}
+
+// Called twice a second: watch while a heavy filter is on a playing picture, and nothing else is going on.
+function watchFrames() {
+  const on = app.lookHeavy && s.lookQuality === "auto" && !lookIsLite() && app.state === "on" && !app.suspended && !document.hidden && player.mode === "playing" && !overlayOpen();
+  frameWatch.watch(on ? lookKey() : "");
 }
 
 // The SVG filters live in the page once; their pixel and ASCII cells follow the screen's height.
@@ -1245,6 +1310,23 @@ function rootPage() {
           menu.push(mixPage());
         },
       });
+      list.push(
+        cycler(
+          "🎨 Filter quality",
+          "lookQuality",
+          [
+            ["auto", "Auto"],
+            ["full", "Full"],
+            ["light", "Light"],
+          ],
+          function () {
+            // Back to Auto: measure again from scratch (this TV may cope better than it did).
+            if (s.lookQuality === "auto") s.liteLooks = {};
+            saveSettings();
+            applyLook();
+          }
+        )
+      );
       list.push(cycler("🎧 Ambience", "ambience", AMBIENCES, applyLook));
       list.push(
         cycler(
@@ -1439,11 +1521,14 @@ function titleCase(t) {
 }
 
 function searchDef(text, kind) {
-  const q = /[:()"]/.test(text) ? text : "(" + text + ")";
+  // A pasted archive.org link builds from that item or collection.
+  const link = archiveLinkQuery(text);
+  const label = link ? link.id.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim() : text;
+  const q = link ? link.q : /[:()"]/.test(text) ? text : "(" + text + ")";
   return {
-    slug: "u-" + slugify(text) + "-" + Date.now().toString(36),
-    name: titleCase(text).slice(0, 24),
-    tagline: "Your search: " + text,
+    slug: "u-" + slugify(label) + "-" + Date.now().toString(36),
+    name: titleCase(label).slice(0, 24),
+    tagline: link ? "From archive.org: " + link.id : "Your search: " + text,
     icon: kind === "audio" ? "📻" : "📡",
     kind: kind,
     minMinutes: kind === "audio" ? 5 : 2,
@@ -1458,6 +1543,7 @@ function openSearch() {
   const go = function (kind) {
     return function (d) {
       const text = d.value();
+      if (tuneTypedNumber(text)) return;
       if (text.length < 2) {
         d.status("Type a few words first, like: hopalong cassidy");
         return;
@@ -1470,7 +1556,7 @@ function openSearch() {
     html:
       "Type what you'd like a channel of: a show, a star, a genre, a decade. " +
       "For example <b>lone ranger</b>, <b>john wayne</b>, <b>kung fu</b>, <b>jazz</b> or <b>the shadow</b>. " +
-      "Archive search terms like <b>collection:prelinger</b> work too.",
+      "Archive search terms like <b>collection:prelinger</b> work too, and so does a link to an archive.org page.",
     input: { placeholder: "What should be on?" },
     buttons: [
       { label: "Make a TV channel", action: go("video") },
@@ -2048,11 +2134,11 @@ function phoneMessage(m) {
   } else if (m.t === "search") {
     phoneWake();
     closeOverlays();
-    buildCustom(searchDef(m.text, m.kind));
+    if (!tuneTypedNumber(m.text)) buildCustom(searchDef(m.text, m.kind));
   } else if (m.t === "find") {
     phoneWake();
     closeOverlays();
-    showFound(m.text);
+    if (!tuneTypedNumber(m.text)) showFound(m.text);
   }
 }
 
@@ -2274,6 +2360,8 @@ function restoreCard() {
   if (player.mode === "gap" && player.slot) V.showCard("gap", V.gapCard(ch, player.slot, s.clock24, app.bumpers));
   else if (player.mode === "standby") V.showCard("standby", V.standbyCard(app.standby));
   else if (player.mode === "empty") V.showCard("empty", V.emptyCard(ch, app.emptyWhy));
+  else if (player.mode === "adbreak") V.showCard("adbreak", V.adBreakCard(app.adQuip));
+  else if (player.mode === "gesture") V.showCard("gesture", V.gestureCard());
   else if (isLinkChannel(ch)) showLinkCard(ch);
   else V.hideCard();
 }
@@ -2479,12 +2567,15 @@ function fromInput(source, a) {
 let pointerTimer = 0;
 function pointerActivity() {
   touch.hidden = false;
+  tv.classList.add("touch-on");
+  touch.classList.toggle("overlay", overlayOpen());
   tv.classList.remove("hide-cursor");
   clearTimeout(pointerTimer);
   pointerTimer = setTimeout(function () {
     touch.hidden = true;
+    tv.classList.remove("touch-on");
     tv.classList.add("hide-cursor");
-  }, 3500);
+  }, 5000);
 }
 document.addEventListener("mousemove", pointerActivity);
 document.addEventListener("touchstart", pointerActivity, { passive: true });
@@ -2495,7 +2586,11 @@ touch.addEventListener("click", function (e) {
   pointerActivity();
   const t = b.getAttribute("data-act");
   if (t === "back") back();
-  else handleAction({ type: t });
+  else if (t === "numpad") {
+    if (numpad.isOpen) numpad.close();
+    else openNumpad();
+  } else handleAction({ type: t });
+  touch.classList.toggle("overlay", overlayOpen());
 });
 tv.addEventListener("click", function (e) {
   // A click on a menu row or dialog button can remove that element before the click gets here (the menu
@@ -2525,11 +2620,13 @@ tv.addEventListener(
 
 // ---------- app lifecycle ----------
 function suspend() {
+  ambience.sleep();
   if (app.state !== "on" || app.suspended) return;
   app.suspended = true;
   player.off();
 }
 function resume() {
+  ambience.wake();
   askApp();
   if (!app.suspended) return;
   app.suspended = false;
@@ -2552,6 +2649,12 @@ function refreshLineup() {
       /* keep the lineup we have */
     });
 }
+window.addEventListener("pagehide", function () {
+  ambience.sleep();
+});
+window.addEventListener("pageshow", function () {
+  if (!document.hidden) ambience.wake();
+});
 document.addEventListener("visibilitychange", function () {
   if (document.hidden) {
     // Radio keeps playing in a background tab; pictures don't (no one's watching them).
@@ -2590,6 +2693,8 @@ window.NP = {
       tvApp: native.app,
       lineup: { source: app.lineupSource, built: app.lineup ? app.lineup.built : "" },
       country: app.country,
+      ambience: { mode: ambience.mode, on: ambience.active, audio: ambience.ctx ? ambience.ctx.state : "" },
+      look: { id: s.look, mix: s.mix, key: lookKey(), lite: lookIsLite(), quality: s.lookQuality, watching: frameWatch.key, fps: frameWatch.last },
     };
   },
 };
@@ -2599,7 +2704,8 @@ function tick() {
   const now = Date.now();
   app.ticks++;
   player.tick();
-  ambience.setActive(app.state === "on" && !player.muted);
+  ambience.setActive(app.state === "on" && !app.suspended && !player.muted);
+  watchFrames();
   if (app.bannerUntil) {
     if (now > app.bannerUntil && player.mode !== "paused") hideBanner();
     else if (app.ticks % 2 === 0) renderBanner();
@@ -2643,7 +2749,19 @@ function applyLineup(lineup, source) {
   app.lineupSource = source || "";
   app.lineupCheckedAt = Date.now();
   app.about = Object.assign({}, lineup.about || {});
-  const customs = load("custom", []);
+  // A channel number typed into Search used to build a channel of whatever the Archive had for "777"
+  // (a TV remote with no number buttons). Those channels are mistakes: drop them.
+  const keys = {};
+  lineup.channels.concat(LINK_CHANNELS).forEach(function (c) {
+    keys[chKey(c)] = 1;
+    keys[String(c.number)] = 1;
+  });
+  const saved = load("custom", []);
+  const customs = saved.filter(function (c) {
+    const d = /^u-/.test(c.slug || "") ? numberText(c.name) : "";
+    return !(d && keys[d]);
+  });
+  if (customs.length !== saved.length) save("custom", customs);
   customs.forEach(function (c) {
     Object.assign(app.about, c.about || {});
   });
@@ -2653,7 +2771,7 @@ function applyLineup(lineup, source) {
     })
   );
   app.channels.sort(chOrder);
-  // The secret link-out stations (420, 777): tuned by number only, never listed, never scheduled.
+  // The secret link-out stations (420, 555, 777): tuned by number only, never listed, never scheduled.
   LINK_CHANNELS.forEach(function (c) {
     app.channels.push(c);
   });

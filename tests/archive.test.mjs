@@ -176,3 +176,18 @@ test("an episode uploaded in several sizes is one program", () => {
   assert.deepEqual(progs.map((p) => p.f), ["BBS.The.Documentary.ep1_512kb.mp4", "BBS.The.Documentary.ep2_512kb.mp4"]);
   assert.ok(progs[0].cc && progs[0].cc[0][0] === "BBS.The.Documentary.ep1.en.srt", "subtitles still found");
 });
+
+// A link to an archive.org page pasted into Search builds a channel from that item or collection.
+import { archiveLinkQuery } from "../web/js/archive.js";
+
+test("an archive.org link becomes a search for that item or collection", () => {
+  assert.deepEqual(archiveLinkQuery("https://archive.org/details/prelinger"), { q: "(identifier:prelinger OR collection:prelinger)", id: "prelinger" });
+  assert.deepEqual(archiveLinkQuery("archive.org/details/Popeye_forPresident/"), { q: "(identifier:Popeye_forPresident OR collection:Popeye_forPresident)", id: "Popeye_forPresident" });
+  assert.equal(archiveLinkQuery("https://www.archive.org/details/classic_tv?tab=collection").id, "classic_tv");
+  assert.equal(archiveLinkQuery("https://ia800.us.archive.org/download/oh_susanna/oh_susanna.mp4").id, "oh_susanna");
+  assert.deepEqual(archiveLinkQuery("https://archive.org/search?query=lone+ranger"), { q: "(lone ranger)", id: "lone ranger" });
+  assert.equal(archiveLinkQuery("lone ranger"), null);
+  assert.equal(archiveLinkQuery("https://example.com/details/x"), null);
+  assert.equal(archiveLinkQuery("https://archive.org/details/@someone"), null);
+  assert.equal(archiveLinkQuery("https://notarchive.org/details/x"), null);
+});

@@ -8,6 +8,9 @@
 //                         characters (sparse "." for dark, dense "@" for bright), tiled from a pattern
 //                         and cut to the cells in that band. The patterns shift every moment, so the
 //                         characters shimmer; "matrix" adds falling Matrix rain on top.
+//   filter                the light version of any SVG look (Menu ▸ Filter quality): the filter runs on
+//                         a small copy of each frame instead of the whole screen, which is far less work
+//                         for a TV, and the graphics chip scales it back up.
 //
 // Drawing another site's video onto a canvas is allowed; reading its pixels isn't, and nothing here
 // reads them. YouTube's player can't be drawn at all, so it keeps the CSS versions (looks.js).
@@ -16,7 +19,9 @@ import { ASCII_BANDS } from "./looks.js";
 
 const COLS = 128; // ASCII cells across; rows follow the screen's shape
 const CELL = 8; // pixels per cell on the ASCII canvas (the screen scales it up)
+const LITE_COLS = 88; // ASCII cells across in the light version
 const PIXEL_WIDE = { pixel: 192, "8bit": 240, gameboy: 160 };
+const FILTER_WIDE = 640; // the light version of an SVG look runs at this width
 const PALETTE = { "8bit": "url(#ng-pal-8bit)", gameboy: "url(#ng-pal-gameboy)" };
 
 // Characters for each band, sparse to dense. Matrix uses half-width katakana and digits.
@@ -68,17 +73,25 @@ export class CanvasLook {
     this.timers = [];
   }
 
-  // look: a looks.js look (or null to stop); fit: the picture setting; mix: a CSS filter on top.
-  set(look, fit, mix) {
-    const was = this.look;
+  // look: a looks.js look (or null to stop), or { id, canvas: "filter", filter: "<CSS filter>" } for the
+  // light version of an SVG look; fit: the picture setting; mix: a CSS filter on top; lite: fewer ASCII
+  // characters.
+  set(look, fit, mix, lite) {
+    const was = this.setupKey;
     this.look = look && look.canvas ? look : null;
     this.fit = fit || "contain";
     this.mix = mix || "";
+    this.lite = !!lite;
     if (!this.look) {
+      this.setupKey = "";
       this.stop();
       return;
     }
-    if (!was || was.id !== this.look.id) this.setup();
+    this.setupKey = this.look.id + (this.lite ? ":lite" : "") + (this.look.filter ? ":" + this.look.filter : "");
+    if (was !== this.setupKey) {
+      this.stop();
+      this.setup();
+    }
     this.out.style.filter = this.mix || "";
     if (!this.running) this.start();
   }
@@ -87,8 +100,10 @@ export class CanvasLook {
     const look = this.look;
     const tv = this.out.parentNode;
     const aspect = tv && tv.clientWidth ? tv.clientHeight / tv.clientWidth : 9 / 16;
+    this.drops = null;
+    this.offsets = null;
     if (look.canvas === "ascii") {
-      this.cols = COLS;
+      this.cols = this.lite ? LITE_COLS : COLS;
       this.rows = Math.max(16, Math.round(COLS * aspect * 1.0));
       this.small = canvas(this.cols, this.rows);
       this.band = canvas(this.cols, this.rows);
@@ -114,6 +129,11 @@ export class CanvasLook {
         this.drops = [];
         for (let c = 0; c < this.cols; c++) this.drops.push(Math.random() < 0.5 ? -Math.floor(Math.random() * this.rows) : Math.floor(Math.random() * this.rows));
       }
+    } else if (look.canvas === "filter") {
+      this.out.width = FILTER_WIDE;
+      this.out.height = Math.max(2, Math.round(FILTER_WIDE * aspect));
+      this.small = this.out;
+      this.out.classList.remove("pix");
     } else {
       const w = PIXEL_WIDE[look.canvas] || 192;
       this.out.width = w;
@@ -220,6 +240,7 @@ export class CanvasLook {
     s.fillRect(0, 0, w, h);
     s.imageSmoothingEnabled = true;
     if (PALETTE[look.canvas]) s.filter = PALETTE[look.canvas];
+    else if (look.canvas === "filter") s.filter = look.filter;
     try {
       s.drawImage(v, r[0], r[1], r[2], r[3]);
     } catch (e) {

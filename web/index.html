@@ -39,13 +39,19 @@
       <div id="numpad" class="numpad" hidden></div>
       <div id="toast" class="toast" role="status" hidden></div>
       <div id="touch" class="touch" hidden>
-        <button type="button" data-act="chup" aria-label="Channel up">CH ▲</button>
-        <button type="button" data-act="chdown" aria-label="Channel down">CH ▼</button>
-        <button type="button" data-act="guide">GUIDE</button>
-        <button type="button" data-act="info">INFO</button>
-        <button type="button" data-act="playpause" aria-label="Pause or resume">⏯</button>
-        <button type="button" data-act="menu">MENU</button>
-        <button type="button" data-act="back">BACK</button>
+        <div class="t-rocker" role="group" aria-label="Channel">
+          <button type="button" data-act="chup" aria-label="Channel up">▲</button>
+          <span class="t-ch" aria-hidden="true">CH</span>
+          <button type="button" data-act="chdown" aria-label="Channel down">▼</button>
+        </div>
+        <div class="t-dock">
+          <button type="button" data-act="guide">GUIDE</button>
+          <button type="button" data-act="info">INFO</button>
+          <button type="button" data-act="playpause" aria-label="Pause or resume">▶❚❚</button>
+          <button type="button" data-act="numpad" aria-label="Number pad">123</button>
+          <button type="button" data-act="menu">MENU</button>
+          <button type="button" data-act="back">BACK</button>
+        </div>
       </div>
       <div id="boot" class="boot">
         <div class="boot-lockup">

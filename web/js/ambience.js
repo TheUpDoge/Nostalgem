@@ -35,6 +35,7 @@ export class Ambience {
     this.nodes = [];
     this.mode = "off";
     this.active = true;
+    this.asleep = false; // the app is in the background: no sound at all
   }
 
   // mode: one of AMBIENCES. Safe to call often; only a change rebuilds the sound.
@@ -47,14 +48,33 @@ export class Ambience {
 
   // Muted, asleep or the set is off: fade out; otherwise fade back in.
   setActive(on) {
-    this.active = !!on;
+    this.active = !!on && !this.asleep;
     if (!this.out || !this.ctx) return;
     const t = this.ctx.currentTime;
     this.out.gain.cancelScheduledValues(t);
     this.out.gain.setTargetAtTime(this.active ? 1 : 0, t, 0.25);
   }
 
+  // The app went to the background (or the page is going away): stop the sound outright, not just fade it,
+  // so nothing keeps playing behind the TV's home screen.
+  sleep() {
+    this.asleep = true;
+    this.setActive(false);
+    if (this.ctx && this.ctx.state === "running") {
+      try {
+        this.ctx.suspend();
+      } catch (e) {
+        /* fine */
+      }
+    }
+  }
+  wake() {
+    this.asleep = false;
+    this.resume();
+  }
+
   resume() {
+    if (this.asleep) return;
     if (this.ctx && this.ctx.state === "suspended") {
       try {
         this.ctx.resume();

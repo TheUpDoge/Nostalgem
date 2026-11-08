@@ -51,6 +51,8 @@ const ENDED = 0;
 const PLAYING = 1;
 const PAUSED = 2;
 const BUFFERING = 3;
+// A video still unstarted this long after loading is behind an ad (or autoplay is blocked).
+const AD_GUESS_MS = 6000;
 
 export class YtMedia {
   constructor(host) {
@@ -67,6 +69,11 @@ export class YtMedia {
     this._muted = false;
     this._volume = 1;
     this.loadToken = 0;
+    this.hush = false; // an ad is running ahead of the show: keep it quiet
+    this.inAd = false;
+    // Whether this page may start sound by itself. The TV app always may; a browser tab may once the
+    // viewer has pressed something on the page.
+    this.autoplayOk = null;
   }
 
   addEventListener(type, fn) {
@@ -88,6 +95,10 @@ export class YtMedia {
     this.metaSent = false;
     this.state = -1;
     this.error = null;
+    // Quiet until the show itself starts, so an ad ahead of it can't be heard (only where sound may start
+    // by itself: unmuting a video the browser let start muted would stop it).
+    this.inAd = false;
+    this.hush = this.mayAutoplay();
     const token = ++this.loadToken;
     if (!this.videoId) return;
     const self = this;
@@ -115,6 +126,7 @@ export class YtMedia {
     this.srcText = "";
     this.videoId = "";
     this.loadToken++;
+    this.endAd();
     this.rejectWaiters();
     if (this.yt && this.ready) {
       try {
@@ -177,6 +189,7 @@ export class YtMedia {
     this.state = s;
     if (!this.videoId) return;
     if (s === PLAYING) {
+      this.endAd();
       if (!this.metaSent) {
         this.metaSent = true;
         this.fire("loadedmetadata");
@@ -211,8 +224,10 @@ export class YtMedia {
     });
   }
 
-  // Resolves once the video is playing. If it is still sitting unstarted after a while, the browser is
-  // holding autoplay back: reject the way <video>.play() does, so the TV asks for a button press.
+  // Resolves once the video is playing. If it is still sitting unstarted after a while, either YouTube is
+  // showing an ad ahead of the show (the embed reports nothing while one runs), or the browser is holding
+  // autoplay back. When this page may autoplay, it's the ad: keep waiting, quietly ("adbreak"). Otherwise
+  // reject the way <video>.play() does, so the TV asks for a button press.
   play() {
     const self = this;
     if (this.yt && this.ready && this.videoId) {
@@ -223,19 +238,43 @@ export class YtMedia {
       }
     }
     if (this.state === PLAYING) return Promise.resolve();
+    const token = this.loadToken;
     return new Promise(function (ok, fail) {
       const x = { ok: ok, fail: fail, timer: 0 };
       x.timer = setTimeout(function () {
+        if (token !== self.loadToken) return; // another video since
+        if (!(self.videoId && !self.error && self.ready && (self.state === -1 || self.state === 5))) return;
+        if (self.mayAutoplay()) {
+          self.startAd();
+          return; // still waiting: resolves when the show starts
+        }
         const i = self.playWaiters.indexOf(x);
         if (i >= 0) self.playWaiters.splice(i, 1);
-        if (self.videoId && !self.error && self.ready && (self.state === -1 || self.state === 5)) {
-          const err = new Error("autoplay held back");
-          err.name = "NotAllowedError";
-          fail(err);
-        }
-      }, 6000);
+        const err = new Error("autoplay held back");
+        err.name = "NotAllowedError";
+        fail(err);
+      }, AD_GUESS_MS);
       self.playWaiters.push(x);
     });
+  }
+
+  mayAutoplay() {
+    if (typeof this.autoplayOk === "function") return !!this.autoplayOk();
+    const ua = typeof navigator !== "undefined" && navigator.userActivation;
+    return !!(ua && ua.hasBeenActive);
+  }
+
+  startAd() {
+    this.inAd = true;
+    this.hush = true;
+    this.applySound();
+    this.fire("adbreak");
+  }
+  endAd() {
+    if (!this.inAd && !this.hush) return;
+    this.inAd = false;
+    this.hush = false;
+    this.applySound();
   }
 
   pause() {
@@ -274,7 +313,7 @@ export class YtMedia {
   applySound() {
     if (!this.yt || !this.ready) return;
     try {
-      if (this._muted) this.yt.mute();
+      if (this._muted || this.hush) this.yt.mute();
       else this.yt.unMute();
       this.yt.setVolume(Math.round(this._volume * 100));
     } catch (e) {

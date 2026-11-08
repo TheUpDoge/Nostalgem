@@ -28,6 +28,11 @@ export const LOOKS = [
   { id: "sepia", name: "Sepia", group: "Classic", css: "sepia(0.9) contrast(1.08) brightness(0.96)" },
   { id: "faded", name: "Faded film", group: "Classic", css: "sepia(0.25) saturate(0.7) contrast(0.88) brightness(1.06)" },
   { id: "techni", name: "Technicolor", group: "Classic", css: "saturate(1.9) contrast(1.15)" },
+  // Color for black-and-white films: each shade of gray gets the color it most often is — cool shadows,
+  // skin in the middle, warm light — the way 1980s TV colorized old movies.
+  { id: "colorize", name: "Colorized", group: "Classic", svg: true, yt: "sepia(0.55) saturate(1.7) hue-rotate(-12deg) contrast(1.05)" },
+  { id: "colorize-80s", name: "Colorized · 80s TV", group: "Classic", svg: true, yt: "sepia(0.7) saturate(2.4) hue-rotate(-18deg) contrast(1.1)" },
+  { id: "twostrip", name: "Two-strip color", group: "Classic", svg: true, yt: "sepia(0.6) saturate(2) hue-rotate(-25deg) contrast(1.1)" },
 
   { id: "pop-red", name: "Sin City · red", group: "Sin City", svg: true, yt: "grayscale(1) contrast(1.6) brightness(0.95)" },
   { id: "pop-blue", name: "Sin City · blue", group: "Sin City", svg: true, yt: "grayscale(1) contrast(1.6) brightness(0.95)" },
@@ -173,24 +178,69 @@ const POP = {
   purple: ["7 -7 0 0 -0.9", "0 -7 7 0 -0.9"],
   cyan: ["-7 7 0 0 -0.9", "-7 0 7 0 -0.9"],
 };
-function popFilter(color) {
-  const m = POP[color];
+const POP_ORDER = ["red", "blue", "green", "yellow", "purple", "cyan"];
+
+// The Sin City color a look keeps ("red" for pop-red), or "".
+export function popColor(look) {
+  const m = look && /^pop-([a-z]+)$/.exec(look.id);
+  return m && POP[m[1]] ? m[1] : "";
+}
+
+// Two Sin City looks together keep both colors (one filter for the pair, ng-look-pop-red-blue): run one
+// after the other, the second would turn the first one's color gray.
+function popId(colors) {
+  return (
+    "pop-" +
+    colors
+      .slice()
+      .sort(function (a, b) {
+        return POP_ORDER.indexOf(a) - POP_ORDER.indexOf(b);
+      })
+      .join("-")
+  );
+}
+
+function popFilter(colors) {
   const mask = function (row, name) {
     return '<feColorMatrix in="SourceGraphic" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  ' + row + '" result="' + name + '"/>';
   };
+  let keep = "";
+  let merge = '<feMergeNode in="noir"/>';
+  colors.forEach(function (color, i) {
+    const m = POP[color];
+    const k = "k" + i;
+    keep +=
+      mask(m[0], k + "a") +
+      mask(m[1], k + "b") +
+      '<feComposite in="SourceGraphic" in2="' + k + 'a" operator="in" result="' + k + 'c"/>' +
+      '<feComposite in="' + k + 'c" in2="' + k + 'b" operator="in" result="' + k + 'd"/>' +
+      '<feColorMatrix in="' + k + 'd" type="saturate" values="1.8" result="' + k + '"/>';
+    merge += '<feMergeNode in="' + k + '"/>';
+  });
   return filter(
-    "pop-" + color,
+    popId(colors),
     '<feColorMatrix in="SourceGraphic" type="matrix" values="' +
       LUM +
       '" result="gray"/>' +
       '<feComponentTransfer in="gray" result="noir"><feFuncR type="linear" slope="1.5" intercept="-0.22"/><feFuncG type="linear" slope="1.5" intercept="-0.22"/><feFuncB type="linear" slope="1.5" intercept="-0.22"/></feComponentTransfer>' +
-      mask(m[0], "m1") +
-      mask(m[1], "m2") +
-      '<feComposite in="SourceGraphic" in2="m1" operator="in" result="c1"/>' +
-      '<feComposite in="c1" in2="m2" operator="in" result="c2"/>' +
-      '<feColorMatrix in="c2" type="saturate" values="1.8" result="c3"/>' +
-      '<feMerge><feMergeNode in="noir"/><feMergeNode in="c3"/></feMerge>'
+      keep +
+      "<feMerge>" +
+      merge +
+      "</feMerge>"
   );
+}
+
+// The CSS filter for a look with another mixed on top (mix may be null). Two Sin City looks share one
+// filter that keeps both colors.
+export function comboCss(look, mix) {
+  const a = popColor(look);
+  const b = popColor(mix);
+  if (a && b && a !== b) return "url(#ng-look-" + popId([a, b]) + ")";
+  return [lookCss(look), mix ? lookCss(mix) : ""]
+    .filter(function (x) {
+      return !!x;
+    })
+    .join(" ");
 }
 
 // The canvas looks' color steps, run while the small picture is drawn (fxcanvas.js, ctx.filter):
@@ -215,13 +265,16 @@ function bandFilter(k) {
 // opts.height: the picture's height in CSS pixels, so the pixel and ASCII cells scale with the screen.
 export function looksSvg(opts) {
   void opts;
-  const defs = [
-    popFilter("red"),
-    popFilter("blue"),
-    popFilter("green"),
-    popFilter("yellow"),
-    popFilter("purple"),
-    popFilter("cyan"),
+  const defs = [];
+  // Every Sin City color alone, and every pair of them.
+  POP_ORDER.forEach(function (a, i) {
+    defs.push(popFilter([a]));
+    for (let j = i + 1; j < POP_ORDER.length; j++) defs.push(popFilter([a, POP_ORDER[j]]));
+  });
+  defs.push(
+    gradientMap("colorize", ["#0b0f17", "#23303f", "#4f5a4c", "#9a7660", "#d2a487", "#ead2b8", "#fbf6ec"]),
+    gradientMap("colorize-80s", ["#0a0a1a", "#1d2f5c", "#3d6b4a", "#b06a4e", "#e7a07c", "#f6d9b0", "#fffaf0"]),
+    gradientMap("twostrip", ["#080a0b", "#123c3b", "#2f6b66", "#c0623f", "#f0a47e", "#fde6d0"]),
     gradientMap("tint-red", ["#0a0000", "#6e0000", "#ff2a2a", "#ffe0e0"]),
     gradientMap("tint-blue", ["#00040f", "#0b2f7a", "#3ea0ff", "#e0f1ff"]),
     gradientMap("tint-green", ["#000800", "#0a5c14", "#4dff6a", "#d8ffd8"]),
@@ -235,7 +288,7 @@ export function looksSvg(opts) {
     gradientMap(
       "nightvision",
       ["#000a00", "#0b4d12", "#32ff5a", "#e6ffe6"],
-      '<feComponentTransfer><feFuncR type="gamma" amplitude="1.3" exponent="0.7" offset="0"/><feFuncG type="gamma" amplitude="1.3" exponent="0.7" offset="0"/><feFuncB type="gamma" amplitude="1.3" exponent="0.7" offset="0"/></feComponentTransfer>'
+      '<feComponentTransfer><feFuncR type="gamma" amplitude="1.12" exponent="0.8" offset="0"/><feFuncG type="gamma" amplitude="1.12" exponent="0.8" offset="0"/><feFuncB type="gamma" amplitude="1.12" exponent="0.8" offset="0"/></feComponentTransfer>'
     ),
     filter(
       "vhs",
@@ -263,8 +316,8 @@ export function looksSvg(opts) {
         '<feBlend in="SourceGraphic" in2="blur" mode="screen" result="glow"/>' +
         '<feColorMatrix in="glow" type="saturate" values="1.3"/>' +
         '<feComponentTransfer><feFuncR type="linear" slope="0.95" intercept="0.02"/><feFuncG type="linear" slope="0.9" intercept="0.02"/><feFuncB type="linear" slope="1" intercept="0.05"/></feComponentTransfer>'
-    ),
-  ];
+    )
+  );
   for (let k = 1; k <= ASCII_BANDS; k++) defs.push(bandFilter(k));
   return (
     '<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden"><defs>' +

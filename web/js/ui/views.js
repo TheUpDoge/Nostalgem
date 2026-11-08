@@ -3,6 +3,7 @@
 import { escapeHtml as esc, fmtClock, fmtDuration, fmtLeft, fmtRuntime, pad2, chLabel } from "../util.js";
 import { ARCADE_URL } from "../arcade.js";
 import { SOUTH_PARK_CHANNEL, SOUTH_PARK_URL } from "../southpark.js";
+import { CITY_WIRE_CHANNEL, CITY_WIRE_URL } from "../citywire.js";
 import { standbyText } from "../problems.js";
 import { bumperForSlot } from "../bumpers.js";
 
@@ -278,6 +279,44 @@ export function gestureCard() {
   );
 }
 
+// YouTube is running an ad ahead of the show. Its sound is off and the card covers it; the show starts
+// by itself when the ad is done. Deadpan, late-night bump style: white on black, lowercase.
+export const AD_QUIPS = [
+  "this is an ad. not ours. we don't know them either.",
+  "your show is right behind this ad. it's in there. we checked.",
+  "we turned the ad's sound off. you're welcome.",
+  "youtube wanted a word. we asked them to keep it short.",
+  "somewhere, a guy in a tie is getting paid for this.",
+  "please enjoy this quiet black rectangle.",
+  "be honest. you were going to get up anyway.",
+  "remember tapes? you could fast-forward those.",
+  "good time for a snack. we'll wait. so will the show.",
+  "this card is holding an ad down so you don't have to.",
+  "we interrupt this interruption to say: almost there.",
+  "the tv is warming up your show. it likes it toasty.",
+  "un momento, por favor. the show is coming.",
+  "the ad thinks you're watching it. let it believe.",
+  "nobody tell the ad we muted it.",
+  "your show is fashionably late. very fashionably.",
+];
+
+export function adQuip(i) {
+  const n = AD_QUIPS.length;
+  return AD_QUIPS[(((Math.floor(i) || 0) % n) + n) % n];
+}
+
+export function adBreakCard(quip) {
+  return (
+    '<div class="ad-box">' +
+    '<div class="ad-quip">' +
+    esc(quip || AD_QUIPS[0]) +
+    "</div>" +
+    '<div class="ad-hint">your show starts right after · ch ▲▼ to surf</div>' +
+    '<div class="ad-sig">nostalgem</div>' +
+    "</div>"
+  );
+}
+
 // The secret arcade station: a card, not a program. No iframe —
 // just a link out to the arcade, opened with OK or a tap.
 export function arcadeCard(ch, inApp) {
@@ -314,10 +353,29 @@ export function southParkCard(ch, inApp) {
   );
 }
 
-// Either link-out station's card. inApp: the Android TV app, which never leaves NostalGem, so the phone
+// The secret City Wire station (555): a link out to ASCII City, a city drawn in text.
+export function cityWireCard(ch, inApp) {
+  return (
+    SCENE +
+    panel(
+      "A SECRET STATION",
+      "🏙️ ASCII CITY",
+      "A whole city drawn in text characters. Take a walk around the block.",
+      '<div class="citywire-tag blink">ALL THE WORLD\'S A TERMINAL</div>' +
+        linkRow(CITY_WIRE_URL, '<a class="citywire-go" href="' + esc(CITY_WIRE_URL) + '" target="_blank" rel="noopener">▶ VISIT ASCIICITY.COM</a>') +
+        '<div class="southpark-hint">' +
+        linkHint(inApp, "ASCII City") +
+        "</div>"
+    )
+  );
+}
+
+// A link-out station's card. inApp: the Android TV app, which never leaves NostalGem, so the phone
 // opens the site instead (main.js draws the QR code into .link-qr).
 export function linkCard(ch, inApp) {
-  return ch && ch.slug === SOUTH_PARK_CHANNEL.slug ? southParkCard(ch, inApp) : arcadeCard(ch, inApp);
+  if (ch && ch.slug === SOUTH_PARK_CHANNEL.slug) return southParkCard(ch, inApp);
+  if (ch && ch.slug === CITY_WIRE_CHANNEL.slug) return cityWireCard(ch, inApp);
+  return arcadeCard(ch, inApp);
 }
 
 function linkRow(url, button) {

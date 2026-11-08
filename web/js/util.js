@@ -127,6 +127,18 @@ export async function mapLimit(list, limit, fn) {
   await Promise.all(workers);
 }
 
+// A channel number typed as words — "777", "15-2", "ch 50", "152" — as remote digits ("777", "152", "50");
+// "" if the text isn't one. Lets a number typed into a search box tune the channel.
+export function numberText(text) {
+  const t = String(text || "")
+    .trim()
+    .replace(/^ch(?:annel)?\.?\s*/i, "");
+  let m = /^(\d{1,4})$/.exec(t);
+  if (m) return m[1];
+  m = /^(\d{1,3})\s*[-.\s]\s*(\d{1,2})$/.exec(t);
+  return m ? m[1] + m[2] : "";
+}
+
 export function slugify(s) {
   return (
     String(s)

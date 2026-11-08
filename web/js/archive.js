@@ -24,6 +24,35 @@ export function searchUrl(q, opts) {
 function encPath(file) {
   return String(file).split("/").map(encodeURIComponent).join("/");
 }
+// An archive.org link pasted into Search: a details page (one item, or a whole collection) or a search
+// page. Returns { q, id } for the channel builder, or null when the text isn't an Archive link.
+export function archiveLinkQuery(text) {
+  const t = String(text || "").trim();
+  if (!/^(https?:\/\/)?([\w-]+\.)*archive\.org\//i.test(t)) return null;
+  let url;
+  try {
+    url = new URL(/^https?:/i.test(t) ? t : "https://" + t);
+  } catch (e) {
+    return null;
+  }
+  const parts = url.pathname
+    .split("/")
+    .filter(Boolean)
+    .map(function (p) {
+      try {
+        return decodeURIComponent(p);
+      } catch (e) {
+        return p;
+      }
+    });
+  const at = Math.max(parts.indexOf("details"), parts.indexOf("download"));
+  const id = at >= 0 ? parts[at + 1] || "" : "";
+  if (id && /^[\w.-]+$/.test(id)) return { q: "(identifier:" + id + " OR collection:" + id + ")", id: id };
+  const query = url.searchParams.get("query");
+  if (parts[0] === "search" && query && query.trim()) return { q: "(" + query.trim() + ")", id: query.trim().slice(0, 40) };
+  return null;
+}
+
 export function metadataUrl(id) {
   return ARCHIVE + "/metadata/" + encodeURIComponent(id);
 }

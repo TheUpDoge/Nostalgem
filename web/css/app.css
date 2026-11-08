@@ -216,46 +216,67 @@ body {
   pointer-events: none;
   display: none;
 }
-/* VHS: a tracking band rolling down, and a little tape noise. */
-.lookfx-vhs .lookfx {
+/* VHS: a tracking band rolling down, and a little tape noise. Only transforms move (the graphics chip
+   slides a ready-made layer), so the overlays cost a TV next to nothing. */
+.lookfx-vhs .lookfx,
+.lookfx-grain .lookfx {
   display: block;
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0) 0, rgba(255, 255, 255, 0.07) 46%, rgba(255, 255, 255, 0.16) 50%, rgba(255, 255, 255, 0.07) 54%, rgba(255, 255, 255, 0) 100%) 0 0 / 100% 18vh no-repeat,
-    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.12) 0, rgba(0, 0, 0, 0.12) 1px, rgba(0, 0, 0, 0) 2px, rgba(0, 0, 0, 0) 4px);
+  overflow: hidden;
+}
+.lookfx-vhs .lookfx {
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.12) 0, rgba(0, 0, 0, 0.12) 1px, rgba(0, 0, 0, 0) 2px, rgba(0, 0, 0, 0) 4px);
+}
+.lookfx-vhs .lookfx::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 18vh;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0) 0, rgba(255, 255, 255, 0.06) 46%, rgba(255, 255, 255, 0.13) 50%, rgba(255, 255, 255, 0.06) 54%, rgba(255, 255, 255, 0) 100%);
   animation: vhs-roll 7s linear infinite;
-  mix-blend-mode: screen;
+  will-change: transform;
 }
 @keyframes vhs-roll {
   from {
-    background-position: 0 -20vh, 0 0;
+    transform: translateY(-20vh);
   }
   to {
-    background-position: 0 120vh, 0 0;
+    transform: translateY(120vh);
   }
 }
 /* Night vision: grain and a scope vignette. */
 .lookfx-grain .lookfx {
-  display: block;
-  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.75) 100%),
-    repeating-radial-gradient(circle at 37% 61%, rgba(180, 255, 180, 0.07) 0, rgba(0, 0, 0, 0) 1px, rgba(0, 0, 0, 0) 3px);
-  animation: grain 0.25s steps(3) infinite;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.75) 100%);
+}
+.lookfx-grain .lookfx::before {
+  content: "";
+  position: absolute;
+  top: -12px;
+  left: -12px;
+  right: -12px;
+  bottom: -12px;
+  background: repeating-radial-gradient(circle at 37% 61%, rgba(180, 255, 180, 0.07) 0, rgba(0, 0, 0, 0) 1px, rgba(0, 0, 0, 0) 3px);
+  animation: grain 0.25s steps(1) infinite;
+  will-change: transform;
 }
 @keyframes grain {
   0% {
-    background-position: 0 0, 0 0;
+    transform: translate(0, 0);
   }
   33% {
-    background-position: 0 0, 7px 3px;
+    transform: translate(7px, 3px);
   }
   66% {
-    background-position: 0 0, -5px 6px;
+    transform: translate(-5px, 6px);
   }
   100% {
-    background-position: 0 0, 3px -4px;
+    transform: translate(3px, -4px);
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .lookfx-vhs .lookfx,
-  .lookfx-grain .lookfx {
+  .lookfx-vhs .lookfx::before,
+  .lookfx-grain .lookfx::before {
     animation: none;
   }
 }
@@ -764,6 +785,43 @@ body {
   letter-spacing: 0.08em;
 }
 
+/* An ad is running ahead of a YouTube show: a plain late-night bump covers it. */
+.card-adbreak {
+  background: #000;
+}
+.ad-box {
+  max-width: 52rem;
+  text-align: left;
+}
+.ad-quip {
+  font-family: "Helvetica Neue", Helvetica, Arial, var(--font-body);
+  font-size: 2.4rem;
+  line-height: 1.3;
+  color: #fff;
+  text-transform: lowercase;
+}
+.ad-hint {
+  margin-top: 1.6rem;
+  font-family: "Helvetica Neue", Helvetica, Arial, var(--font-body);
+  font-size: 1rem;
+  color: #8a8a8a;
+}
+.ad-sig {
+  position: absolute;
+  right: var(--safe-x);
+  bottom: var(--safe-y);
+  font-family: "Helvetica Neue", Helvetica, Arial, var(--font-body);
+  font-size: 1rem;
+  color: #fff;
+  opacity: 0.7;
+}
+.ad-sig::before {
+  content: "[";
+}
+.ad-sig::after {
+  content: "]";
+}
+
 /* The secret arcade station: neon cabinet glow. */
 .card-arcade .card-panel {
   background: rgba(10, 0, 24, 0.88);
@@ -838,7 +896,38 @@ body {
   margin-top: 0.9rem;
 }
 
-/* Link-out stations (420, 777): the button with a QR code beside it for a phone. */
+/* The secret City Wire station: green phosphor on black. */
+.card-citywire .card-panel {
+  background: rgba(0, 8, 2, 0.9);
+  border-color: #39ff6a;
+  box-shadow: 0 0 3rem rgba(57, 255, 106, 0.3);
+}
+.card-citywire .card-title,
+.citywire-tag {
+  color: #39ff6a;
+  text-shadow: 0 0 0.4em #39ff6a;
+}
+.citywire-tag {
+  font-family: var(--font-mono);
+  font-size: 1.6rem;
+  letter-spacing: 0.3em;
+  margin-top: 1.2rem;
+}
+.citywire-go {
+  display: inline-block;
+  margin-top: 1rem;
+  padding: 0.7rem 1.4rem;
+  border: 0.12rem solid #39ff6a;
+  border-radius: 0.6rem;
+  color: #39ff6a;
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-decoration: none;
+  text-shadow: 0 0 0.3em #39ff6a;
+}
+
+/* Link-out stations (420, 555, 777): the button with a QR code beside it for a phone. */
 .link-row {
   display: flex;
   align-items: center;
@@ -1445,37 +1534,105 @@ body {
   text-align: center;
 }
 
-/* ---------- mouse and touch controls ---------- */
+/* ---------- mouse and touch controls ----------
+   A channel rocker on the right edge, like the buttons on the side of an old set, and a dock along the
+   bottom. Sizes never go under a comfortable finger (52px), however small the screen. */
 .touch {
   position: absolute;
-  left: 50%;
-  bottom: 2vh;
-  transform: translateX(-50%);
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 35;
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.5rem;
-  border-radius: 1rem;
-  background: rgba(13, 2, 33, 0.85);
-  border: 0.1rem solid var(--line);
+  pointer-events: none;
 }
 .touch button {
+  pointer-events: auto;
   font: inherit;
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 0.8rem;
   letter-spacing: 0.08em;
-  min-width: 3.6rem;
-  min-height: 2.8rem;
-  padding: 0 0.8rem;
-  border-radius: 0.6rem;
-  border: 0.1rem solid var(--line);
-  background: rgba(255, 255, 255, 0.06);
+  border-radius: 0.8rem;
+  border: 0.12rem solid var(--line);
+  background: rgba(13, 2, 33, 0.82);
   color: var(--ink);
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
-.touch button:hover {
+.touch button:hover,
+.touch button:focus-visible {
   background: var(--focus);
+}
+.touch button:active {
+  background: var(--focus);
+  transform: scale(0.96);
+}
+.t-rocker {
+  position: absolute;
+  right: 2vw;
+  right: max(12px, 2vw);
+  top: 40%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: max(6px, 0.4rem);
+  padding: max(6px, 0.4rem);
+  border-radius: 1.2rem;
+  background: rgba(13, 2, 33, 0.55);
+  border: 0.12rem solid var(--line);
+  box-shadow: 0 0 1.4rem rgba(242, 34, 255, 0.25);
+}
+.t-rocker button {
+  width: 5rem;
+  width: max(68px, 5rem);
+  height: 5.4rem;
+  height: max(76px, 5.4rem);
+  font-size: 2rem;
+  font-size: max(28px, 2rem);
+  line-height: 1;
+}
+.t-ch {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: max(14px, 1rem);
+  letter-spacing: 0.2em;
+  color: var(--pink);
+  text-shadow: 0 0 0.5em var(--magenta);
+}
+.t-dock {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 100%;
+  width: min(100%, 720px);
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: max(6px, 0.4rem);
+  padding: max(8px, 0.5rem) max(8px, 0.5rem) calc(max(8px, 0.5rem) + env(safe-area-inset-bottom, 0px));
+  border-radius: 1rem 1rem 0 0;
+  background: rgba(13, 2, 33, 0.88);
+  border: 0.12rem solid var(--line);
+  border-bottom: 0;
+}
+.t-dock button {
+  min-height: 3.4rem;
+  min-height: max(52px, 3.4rem);
+  padding: 0 0.3rem;
+  font-size: 0.9rem;
+  font-size: max(13px, 0.9rem);
+  white-space: nowrap;
+}
+/* While the buttons show, the info banner sits above the dock and clear of the rocker. */
+.touch-on .banner {
+  bottom: calc(max(52px, 3.4rem) + max(8px, 0.5rem) * 2 + 0.6rem);
+  right: calc(var(--safe-x) + max(68px, 5rem) + 1.2rem);
+}
+/* With the guide, a menu or a dialog up, they have the screen: only the dock stays (BACK is handy). */
+.touch.overlay .t-rocker {
+  display: none;
 }
 
 @media (max-aspect-ratio: 1/1) {
@@ -1709,6 +1866,4 @@ body {
   image-rendering: crisp-edges;
   image-rendering: pixelated;
 }
-.fxrain {
-  mix-blend-mode: screen;
-}
+/* The rain is drawn on a see-through canvas: no blending needed (blending is costly on a TV). */

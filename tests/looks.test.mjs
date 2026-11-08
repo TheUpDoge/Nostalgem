@@ -88,3 +88,45 @@ test("ambience: lo-fi crackle is sparse clicks, and every mode has a name", () =
   assert.deepEqual(AMBIENCES[0], ["off", "Off"]);
   assert.equal(ambienceName("lofi"), "Lo-fi vinyl");
 });
+
+// Two Sin City looks together keep both colors: one filter for the pair, not one after the other.
+import { comboCss, popColor } from "../web/js/looks.js";
+import { tooSlow } from "../web/js/framewatch.js";
+
+test("two Sin City looks share one filter that keeps both colors", () => {
+  assert.equal(popColor(lookById("pop-red")), "red");
+  assert.equal(popColor(lookById("bw")), "");
+  assert.equal(comboCss(lookById("pop-blue"), lookById("pop-red")), "url(#ng-look-pop-red-blue)");
+  assert.equal(comboCss(lookById("pop-red"), lookById("pop-blue")), "url(#ng-look-pop-red-blue)");
+  assert.equal(comboCss(lookById("pop-red"), null), "url(#ng-look-pop-red)");
+  assert.equal(comboCss(lookById("bw"), lookById("pop-red")), "grayscale(1) contrast(1.15) url(#ng-look-pop-red)");
+  const svg = looksSvg({ height: 720 });
+  const pops = ["red", "blue", "green", "yellow", "purple", "cyan"];
+  for (const a of pops) for (const b of pops) {
+    if (a === b) continue;
+    const id = /url\(#([\w-]+)\)/.exec(comboCss(lookById("pop-" + a), lookById("pop-" + b)))[1];
+    assert.ok(svg.includes('id="' + id + '"'), "the SVG has " + id);
+  }
+  // The pair filter keeps two colors over the noir: two masks each, merged on top.
+  const pair = svg.slice(svg.indexOf('id="ng-look-pop-red-blue"'));
+  assert.equal((pair.slice(0, pair.indexOf("</filter>")).match(/<feMergeNode/g) || []).length, 3);
+});
+
+test("Colorized looks for black-and-white films", () => {
+  for (const id of ["colorize", "colorize-80s", "twostrip"]) {
+    const l = lookById(id);
+    assert.equal(l.id, id);
+    assert.equal(l.group, "Classic");
+    assert.ok(looksSvg({ height: 720 }).includes('id="ng-look-' + id + '"'), id);
+  }
+});
+
+test("a filter is too slow for this TV only after a couple of slow measurements in a row", () => {
+  assert.equal(tooSlow([]), false);
+  assert.equal(tooSlow([5]), false); // the warm-up doesn't count
+  assert.equal(tooSlow([5, 12]), false);
+  assert.equal(tooSlow([5, 12, 15]), true);
+  assert.equal(tooSlow([60, 59, 58, 61]), false);
+  assert.equal(tooSlow([60, 12, 58, 14]), false); // one slow moment isn't the filter
+  assert.equal(tooSlow([60, 59, 18, 11]), true);
+});

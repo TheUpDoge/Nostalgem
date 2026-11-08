@@ -4,7 +4,8 @@
 // play anything, or three unexplained failures in a row, shows "technical difficulties" and quietly
 // retries; a channel where nothing in a row will play here says so.
 //
-// Modes: idle, tuning, playing, paused, gap (station break / up next), standby, gesture, off, empty
+// Modes: idle, tuning, adbreak (YouTube is showing an ad first), playing, paused, gap (station break / up
+// next), standby, gesture, off, empty
 
 import { slotAt } from "./schedule.js";
 import { downloadUrl, corsUrl } from "./archive.js";
@@ -14,6 +15,7 @@ import { failureInfo } from "./problems.js";
 
 const TUNE_TIMEOUT = 25000; // no picture this long after tuning: give up on the file
 const STALL_TIMEOUT = 40000; // buffering this long mid-program: give up on the file
+const AD_TIMEOUT = 180000; // an "ad" this long is something else: ask for a button press
 const MAX_DRIFT = 30; // fallen this many seconds behind live after buffering: jump back to live
 const RETRY_AFTER = 30000; // standby retry interval
 const SKIPS_IN_A_ROW = 6; // this many programs in a row that can't play here: say so instead of trying them all
@@ -42,6 +44,7 @@ export class Player {
     this.trackUrl = null;
     this.muted = false;
     this.fadeTimer = 0;
+    this.adSince = 0;
 
     this.wire(video);
   }
@@ -71,8 +74,16 @@ export class Player {
   youtube() {
     if (!this.ytm) {
       const host = this.hooks.ytHost;
-      this.ytm = new YtMedia(host);
-      this.wire(this.ytm);
+      const ytm = new YtMedia(host);
+      const self = this;
+      this.ytm = ytm;
+      if (typeof this.hooks.autoplayOk === "function") ytm.autoplayOk = this.hooks.autoplayOk;
+      this.wire(ytm);
+      ytm.addEventListener("adbreak", function () {
+        if (self.v !== ytm || (self.mode !== "tuning" && self.mode !== "gesture")) return;
+        self.adSince = Date.now();
+        self.setMode("adbreak");
+      });
     }
     return this.ytm;
   }
@@ -169,6 +180,13 @@ export class Player {
   // The viewer pressed something: browsers that blocked autoplay will now allow it.
   userGesture() {
     if (this.mode !== "gesture") return false;
+    if (this.v === this.ytm && this.v.getAttribute("src")) {
+      // Just press play: loading the video again would start its ad over.
+      this.loadStart = Date.now();
+      this.setMode("tuning");
+      this.tryPlay(this.token);
+      return true;
+    }
     if (this.slot && this.slot.onDemand) this.load(0);
     else this.syncToLive();
     return true;
@@ -195,7 +213,8 @@ export class Player {
   }
 
   onPlaying() {
-    if (this.mode !== "tuning" && this.mode !== "playing" && this.mode !== "paused" && this.mode !== "gesture") return;
+    const m = this.mode;
+    if (m !== "tuning" && m !== "adbreak" && m !== "playing" && m !== "paused" && m !== "gesture") return;
     this.waitingSince = 0;
     this.failures = [];
     this.skips = 0;
@@ -205,7 +224,8 @@ export class Player {
   }
 
   onError() {
-    if (this.mode !== "tuning" && this.mode !== "playing" && this.mode !== "paused") return;
+    const m = this.mode;
+    if (m !== "tuning" && m !== "adbreak" && m !== "playing" && m !== "paused") return;
     if (!this.v.getAttribute("src")) return;
     this.fail("error");
   }
@@ -304,6 +324,9 @@ export class Player {
     switch (this.mode) {
       case "tuning":
         if (now - this.loadStart > TUNE_TIMEOUT) this.fail("timeout");
+        break;
+      case "adbreak":
+        if (now - this.adSince > AD_TIMEOUT) this.setMode("gesture");
         break;
       case "playing":
         if (this.waitingSince && now - this.waitingSince > STALL_TIMEOUT) {

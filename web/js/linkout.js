@@ -1,17 +1,19 @@
-// Link-out stations: hidden channels that show a card with a link instead of a schedule — 420 (South Park)
-// and 777 (RetroGames.cc). Each station lives in its own module (southpark.js, arcade.js); this is the
+// Link-out stations: hidden channels that show a card with a link instead of a schedule — 420 (South Park),
+// 555 (ASCII City) and 777 (RetroGames.cc). Each station lives in its own module (southpark.js, arcade.js); this is the
 // one place main.js asks about them, so adding a third is one more line here.
 
 import { ARCADE_CHANNEL, ARCADE_URL, openArcade, isLinkChannel, isGuideVisible } from "./arcade.js";
 import { SOUTH_PARK_CHANNEL, SOUTH_PARK_URL, openSouthPark } from "./southpark.js";
+import { CITY_WIRE_CHANNEL, CITY_WIRE_URL, openCityWire } from "./citywire.js";
 
 export { isLinkChannel, isGuideVisible };
 
-export const LINK_CHANNELS = [SOUTH_PARK_CHANNEL, ARCADE_CHANNEL];
+export const LINK_CHANNELS = [SOUTH_PARK_CHANNEL, CITY_WIRE_CHANNEL, ARCADE_CHANNEL];
 
 const STATIONS = {};
 STATIONS[SOUTH_PARK_CHANNEL.slug] = { url: SOUTH_PARK_URL, open: openSouthPark, card: "southpark" };
 STATIONS[ARCADE_CHANNEL.slug] = { url: ARCADE_URL, open: openArcade, card: "arcade" };
+STATIONS[CITY_WIRE_CHANNEL.slug] = { url: CITY_WIRE_URL, open: openCityWire, card: "citywire" };
 
 function station(ch) {
   return (ch && STATIONS[ch.slug]) || null;

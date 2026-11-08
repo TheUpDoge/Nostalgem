@@ -81,7 +81,10 @@ YouTube's player) and rebuilt daily:
   ID card instead of the plain up-next card — short original bumpers from `web/data/bumpers.json`,
   picked from the clock so every TV in the same break sees the same one.
 - **Picture filters**, like an emulator's video filters: black & white, hard noir, sepia, Technicolor,
-  *Sin City* (black and white with one color kept: red, blue, green, yellow, purple or cyan), color tints,
+  **Colorized** (color for black-and-white films: cool shadows, skin tones, warm light; a punchier
+  *80s TV* version, and two-strip Technicolor),
+  *Sin City* (black and white with one color kept: red, blue, green, yellow, purple or cyan; mix two
+  Sin City looks and both colors stay), color tints,
   VHS tape, Game Boy, 8-bit, low-res pixels, **ASCII** (green, color, or with **Matrix rain**; the
   characters shimmer as they play), vaporwave, outrun, thermal camera, night vision, dreamy glow and
   negative. **Mix with** puts a second color filter on top: ASCII + Vaporwave, Game Boy + Hard noir. Menu ▸ Picture & sound ▸ 🎨 Filter, or press **V** (a
@@ -90,7 +93,11 @@ YouTube's player) and rebuilt daily:
   another site's page), so there the filter runs on a see-through layer above it. Older TV browsers
   without that get simpler versions. The pixel and ASCII looks are drawn on a canvas (the video drawn
   small, then scaled up by the graphics chip), so they run at full speed on a TV; on YouTube they get
-  lighter stand-ins, since YouTube's player can't be drawn.
+  lighter stand-ins, since YouTube's player can't be drawn. **Filter quality** (Auto, Full, Light): on
+  Auto, a filter that makes the picture choppy on your TV switches itself to its light version (run on
+  a small copy of the picture), and says so.
+- **YouTube ads**: when YouTube puts an ad before a show, a late-night "word from our sponsors" card
+  covers it with the sound off, and the show starts by itself when the ad is over. OK never restarts it.
 - **Ambience**: lo-fi vinyl crackle, a rainy window, or tape hiss under the program (Menu ▸ Picture & sound).
 - **Number pad** on screen for remotes without number buttons (TCL's Google TV remote has none):
   Menu ▸ 🔢 Number pad, then the arrows and OK. 1 5 2 GO is CH 15-2.
@@ -112,7 +119,10 @@ YouTube's player) and rebuilt daily:
 - **It keeps going** when the Archive doesn't. A program that won't play is skipped on that TV for a
   day. If several fail in a row, it shows colour bars and *PLEASE STAND BY* and retries by itself.
 - Sized for a TV across the room, inside overscan margins. It also works with a mouse, a keyboard,
-  or a phone (swipe up/down to change channel).
+  or a touch screen: big CH ▲▼ buttons on the right, a dock along the bottom (guide, info, pause,
+  number pad, menu, back), and swipe up/down to change channel.
+- **Search the Archive** builds a channel from words, Archive search terms, or a pasted archive.org link
+  (one item or a whole collection). A channel number typed there just tunes that channel.
 
 ## Put it on your TCL TV
 
@@ -348,7 +358,8 @@ web/
   js/ui/                       banner, guide, menu, dialogs
   js/about.js                  disclaimer & donate: words and links (Menu ▸ Disclaimer & donate, about.html)
   js/looks.js, js/ambience.js  picture filters and lo-fi sound (Menu ▸ Picture & sound, V key)
-  js/fxcanvas.js               the pixel and ASCII looks, drawn on a canvas
+  js/fxcanvas.js               the pixel and ASCII looks (and light versions of the others), drawn on a canvas
+  js/framewatch.js             notices a filter making the picture choppy (Filter quality: Auto)
   js/packs.js                  channel packs: format, validator, loader (Menu ▸ Load a channel pack)
   js/main.js                   wires it all together
   data/channels.json           channel definitions

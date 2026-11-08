@@ -25,3 +25,20 @@ test("typed numbers read like channel numbers", () => {
   assert.equal(padLabel("152"), "15-2");
   assert.equal(padLabel("6010"), "60-10");
 });
+
+// A remote with no number buttons: a number typed into Search tunes the channel instead of building one.
+import { numberText } from "../web/js/util.js";
+
+test("a channel number typed as words reads as remote digits", () => {
+  assert.equal(numberText("777"), "777");
+  assert.equal(numberText(" 420 "), "420");
+  assert.equal(numberText("15-2"), "152");
+  assert.equal(numberText("50 10"), "5010");
+  assert.equal(numberText("CH 50"), "50");
+  assert.equal(numberText("channel 15.2"), "152");
+  assert.equal(numberText("1984"), "1984"); // a number, but no channel has it: the search still runs
+  assert.equal(numberText("lone ranger"), "");
+  assert.equal(numberText("chopper 7"), "");
+  assert.equal(numberText("12345"), "");
+  assert.equal(numberText(""), "");
+});
