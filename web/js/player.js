@@ -8,9 +8,11 @@
 // next), standby, gesture, off, empty
 //
 // A channel can change how its films sound: rate (666 plays them at half speed, an octave down, like a
-// tape running slow) and sound: "church" (111's films ring around a nave, church.js). The church needs the
-// file loaded with CORS, and a <video> whose sound has gone into the church can't come back out, so after a
-// church film the next ordinary one gets a fresh <video> (hooks.media hears about it).
+// tape running slow) and sound: "church" (111's films ring around a nave, church.js). The full reverb
+// needs the file loaded with CORS, and a <video> whose sound has gone into it can't come back out, so after
+// a church film the next ordinary one gets a fresh <video> (hooks.media hears about it). A file that won't
+// load with CORS (the Archive's won't: after the first, the rest aren't tried) plays the ordinary way, with
+// echoes.
 
 import { slotAt } from "./schedule.js";
 import { downloadUrl, corsUrl } from "./archive.js";
@@ -52,7 +54,8 @@ export class Player {
     this.adSince = 0;
     this.church = this.hooks.church || null;
     this.routed = null; // the <video> whose sound is in the church
-    this.noCors = {}; // films that wouldn't load for the church: they play the ordinary way
+    this.noCors = {}; // films that wouldn't load with CORS: they play the ordinary way, with echoes
+    this.corsBroken = false; // none will this session: don't keep trying
 
     this.wire(video);
   }
@@ -156,7 +159,8 @@ export class Player {
   load(startAt) {
     const item = this.slot.item;
     const yt = isYouTube(item) && this.hooks.ytHost;
-    if (!yt) this.readyVideo(this.wantsChurch(item));
+    if (this.church) this.church.quiet(); // a new film: its own echoes, once it plays
+    if (!yt) this.readyVideo(this.corsFor(item));
     this.useMedia(yt ? this.youtube() : this.video);
     const v = this.v;
     const token = ++this.token;
@@ -204,13 +208,18 @@ export class Player {
 
   wantsChurch(item) {
     const ch = this.tl && this.tl.channel;
-    return !!(this.church && ch && ch.sound === "church" && item && !isYouTube(item) && !item.live && !this.noCors[item.id]);
+    return !!(this.church && ch && ch.sound === "church" && item && !isYouTube(item) && !item.live);
   }
 
-  // The <video> for the next film: one that loads with CORS for the church, an ordinary one otherwise. One
-  // whose sound went into the church is swapped for a fresh one.
-  readyVideo(church) {
-    if (church) {
+  // Load this film with CORS, for the full reverb?
+  corsFor(item) {
+    return this.wantsChurch(item) && !this.corsBroken && !this.noCors[item.id];
+  }
+
+  // The <video> for the next film: one that loads with CORS for the church's reverb, an ordinary one
+  // otherwise. One whose sound went into the reverb is swapped for a fresh one.
+  readyVideo(cors) {
+    if (cors) {
       if (this.video.crossOrigin !== "anonymous") this.video.crossOrigin = "anonymous";
       return;
     }
@@ -237,6 +246,7 @@ export class Player {
       }
     }
     if (old.parentNode) old.parentNode.replaceChild(el, old);
+    if (this.church) this.church.quiet();
     if (this.church && this.routed === old) this.church.detach();
     this.routed = null;
     this.video = el;
@@ -245,11 +255,17 @@ export class Player {
     this.emit("media", el);
   }
 
-  // A church film that's playing: put its sound in the nave (once the browser lets sound start).
+  // A church film that's playing: its sound into the nave (once the browser lets sound start), or, if
+  // that can't be, echoes of it.
   churchIn() {
-    if (this.v !== this.video || this.routed === this.video || this.video.crossOrigin !== "anonymous") return;
+    if (!this.church || this.v !== this.video || this.routed === this.video) return;
     if (!this.slot || !this.wantsChurch(this.slot.item)) return;
-    if (this.church.attach(this.video)) this.routed = this.video;
+    if (this.video.crossOrigin === "anonymous" && this.church.attach(this.video)) {
+      this.routed = this.video;
+      this.church.quiet();
+      return;
+    }
+    this.church.echo(this.video);
   }
 
   // What the sound is doing, for the app's state report and tests.
@@ -262,6 +278,7 @@ export class Player {
       cors: v.crossOrigin === "anonymous",
       inChurch: !!this.routed && this.routed === v,
       level: this.church && this.routed === v ? Math.round(this.church.level() * 10000) / 10000 : 0,
+      echo: this.church ? this.church.echoState() : { on: 0, off: 0 },
     };
   }
 
@@ -329,8 +346,10 @@ export class Player {
     if (!this.v.getAttribute("src")) return;
     const item = this.slot && this.slot.item;
     if (this.v === this.video && this.video.crossOrigin === "anonymous" && item && !this.noCors[item.id]) {
-      // It wouldn't load for the church: try it the ordinary way before giving up on it.
+      // It wouldn't load with CORS: try it the ordinary way before giving up on it (with echoes), and
+      // don't try the others that way.
       this.noCors[item.id] = true;
+      this.corsBroken = true;
       if (this.slot.onDemand) this.load(Math.max(0, this.video.currentTime || this.slot.into || 0));
       else this.syncToLive();
       return;
@@ -409,6 +428,7 @@ export class Player {
     this.token++;
     this.pendingSeek = false;
     this.removeTrack();
+    if (this.church) this.church.quiet();
     const v = this.v;
     try {
       v.pause();

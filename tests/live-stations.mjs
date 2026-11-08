@@ -1,10 +1,11 @@
 // Live check of the secret stations against the real Internet Archive. Needs real internet (run it on
 // GitHub Actions: "Live Archive check"). Prints what it found.
 //
-//   1. Every film on 069, 666 and 111 plays in a browser, joined partway in. 111's films load with CORS,
-//      which the church sound needs (a film that won't still plays, without the echo).
-//   2. The app itself: 1 1 1 tunes Pearly Gates, its film plays, and its sound is in the church — the
-//      church hears it. 6 6 6 plays at half speed with the pitch down.
+//   1. Every film on 069, 666 and 111 plays in a browser, joined partway in, the way the app plays them.
+//      Whether 111's could load with CORS (for the full reverb) is reported, with the answers of each
+//      server on the way (the Archive's video servers haven't allowed it).
+//   2. The app itself: 1 1 1 tunes Pearly Gates, its film plays, and its sound rings: the reverb, or
+//      echoes in step with it. 6 6 6 plays at half speed with the pitch down.
 //
 //   node tests/live-stations.mjs [https://theupdoge.github.io/Nostalgem/ | local]
 
@@ -52,7 +53,7 @@ const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gestur
   const page = await ctx.newPage();
   await page.goto(site);
   for (const ch of SECRET_STATIONS) {
-    const cors = ch.sound === "church";
+    const cors = false;
     let played = 0;
     for (const it of ch.items) {
       const url = downloadUrl(it.id, it.f);
@@ -81,12 +82,61 @@ const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gestur
       const ok = r.how === "playing" && r.w > 0;
       if (ok) played++;
       const lengthOk = !r.dur || Math.abs(r.dur - it.d) < Math.max(30, it.d * 0.05);
-      check(ok, `${ch.number} ${it.t}${cors ? " (CORS)" : ""}: ${r.how} in ${r.ms} ms, ${r.w}×${r.h}, at ${r.at}s of ${r.dur}s${r.err ? ", error " + r.err : ""}`);
+      check(ok, `${ch.number} ${it.t}: ${r.how} in ${r.ms} ms, ${r.w}×${r.h}, at ${r.at}s of ${r.dur}s${r.err ? ", error " + r.err : ""}`);
       if (ok && !lengthOk) note(`…listed as ${it.d}s, the file is ${r.dur}s`);
     }
     note(`${ch.number} ${ch.name}: ${played} of ${ch.items.length} films play`);
   }
+  // Could a church film load with CORS, for the full reverb? In the browser, and server by server.
+  const first = SECRET_STATIONS.find((c) => c.sound === "church").items[0];
+  const corsOk = await page.evaluate(
+    (url) =>
+      new Promise((done) => {
+        const v = document.createElement("video");
+        v.muted = true;
+        v.crossOrigin = "anonymous";
+        v.addEventListener("loadedmetadata", () => done("loads"), { once: true });
+        v.addEventListener("error", () => done("refused (error " + (v.error && v.error.code) + ")"), { once: true });
+        setTimeout(() => done("timeout"), 30000);
+        v.src = url;
+      }),
+    downloadUrl(first.id, first.f)
+  );
+  note(`with CORS, ${first.t} ${corsOk}`);
+  const meta = await (await fetch("https://archive.org/metadata/" + first.id)).json().catch(() => ({}));
+  const direct = meta.server && meta.dir ? "https://" + meta.server + meta.dir + "/" + encodeURIComponent(first.f) : "";
+  for (const [what, url, origin] of [
+    ["download", downloadUrl(first.id, first.f), "https://theupdoge.github.io"],
+    ["download, after a redirect (Origin null)", downloadUrl(first.id, first.f), "null"],
+    ["cors", "https://archive.org/cors/" + first.id + "/" + encodeURIComponent(first.f), "https://theupdoge.github.io"],
+    ["its server, directly", direct, "https://theupdoge.github.io"],
+  ]) {
+    if (url) note(`${what}: ${await hops(url, origin)}`);
+  }
   await ctx.close();
+}
+
+// Each answer on the way to a file: status, CORS permission and byte ranges.
+async function hops(url, origin) {
+  const out = [];
+  for (let i = 0; i < 5 && url; i++) {
+    let r;
+    try {
+      r = await fetch(url, { redirect: "manual", headers: { Origin: origin, Range: "bytes=1000-1999" } });
+    } catch (e) {
+      out.push("failed: " + e.message);
+      break;
+    }
+    out.push(`${r.status} ${new URL(url).host} acao=${r.headers.get("access-control-allow-origin")} range=${r.headers.get("content-range")}`);
+    const loc = r.headers.get("location");
+    try {
+      await r.body?.cancel();
+    } catch {
+      /* fine */
+    }
+    url = loc ? new URL(loc, url).href : "";
+  }
+  return out.join(" → ");
 }
 
 // 2. The app: 111 in the church, 666 slow and low.
@@ -117,9 +167,10 @@ for (const [num, slug] of [
       level = (await page.evaluate(() => window.NP.state().sound.level)) || 0;
       if (!level) await page.waitForTimeout(500);
     }
+    await page.waitForFunction(() => window.NP.state().sound.inChurch || window.NP.state().sound.echo.on === 3, null, { timeout: 20000 }).catch(() => {});
+    await page.waitForTimeout(3000);
     const snd = (await page.evaluate(() => window.NP.state())).sound;
-    check(snd.cors && snd.inChurch, `…its sound goes to church (${JSON.stringify(snd)})`);
-    check(level > 0, `…and the church hears it (level ${level})`);
+    check((snd.inChurch && level > 0) || (snd.echo.on === 3 && snd.echo.off < 400), `…and its sound rings around the church (${snd.inChurch ? "reverb, level " + level : "echoes"}: ${JSON.stringify(snd)})`);
   } else {
     check(s.sound.rate === 0.5 && s.sound.pitch === false, `…at half speed, an octave down (${JSON.stringify(s.sound)})`);
   }

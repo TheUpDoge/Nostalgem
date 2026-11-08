@@ -38,3 +38,13 @@ test("the pages are plain markup", () => {
   assert.doesNotMatch(html + WELCOME_HTML, /<script|\son[a-z]+=/i);
   assert.match(changesHtml([{ v: "1", title: "<b>", items: ["a & b"] }]), /&lt;b&gt;.*a &amp; b/);
 });
+
+test("a version with nothing new to tell shows no page", async () => {
+  const { whatsNew } = await import("../web/js/changes.js");
+  const log = [
+    { v: "2.0.0", title: "Two", items: ["x"] },
+    { v: "1.0.0", title: "One", items: ["y"] },
+  ];
+  assert.equal(whatsNew("2.0.0", "2.0.1", true, log).kind, "");
+  assert.deepEqual(whatsNew("1.0.0", "2.0.1", true, log).entries.map((c) => c.v), ["2.0.0"]);
+});

@@ -1,13 +1,25 @@
-// Channel 111's sound: the films' own sound ringing around a stone nave, through the browser's audio graph
-// (a convolution reverb, the way a sound engineer puts a voice in a church).
+// Channel 111's sound: the films' own sound ringing around a stone nave.
 //
-// The browser lets a page into a film's sound only when the file is loaded with CORS, which the Archive
-// allows. Once a <video>'s sound goes through the graph it can't come back out, so the player gives
-// church films a <video> of their own and swaps in a fresh one afterwards (player.js).
+// Two ways:
+//   reverb  through the browser's audio graph (a convolution reverb, the way a sound engineer puts a voice
+//           in a church). The browser lets a page into a film's sound only when the file comes with CORS
+//           permission. Once a <video>'s sound goes through the graph it can't come back out, so the player
+//           swaps in a fresh <video> after a church film (player.js).
+//   echoes  for files that don't (the Archive's video servers don't): quieter copies of the film's own
+//           sound, each a beat behind, the way a nave throws a voice back. Hidden <audio> players of the
+//           same file, kept in step with the picture. The same address lets the browser share what it has
+//           already downloaded.
 
 const SECONDS = 2.8; // how long the nave rings
 const DRY = 0.82; // the film itself
 const WET = 0.62; // the echo around it
+// The echoes: [seconds behind, how loud].
+export const ECHOES = [
+  [0.12, 0.3],
+  [0.26, 0.18],
+  [0.43, 0.1],
+];
+const STEP_MS = 200; // how often the echoes are kept in step
 
 // The sound of the nave: a burst of noise that dies away over SECONDS, darker as it goes (stone and air soak
 // up the high notes first), after a handful of early echoes off the nearest walls. Left and right differ, so
@@ -40,6 +52,9 @@ export class Church {
     this.src = null;
     this.meter = null;
     this.buf = null;
+    this.echoOf = null; // the film the echoes follow
+    this.taps = [];
+    this.stepTimer = 0;
   }
 
   // The audio graph's clock, made the first time it's wanted and woken if the browser put it to sleep.
@@ -133,6 +148,97 @@ export class Church {
     this.src = null;
     this.out = null;
     this.meter = null;
+  }
+
+  // Echo el, a film playing the ordinary way.
+  echo(el) {
+    if (this.echoOf === el) return;
+    this.quiet();
+    if (typeof document === "undefined") return;
+    const src = el.getAttribute("src");
+    if (!src) return;
+    this.echoOf = el;
+    this.taps = ECHOES.map(function (e) {
+      const a = document.createElement("audio");
+      a.preload = "auto";
+      a.src = src;
+      return { el: a, delay: e[0], vol: e[1] };
+    });
+    const self = this;
+    this.stepTimer = setInterval(function () {
+      self.keepStep();
+    }, STEP_MS);
+    this.keepStep();
+  }
+
+  // Each echo where it belongs, a little behind the film: a touch faster or slower to catch up, a jump
+  // when it's far off, paused while the film is.
+  keepStep() {
+    const m = this.echoOf;
+    if (!m) return;
+    if (!m.isConnected || !m.getAttribute("src")) {
+      this.quiet();
+      return;
+    }
+    const going = !m.paused && !m.ended && !m.seeking && m.readyState >= 3;
+    this.taps.forEach(function (t) {
+      const a = t.el;
+      a.muted = m.muted;
+      a.volume = Math.max(0, Math.min(1, t.vol * m.volume));
+      const at = m.currentTime - t.delay;
+      if (!going || at < 0) {
+        if (!a.paused) a.pause();
+        return;
+      }
+      const off = a.currentTime - at;
+      if (Math.abs(off) > 1) {
+        try {
+          a.currentTime = at;
+        } catch (e) {
+          /* not ready to seek yet */
+        }
+      } else if (a.readyState >= 2) {
+        a.playbackRate = m.playbackRate * Math.max(0.94, Math.min(1.06, 1 - off * 0.8));
+      }
+      if (a.paused) {
+        const p = a.play();
+        if (p && p.catch) p.catch(function () {});
+      }
+    });
+  }
+
+  // Stop the echoes.
+  quiet() {
+    if (this.stepTimer) clearInterval(this.stepTimer);
+    this.stepTimer = 0;
+    this.taps.forEach(function (t) {
+      try {
+        t.el.pause();
+      } catch (e) {
+        /* never started */
+      }
+      t.el.removeAttribute("src");
+      try {
+        t.el.load();
+      } catch (e) {
+        /* already empty */
+      }
+    });
+    this.taps = [];
+    this.echoOf = null;
+  }
+
+  // The echoes playing now, and how far (ms) the furthest is from where it belongs.
+  echoState() {
+    const m = this.echoOf;
+    let worst = 0;
+    let on = 0;
+    this.taps.forEach(function (t) {
+      if (t.el.paused || !m) return;
+      on++;
+      worst = Math.max(worst, Math.abs(t.el.currentTime - (m.currentTime - t.delay)));
+    });
+    return { on: on, off: Math.round(worst * 1000) };
   }
 
   // How loud it is in the nave right now (0 silent … 1), for tests and the state report.

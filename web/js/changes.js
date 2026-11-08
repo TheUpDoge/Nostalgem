@@ -4,6 +4,14 @@
 
 export const CHANGES = [
   {
+    v: "1.10.1",
+    title: "111 rings out",
+    items: [
+      "The church sound on 111 now works with every film: the Archive's servers won't let a page into a film's sound, so the nave echoes the film itself.",
+      "666's Phantom Carriage is the full restored film, not a five-minute clip.",
+    ],
+  },
+  {
     v: "1.10.0",
     title: "Heaven, hell and the arcade on your TV",
     items: [
@@ -83,12 +91,11 @@ export function whatsNew(seen, current, used, log) {
   if (!seen && !used) return { kind: "welcome", entries: upTo.slice(0, 1) };
   const since = seen || "1.5.0";
   if (compareVersions(since, current) >= 0) return { kind: "", entries: [] };
-  return {
-    kind: "update",
-    entries: upTo.filter(function (c) {
-      return compareVersions(c.v, since) > 0;
-    }),
-  };
+  const entries = upTo.filter(function (c) {
+    return compareVersions(c.v, since) > 0;
+  });
+  // A small fix with nothing to tell: no page.
+  return entries.length ? { kind: "update", entries: entries } : { kind: "", entries: [] };
 }
 
 function esc(s) {

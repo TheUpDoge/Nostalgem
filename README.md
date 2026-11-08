@@ -383,7 +383,7 @@ web/
   js/about.js                  disclaimer & donate: words and links (Menu ▸ Disclaimer & donate, about.html)
   js/looks.js, js/ambience.js  picture filters and lo-fi sound (Menu ▸ Picture & sound, V key)
   js/fxcanvas.js               the pixel, ASCII and stained-glass looks (and light versions of the others), drawn on a canvas
-  js/church.js                 a church's echo for a station's sound (a convolution reverb in the audio graph)
+  js/church.js                 a church's echo for a station's sound (echoes of the film itself; a reverb when a file allows CORS)
   js/framewatch.js             notices a filter making the picture choppy (Filter quality: Auto)
   js/library.js, js/ui/club.js the Video Club: library card, checkout rules, the store's shelves and screens
   js/changes.js                What's new: the changes in each version

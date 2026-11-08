@@ -59,7 +59,7 @@ export const DEAD_AIR_CHANNEL = {
     { id: "l-inferno-1911-eng", f: "L'Inferno (1911) eng.mp4", t: "L'Inferno", d: 4026, y: 1911 },
     { id: "Nosferatu1922HD", f: "Nosferatu (1922) HD.mp4", t: "Nosferatu", d: 5658, y: 1922 },
     { id: "Faust1926_201808", f: "Faust (1926).mp4", t: "Faust", d: 7327, y: 1926 },
-    { id: "ThePhantomCarriage_201405", f: "ThePhantomCarriage1921.mp4", t: "The Phantom Carriage", d: 6343, y: 1921 },
+    { id: "the-phantom-carriage-1921-restored-720p-hd", f: "the phantom carriage-1921-restored-720p-hd.mp4", t: "The Phantom Carriage", d: 6298, y: 1921 },
     { id: "SORROWSOFSATANSilent", f: "SORROWS_OF_SATAN silent.mp4", t: "The Sorrows of Satan", d: 5321, y: 1926 },
   ],
 };
@@ -108,7 +108,7 @@ export const SECRET_ABOUT = {
   "l-inferno-1911-eng": "Dante's Inferno, 1911: Italy's first feature film, a guided tour of the nine circles.",
   Nosferatu1922HD: "Murnau's 1922 vampire. Count Orlok has moved in across the street.",
   "Faust1926_201808": "Murnau's 1926 Faust: a scholar, a deal with Mephisto, and the price.",
-  "ThePhantomCarriage_201405": "Whoever dies last on New Year's Eve must drive Death's carriage for a year. Sweden, 1921.",
+  "the-phantom-carriage-1921-restored-720p-hd": "Whoever dies last on New Year's Eve must drive Death's carriage for a year. Sweden, 1921.",
   SORROWSOFSATANSilent: "D. W. Griffith, 1926: a starving writer, a charming stranger, and a very expensive bargain.",
   BeyondTomorrow_750: "Christmas Eve, 1940: three old men's ghosts stay behind to look after the young couple they brought together.",
   "heaven-only-knows-1947-classic-western-dramady": "An angel comes down to a Montana boomtown to find the one soul missing from the Book of Life. 1947.",

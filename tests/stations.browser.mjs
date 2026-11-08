@@ -1,7 +1,7 @@
 // The stations with their own picture and sound: 666 Dead Air in red ASCII (666 999 † *) at half speed and
 // an octave down, and 111 Pearly Gates in stained glass with its films ringing around a church. Also: the
-// viewer can still pick another filter there, both looks are in the filter list, and a film the Archive
-// won't hand over for the church plays the ordinary way.
+// viewer can still pick another filter there, both looks are in the filter list, and a film that won't
+// load with CORS (the real Archive's don't) plays the ordinary way, with echoes.
 //
 //   npm install --no-save playwright && node tests/stations.browser.mjs
 
@@ -195,7 +195,7 @@ const playing = (page) => page.waitForFunction(() => window.NP.state().mode === 
   await page.waitForTimeout(1500);
   let s = await st(page);
   check(s.station === "pearly-gates" && s.look.id === "glass", `111 wears Stained glass (${s.look.id})`);
-  check(s.sound.church && s.sound.cors && s.sound.inChurch && s.sound.rate === 1 && s.sound.pitch !== false, `…and its film's sound is in the church, at its own pitch (${JSON.stringify(s.sound)})`);
+  check(s.sound.church && s.sound.cors && s.sound.inChurch && s.sound.rate === 1 && s.sound.pitch !== false && s.sound.echo.on === 0, `…and its film's sound is in the church's reverb, at its own pitch (${JSON.stringify(s.sound)})`);
   let loud = 0;
   for (let i = 0; i < 10 && !loud; i++) {
     loud = (await st(page)).sound.level;
@@ -236,11 +236,29 @@ const playing = (page) => page.waitForFunction(() => window.NP.state().mode === 
 // ---------- 111 when the Archive won't allow CORS ----------
 {
   const { ctx, page, errors, state } = await open(PEARLY_GATES_CHANNEL, { noCors: true });
-  check(await playing(page), "a film the Archive won't hand over for the church still plays");
-  await page.waitForTimeout(800);
-  const s = await st(page);
+  check(await playing(page), "a film that won't load with CORS still plays");
+  await page.waitForFunction(() => window.NP.state().sound.echo.on === 3, null, { timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(2500);
+  let s = await st(page);
   check(s.channel === 111 && s.program === PEARLY_GATES_CHANNEL.items[0].t && !s.sound.cors && !s.sound.inChurch, `…the ordinary way, not dropped (${s.program}, ${JSON.stringify(s.sound)})`);
-  check(state.downloads.length >= 2, `…after trying it for the church first (${state.downloads.length} requests)`);
+  check(s.sound.echo.on === 3 && s.sound.echo.off < 250, `…with three echoes of its sound, each where it belongs (${JSON.stringify(s.sound.echo)})`);
+  check(state.downloads.length >= 2, `…after trying it with CORS first (${state.downloads.length} requests)`);
+  // Paused, the echoes stop too; playing again, they come back.
+  await page.keyboard.press(" ");
+  await page.waitForTimeout(700);
+  s = await st(page);
+  check(s.mode === "paused" && s.sound.echo.on === 0, `pausing the film pauses its echoes (${s.mode}, ${JSON.stringify(s.sound.echo)})`);
+  await page.keyboard.press(" ");
+  await page.waitForFunction(() => window.NP.state().sound.echo.on === 3, null, { timeout: 6000 }).catch(() => {});
+  check((await st(page)).sound.echo.on === 3, "…and playing again brings them back");
+  // Leaving the station stops them.
+  await page.evaluate((t) => window.__setNow(t), startOfFirstFilm(BBC_CHANNEL));
+  for (const d of "069") await page.keyboard.press(d);
+  await page.waitForTimeout(2600);
+  await page.keyboard.press("Enter");
+  await playing(page);
+  s = await st(page);
+  check(s.channel === 69 && s.sound.echo.on === 0 && !s.sound.church, `on another channel there are no echoes (CH ${s.channel}, ${JSON.stringify(s.sound.echo)})`);
   check(!errors.length, "no page errors " + errors.join(" | "));
   await ctx.close();
 }
