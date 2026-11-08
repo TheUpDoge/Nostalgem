@@ -292,9 +292,9 @@ export function parseShelves(json) {
 // and that the item exists and can be read). The Reading Room shows it as shelves of its own, one per
 // kind, in title order. The manga shelf shows even when it's empty, with the catalog's note on why.
 const CATALOG_SHELVES = [
-  { type: "book", id: "pd-books", icon: "📜", name: "Books" },
-  { type: "comic", id: "pd-comics", icon: "💥", name: "Comics" },
-  { type: "manga", id: "pd-manga", icon: "🗾", name: "Manga" },
+  { type: "book", id: "pd-books", icon: "📜", name: "Public-domain books" },
+  { type: "comic", id: "pd-comics", icon: "💥", name: "Public-domain comics" },
+  { type: "manga", id: "pd-manga", icon: "🗾", name: "Public-domain manga" },
 ];
 const CATALOG_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 
