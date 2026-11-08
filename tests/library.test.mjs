@@ -145,3 +145,17 @@ test("the card, a tape's box and the rewind screen", () => {
   assert.equal(counter(65), "0:01:05");
   assert.match(rewindHtml("Detour", 65), /0:01:05/);
 });
+
+test("a tape's TV-safe cut is off until the viewer turns it on, and it's remembered with the tape", async () => {
+  const { setSafeCut } = await import("../web/js/library.js");
+  let lib = issueCard(emptyLibrary(), "Test", 0).lib;
+  const film = { key: "film/f.mp4", item: { id: "film", f: "f.mp4", t: "Film", d: 5400, y: 1950 }, ch: null };
+  lib = checkOut(lib, film, 0).lib;
+  assert.ok(!loanFor(lib, film.key).cut, "off when checked out");
+  lib = setSafeCut(lib, film.key, true);
+  assert.equal(loanFor(lib, film.key).cut, true);
+  assert.equal(loanFor(cleanLibrary(JSON.parse(JSON.stringify(lib))), film.key).cut, true, "kept when stored");
+  lib = setSafeCut(lib, film.key, false);
+  assert.equal(loanFor(lib, film.key).cut, false);
+  assert.equal(setSafeCut(lib, "nope/x.mp4", true), lib, "no such tape: nothing changes");
+});

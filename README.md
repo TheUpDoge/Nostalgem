@@ -133,17 +133,27 @@ YouTube's player) and rebuilt daily:
   and **⏏ return** it. A tape still out when it's due goes back by itself, with no late fees. The card
   lives on that TV only: it isn't an archive.org account and doesn't borrow from the Archive's own
   lending library. Any channel that's all feature films becomes a shelf of its own in the club, so
-  any film on it can be checked out like a tape. Menu ▸ 📼 Video Club.
+  any film on it can be checked out like a tape. A film with a **clean cut** (below) has a *Play TV-safe
+  cut* switch on its tape. Menu ▸ 📼 Video Club.
 - **📚 Reading Room**: the Archive's scanned books, comics, manga and magazines, read like a book open on a
   desk under a reading lamp. On a TV it shows two pages side by side (the cover on its own); **manga reads
   right to left**; there's one page at a time, and *Fit width* for small print (▲▼ scroll). Day, sepia or
   night paper; type a number to jump to a page; series come as volumes. Shelves: manga, Golden Age
   comics, comics, pulp magazines, classic novels, children's classics, movie magazines, game and computer
-  magazines, plus a search and *open an archive.org link*. The same library card borrows up to **three
+  magazines, plus a search and *open an archive.org link*. Above them, **the club's catalog**: books and
+  Golden Age comics checked one by one to be public domain (`web/data/library-catalog.json`), and a manga
+  shelf that stays empty and says why. The same library card borrows up to **three
   books for two weeks**, stamped with a due date; a bookmark keeps your page. Books the Archive only lends
   (with an archive.org account) aren't on the shelves; opened from a link, they show a code to read them
   on archive.org. Menu ▸ 📚 Reading Room. Remote: ◀▶ turn, OK settings, BACK close; touch: tap the
   edges or swipe.
+- **✂ Clean cuts**: a few classic films are great but for a scene or two that can't air. A skip list names
+  those scenes by time (sexual content only: gore and violence are never cut), and the file is never
+  touched. On a live channel the scene goes under a full-screen card, **EXTREMELY GRAPHIC SCENE IS
+  PLAYING**, with the sound cut, and the film plays on underneath, so the clock and the guide stay right.
+  A Video Club tape plays as it is unless you turn its **TV-safe cut** on (on the tape's box); then the
+  scene is jumped over instead, with a word on screen. Times only ever come from a real viewing pass of the Archive's own file, so none ship yet:
+  `web/data/skip-lists.json` is empty, and a pack can carry its own (see [PACKS.md](PACKS.md)).
 - **📱 Phone remote**: Menu ▸ Phone remote shows a QR code; the phone opens it and becomes a
   remote for that TV — channels, volume, guide — over a direct connection. The pairing code is
   kept, so a paired phone reconnects after the TV restarts.
@@ -309,9 +319,9 @@ app pick it up.
 ### Channel packs
 
 A channel pack is a small JSON file that adds channels on your own TV, without touching
-the shipped lineup. From the Menu: **Load a channel pack**, then choose a `.json` file or
-paste its text. Pack channels land on CH 30–49 and are saved on that TV only, like channels
-you add by search.
+the shipped lineup. From the Menu: **Load a channel pack**, then choose a `.json` file, or a
+`.zip` holding several packs, or paste its text. Pack channels land on CH 30–49 and are saved
+on that TV only, like channels you add by search.
 
 A pack defines one or more channels — a name, a number (30–49), and an Archive source:
 a collection search or explicit Archive item IDs. Nothing else is allowed: no YouTube, no
@@ -322,8 +332,8 @@ built from the same Archive query as CH 1 High Noon).
 Two packs ship with the repo: [1980s Sci-Fi — Public Domain](packs/1980s-sci-fi-pd.json)
 (CH 30: 33 public-domain sci-fi features; CH 31: 45 Shuttle-era NASA and space-age films)
 and [1990s Horror — Public Domain](packs/1990s-horror-pd.json) (CH 32: 36 public-domain
-horror features), plus a [library catalog](packs/library-catalog.json) of public-domain
-books and Golden Age comics, kept as a link-out list until the app reads it. The 1980s/90s features
+horror features), plus a [library catalog](web/data/library-catalog.json) of public-domain
+books and Golden Age comics, on the Reading Room's catalog shelves. The 1980s/90s features
 themselves are still under copyright, so they can't ship in a public pack — those live
 on your own TV by pack, if you choose.
 
@@ -396,6 +406,7 @@ web/
   js/looks.js, js/ambience.js  picture filters and lo-fi sound (Menu ▸ Picture & sound, V key)
   js/fxcanvas.js               the pixel, ASCII and stained-glass looks (and light versions of the others), drawn on a canvas
   js/church.js                 a church's echo for a station's sound (echoes of the film itself; a reverb when a file allows CORS)
+  js/cuts.js                   clean cuts: skip lists checked, and how a program plays with one (card or skip)
   js/framewatch.js             notices a filter making the picture choppy (Filter quality: Auto)
   js/library.js, js/ui/club.js the Video Club: library card, checkout rules, the store's shelves and screens
   js/changes.js                What's new: the changes in each version
@@ -403,7 +414,10 @@ web/
   js/books.js, js/ui/reader.js the Reading Room: Archive books as page images, and the reader
   js/ui/stacks.js              the Reading Room's book box and due-date slip
   data/books.json              the Reading Room's shelves (Archive searches)
+  data/library-catalog.json    the club's catalog: checked public-domain books and comics (the catalog shelves)
+  data/skip-lists.json         clean cuts that ship (none yet: times come from a real viewing pass)
   js/packs.js                  channel packs: format, validator, loader (Menu ▸ Load a channel pack)
+  js/zip.js                    reads a .zip of packs (stored or deflated files; its own inflate and CRC-32)
   js/main.js                   wires it all together
   data/channels.json           channel definitions
   data/bumpers.json            house bumpers for the station breaks

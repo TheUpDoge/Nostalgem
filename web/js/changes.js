@@ -4,6 +4,15 @@
 
 export const CHANGES = [
   {
+    v: "1.11.0",
+    title: "The club's catalog, and clean cuts",
+    items: [
+      "Reading Room: the club's catalog, 59 books and 8 Golden Age comics checked one by one to be public domain, on shelves of their own.",
+      "Clean cuts: a scene a film can't air goes under a card, with the sound off, while the film plays on. A Video Club tape plays as it is, unless you turn its TV-safe cut on to skip the scene instead. None are listed yet: each one is timed by hand.",
+      "Channel packs can come as a .zip: every pack in it loads together.",
+    ],
+  },
+  {
     v: "1.10.2",
     title: "Small fixes",
     items: ["111's films start a little sooner.", "111's 1910 Christmas Carol shows its picture, not just its sound."],

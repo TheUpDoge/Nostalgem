@@ -128,7 +128,7 @@ export function tapeBoxHtml(film, loan, desc, now, note) {
     "</div>" +
     (about ? '<div class="club-box-about">' + esc(about.length > 260 ? about.slice(0, 257) + "…" : about) + "</div>" : "") +
     '<div class="club-box-state">' +
-    esc(loan ? "📼 You have this tape · " + tapeState(loan, now) : note || "On the shelf") +
+    esc(loan ? "📼 You have this tape · " + tapeState(loan, now) + (note ? " · " + note : "") : note || "On the shelf") +
     "</div>" +
     '<div class="club-box-link">' +
     esc(detailsUrl(it.id).replace(/^https?:\/\//, "")) +

@@ -12,6 +12,7 @@
     "test:touch": "node tests/touch.browser.mjs",
     "test:tvapp": "node tests/tvapp.browser.mjs",
     "test:stations": "node tests/stations.browser.mjs",
+    "test:cuts": "node tests/cuts.browser.mjs",
     "lineup": "node tools/build-lineup.mjs"
   },
   "devDependencies": {
