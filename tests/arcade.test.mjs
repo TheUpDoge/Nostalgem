@@ -8,7 +8,7 @@ import { chKey } from "../web/js/util.js";
 const normal = { slug: "high-noon", number: 1, name: "High Noon", items: [] };
 
 test("the arcade station is reached by typing 777", () => {
-  assert.equal(ARCADE_URL, "https://quenq.com/arcade/");
+  assert.equal(ARCADE_URL, "https://www.retrogames.cc/");
   assert.equal(ARCADE_CHANNEL.number, 777);
   assert.equal(chKey(ARCADE_CHANNEL), "777");
   assert.equal(isLinkChannel(ARCADE_CHANNEL), true);
@@ -29,14 +29,14 @@ test("the arcade station never appears in a listing", () => {
   assert.equal(isGuideVisible(normal, new Set()), true);
   assert.equal(isGuideVisible(normal, new Set(["high-noon"])), false);
   // A hidden normal channel stays hidden; the secret stays hidden either way.
-  assert.equal(isGuideVisible(ARCADE_CHANNEL, new Set(["quenq-arcade"])), false);
+  assert.equal(isGuideVisible(ARCADE_CHANNEL, new Set(["retrogames"])), false);
 });
 
 test("the arcade card is a link-out, not an embed", () => {
   const html = arcadeCard(ARCADE_CHANNEL);
-  assert.match(html, /QUENQ ARCADE/);
+  assert.match(html, /RETROGAMES\.CC/);
   assert.match(html, /INSERT COIN/);
-  assert.match(html, /https:\/\/quenq\.com\/arcade\//);
+  assert.match(html, /https:\/\/www\.retrogames\.cc\//);
   assert.match(html, /target="_blank"/);
   assert.match(html, /rel="noopener"/);
   assert.doesNotMatch(html, /<iframe/);
@@ -51,7 +51,7 @@ test("OK opens the arcade in a new tab", () => {
     return null;
   }
   assert.equal(openArcade(fake), true);
-  assert.deepEqual(calls, [["https://quenq.com/arcade/", "_blank"]]);
+  assert.deepEqual(calls, [["https://www.retrogames.cc/", "_blank"]]);
   assert.equal(
     openArcade(function () {
       throw new Error("blocked");
