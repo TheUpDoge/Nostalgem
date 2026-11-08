@@ -14,10 +14,12 @@ import { createGamepad } from "./gamepad.js";
 import { LOOKS, asciiMask, comboCss, lookById, lookCss, lookYtCss, looksSvg, mixable, nextLook } from "./looks.js";
 import { FrameWatch } from "./framewatch.js";
 import { MAX_TAPES, LOAN_HOURS, MAX_BOOKS, BOOK_DAYS, cleanLibrary, issueCard, cancelCard, loanFor, checkOut, setPosition, isRewound, rewind, returnTape, overdue, storeShelves, staffPicks, searchStore, bookLoan, borrowBook, returnBook, overdueBooks, setMark, markFor } from "./library.js";
-import { bookSearchUrl, parseBookSearch, bookFromMetadata, pageNumbersUrl, parsePageNumbers, parseShelves } from "./books.js";
+import { bookSearchUrl, parseBookSearch, bookFromMetadata, pageNumbersUrl, parsePageNumbers, scandataUrl, parseScandata, parseShelves } from "./books.js";
 import { Reader } from "./ui/reader.js";
 import * as Stacks from "./ui/stacks.js";
 import * as Club from "./ui/club.js";
+import { SECRET_STATIONS, SECRET_ABOUT, secretStation, introHtml, introSound, stationQuip, stationClock, bugText } from "./secrets.js";
+import { CHANGES, whatsNew, changesHtml, WELCOME_HTML } from "./changes.js";
 import { CanvasLook } from "./fxcanvas.js";
 import { Ambience, AMBIENCES, ambienceName } from "./ambience.js";
 import { pickSubtitle, subtitleLabel } from "./captions.js";
@@ -32,7 +34,7 @@ import { loadLineup, builtAt } from "./lineup.js";
 import { loadBumpers } from "./bumpers.js";
 import { pad2, escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder, numberText } from "./util.js";
 
-const VERSION = "1.8.0";
+const VERSION = "1.9.0";
 const NAME = "NostalGem";
 const params = new URLSearchParams(window.location.search);
 const ANDROID = params.get("tv") === "android";
@@ -44,6 +46,8 @@ const LINEUP_RECHECK = 3 * 3600 * 1000; // coming back to the app after this lon
 
 const DEFAULTS = { crt: "light", fit: "contain", cc: "off", staticFx: "sound", bug: true, clock24: false, surf: "all", phone: false, region: "auto", look: "off", mix: "off", ambience: "off", lookQuality: "auto", liteLooks: {}, readMode: "auto", readPaper: "day" };
 const SLEEP_STEPS = [0, 15, 30, 45, 60, 90, 120];
+// Whether this TV had used NostalGem before this start (for a welcome, or "what's new").
+const HAD_USED = load("settings", null) != null || load("last", null) != null || load("favs", null) != null;
 const STILL_AFTER = 4 * 3600 * 1000; // no button pressed for four hours: ask
 const STILL_GRACE = 2 * 60 * 1000; // then switch off two minutes later
 const BAD_TTL = 24 * 3600 * 1000; // a file that wouldn't play is skipped for a day
@@ -355,6 +359,16 @@ function tuneTo(ch, opts) {
   V.osdChannel(ch);
   app.lastProgKey = "";
   applyCaptions();
+  // The secret stations dress the set while they're on (Dead Air's red glow), and say goodbye.
+  const wasStation = app.station || "";
+  app.station = secretStation(ch);
+  tv.classList.toggle("station-bible-boys-church", app.station === "bible-boys-church");
+  tv.classList.toggle("station-dead-air", app.station === "dead-air");
+  if (wasStation && wasStation !== app.station) {
+    hideIntro(false);
+    const bye = stationQuip(wasStation, "leave");
+    if (bye) V.toast(bye, 3000);
+  }
   if (isLinkChannel(ch)) {
     // A link-out station has no schedule: park the player, let the snow settle, and show its card.
     player.off();
@@ -366,8 +380,32 @@ function tuneTo(ch, opts) {
     return;
   }
   player.tune(timelineFor(ch));
-  if (!o.quiet) showBanner(6000);
+  if (app.station && !o.quiet) showIntro(ch);
+  else if (!o.quiet) showBanner(6000);
   updateBug();
+}
+
+// A secret station's opening card and sound, for a few seconds (any button skips it).
+function showIntro(ch) {
+  const el = $("intro");
+  hideBanner();
+  el.className = "intro intro-" + secretStation(ch);
+  el.innerHTML = introHtml(ch);
+  el.hidden = false;
+  if (fx.sound) introSound(secretStation(ch));
+  clearTimeout(app.introTimer);
+  app.introTimer = setTimeout(function () {
+    hideIntro(true);
+  }, 5500);
+}
+function hideIntro(thenBanner) {
+  clearTimeout(app.introTimer);
+  app.introTimer = 0;
+  const el = $("intro");
+  if (el.hidden) return;
+  el.hidden = true;
+  el.innerHTML = "";
+  if (thenBanner && app.state === "on" && !overlayOpen()) showBanner(5000);
 }
 
 // ▲▼ moves the number at once but waits a beat before tuning, so holding the button flips quickly.
@@ -421,8 +459,10 @@ function digit(n) {
     const k = chKey(c);
     return k.length > typed.length && k.indexOf(typed) === 0;
   });
-  if (longer) V.osd("CH " + typedLabel(typed), "", 2500);
-  if ((exact && !longer) || typed.length >= 4 || (!exact && !longer)) commitDigits();
+  // A leading zero ("069", "01") waits for the rest of the number.
+  const zero = typed.charAt(0) === "0" && typed.length < 3;
+  if (longer || zero) V.osd("CH " + typedLabel(typed), "", 2500);
+  if (!zero && ((exact && !longer) || typed.length >= 4 || (!exact && !longer))) commitDigits();
   else app.digitTimer = setTimeout(commitDigits, 1600);
 }
 
@@ -474,7 +514,7 @@ function togglePause(kind) {
   if (kind === "pause" && player.mode !== "playing") return;
   const r = player.togglePause();
   if (r === "paused") {
-    V.toast("PAUSED · press ▶❚❚ or OK in the menu to resume", 2500);
+    V.toast(stationQuip(app.station, "pause") || "PAUSED · press ▶❚❚ or OK in the menu to resume", 2500);
     showBanner(0);
   } else if (r === "playing") showBanner(4000);
 }
@@ -1290,8 +1330,25 @@ function loadPages(book, v) {
   if (!vol) return Promise.resolve(null);
   const key = book.id + "/" + vol.stem;
   if (!pageCache[key]) {
+    // The page-number file, or for books scanned before those existed, the scan's own page list.
     pageCache[key] = browserFetchJson(pageNumbersUrl(book.id, vol.stem))
       .then(parsePageNumbers)
+      .then(function (info) {
+        if (info.count > 0) return info;
+        throw new Error("no pages listed");
+      })
+      .catch(function () {
+        return fetch(scandataUrl(book.id, vol.stem), { credentials: "omit" })
+          .then(function (r) {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            return r.text();
+          })
+          .then(parseScandata);
+      })
+      .then(function (info) {
+        if (!info || !(info.count > 0)) throw new Error("no pages listed");
+        return info;
+      })
       .catch(function () {
         delete pageCache[key];
         return null;
@@ -1977,7 +2034,7 @@ function updateBug() {
   const show = !!(s.bug && ch && app.state === "on" && (player.mode === "playing" || player.mode === "paused") && banner.hidden && !overlayOpen() && ch.kind !== "audio");
   bug.hidden = !show;
   if (show) {
-    const text = (ch.icon ? ch.icon + " " : "") + chLabel(ch);
+    const text = bugText(ch, (ch.icon ? ch.icon + " " : "") + chLabel(ch));
     if (bug.textContent !== text) bug.textContent = text;
   }
 }
@@ -2011,6 +2068,7 @@ function renderBanner() {
     sleepLeft: app.sleepAt ? app.sleepAt - Date.now() : 0,
     desc: item ? app.about[item.id] : "",
     clock24: s.clock24,
+    clockText: stationClock(app.station, s.clock24),
     hints: hints(),
   });
 }
@@ -2232,6 +2290,15 @@ function rootPage() {
         sub: true,
         ok: function () {
           menu.push(packPage());
+        },
+      });
+      list.push({
+        label: "📰 What's new",
+        sub: true,
+        value: "v" + VERSION,
+        ok: function () {
+          showWhatsNew(true);
+          return "close";
         },
       });
       list.push({
@@ -2717,6 +2784,41 @@ function drawDonateQr() {
     .catch(function () {
       /* the address is in the text */
     });
+}
+
+// A first start gets a welcome; an update, what's changed since the version last seen. force: from the
+// menu, every version's changes.
+function showWhatsNew(force) {
+  const seen = load("seenVersion", "");
+  const w = force ? { kind: "update", entries: CHANGES } : whatsNew(seen, VERSION, HAD_USED);
+  if (!w.kind) return false;
+  const welcome = w.kind === "welcome";
+  const buttons = [
+    {
+      label: welcome ? "▶ Start watching" : "Got it",
+      action: function (d) {
+        d.close();
+      },
+    },
+  ];
+  if (welcome) {
+    buttons.push({
+      label: "📰 What's new",
+      action: function (d) {
+        d.close();
+        showWhatsNew(true);
+      },
+    });
+  }
+  dialog.open({
+    title: welcome ? "📺 Welcome to NostalGem" : "✨ What's new in NostalGem",
+    html: '<div class="wn-head">Version ' + esc(VERSION) + (native.app ? " · TV app " + esc(native.app) : "") + "</div>" + (welcome ? WELCOME_HTML : changesHtml(w.entries)),
+    buttons: buttons,
+    onClose: function () {
+      save("seenVersion", VERSION);
+    },
+  });
+  return true;
 }
 
 function showArchiveAbout() {
@@ -3382,6 +3484,7 @@ function restoreCard() {
 // ---------- input ----------
 function handleAction(a) {
   app.lastInput = Date.now();
+  if (app.introTimer) hideIntro(false);
   ambience.resume();
   if (fx.audio && fx.audio.state === "suspended") {
     try {
@@ -3589,21 +3692,72 @@ let pointerTimer = 0;
 function pointerActivity() {
   touch.hidden = false;
   tv.classList.add("touch-on");
-  touch.classList.toggle("overlay", overlayOpen());
   tv.classList.remove("hide-cursor");
+  syncTouch();
   clearTimeout(pointerTimer);
-  pointerTimer = setTimeout(function () {
+  const hide = function () {
+    // With the guide or a menu open the buttons stay: they're how a finger gets around it.
+    if (navOpen()) {
+      pointerTimer = setTimeout(hide, 5000);
+      return;
+    }
     touch.hidden = true;
     tv.classList.remove("touch-on");
     tv.classList.add("hide-cursor");
-  }, 5000);
+    syncTouch();
+  };
+  pointerTimer = setTimeout(hide, 5000);
 }
+// The guide, a menu, a dialog or the number pad: the dock turns into arrows, OK and BACK.
+function navOpen() {
+  return (dialog.isOpen || menu.isOpen || guide.isOpen || numpad.isOpen) && !reader.isOpen;
+}
+// Keeps the dock and the screens under it in step: the guide and menus end above the dock.
+function syncTouch() {
+  const nav = navOpen();
+  touch.classList.toggle("overlay", nav);
+  const pad = nav && !touch.hidden;
+  if (tv.classList.contains("touch-nav") !== pad) {
+    tv.classList.toggle("touch-nav", pad);
+    if (guide.isOpen) guide.render();
+    if (menu.isOpen) menu.render();
+  }
+}
+// Hold an arrow (or CH) to keep going, like holding a remote's button.
+let held = null;
+function stopHold() {
+  if (!held) return;
+  clearTimeout(held.timer);
+  clearInterval(held.every);
+  held = null;
+}
+touch.addEventListener("pointerdown", function (e) {
+  const b = e.target.closest ? e.target.closest("[data-repeat]") : null;
+  if (!b) return;
+  e.preventDefault();
+  stopHold();
+  const t = b.getAttribute("data-act");
+  const press = function () {
+    pointerActivity();
+    handleAction({ type: t });
+    syncTouch();
+  };
+  press();
+  held = { timer: 0, every: 0 };
+  held.timer = setTimeout(function () {
+    if (held) held.every = setInterval(press, 110);
+  }, 400);
+});
+["pointerup", "pointercancel", "blur"].forEach(function (ev) {
+  window.addEventListener(ev, stopHold);
+});
 document.addEventListener("mousemove", pointerActivity);
 document.addEventListener("touchstart", pointerActivity, { passive: true });
 touch.addEventListener("click", function (e) {
   const b = e.target.closest ? e.target.closest("[data-act]") : null;
   if (!b) return;
   e.stopPropagation();
+  if (b.hasAttribute("data-repeat")) return; // pressed on pointerdown
   pointerActivity();
   const t = b.getAttribute("data-act");
   if (t === "back") back();
@@ -3611,7 +3765,7 @@ touch.addEventListener("click", function (e) {
     if (numpad.isOpen) numpad.close();
     else openNumpad();
   } else handleAction({ type: t });
-  touch.classList.toggle("overlay", overlayOpen());
+  syncTouch();
 });
 tv.addEventListener("click", function (e) {
   // A click on a menu row or dialog button can remove that element before the click gets here (the menu
@@ -3620,21 +3774,29 @@ tv.addEventListener("click", function (e) {
   if (e.target.closest && e.target.closest(".touch,.guide,.menu,.dialog,.banner,.numpad,.reader")) return;
   handleAction({ type: "ok" });
 });
-let touchY = null;
+// Swipe up or down on the picture to change channel. The cards on the picture (the banner, a break's
+// countdown, stand-by) redraw every second, which can take away the element under the finger before it
+// lifts; a touch's events keep going to that element even then, so the swipe's end is heard there.
 tv.addEventListener(
   "touchstart",
   function (e) {
-    touchY = e.touches && e.touches.length === 1 ? e.touches[0].clientY : null;
-  },
-  { passive: true }
-);
-tv.addEventListener(
-  "touchend",
-  function (e) {
-    if (touchY == null || overlayOpen() || !e.changedTouches || !e.changedTouches.length) return;
-    const dy = e.changedTouches[0].clientY - touchY;
-    touchY = null;
-    if (Math.abs(dy) > 70) surf(dy < 0 ? 1 : -1);
+    if (!e.touches || e.touches.length !== 1) return;
+    const x0 = e.touches[0].clientX;
+    const y0 = e.touches[0].clientY;
+    const target = e.target;
+    const done = function () {
+      target.removeEventListener("touchend", end);
+      target.removeEventListener("touchcancel", done);
+    };
+    const end = function (ev) {
+      done();
+      const t = ev.changedTouches && ev.changedTouches[0];
+      if (!t || overlayOpen()) return;
+      const dy = t.clientY - y0;
+      if (Math.abs(dy) > 70 && Math.abs(dy) > Math.abs(t.clientX - x0)) surf(dy < 0 ? 1 : -1);
+    };
+    target.addEventListener("touchend", end, { passive: true });
+    target.addEventListener("touchcancel", done, { passive: true });
   },
   { passive: true }
 );
@@ -3727,6 +3889,8 @@ window.NP = {
         }),
       },
       reader: reader.state(),
+      station: app.station || "",
+      intro: !$("intro").hidden,
       look: { id: s.look, mix: s.mix, key: lookKey(), lite: lookIsLite(), quality: s.lookQuality, watching: frameWatch.key, fps: frameWatch.last },
     };
   },
@@ -3740,6 +3904,7 @@ function tick() {
   ambience.setActive(app.state === "on" && !app.suspended && !player.muted);
   watchFrames();
   clubTick(now);
+  syncTouch();
   if (app.pairOpen && app.ticks % 4 === 0) pairStatus(); // relay servers coming and going
   if (app.bannerUntil) {
     if (now > app.bannerUntil && player.mode !== "paused") hideBanner();
@@ -3787,7 +3952,7 @@ function applyLineup(lineup, source) {
   // A channel number typed into Search used to build a channel of whatever the Archive had for "777"
   // (a TV remote with no number buttons). Those channels are mistakes: drop them.
   const keys = {};
-  lineup.channels.concat(LINK_CHANNELS).forEach(function (c) {
+  lineup.channels.concat(LINK_CHANNELS, SECRET_STATIONS).forEach(function (c) {
     keys[chKey(c)] = 1;
     keys[String(c.number)] = 1;
   });
@@ -3810,6 +3975,11 @@ function applyLineup(lineup, source) {
   LINK_CHANNELS.forEach(function (c) {
     app.channels.push(c);
   });
+  // The secret stations (069, 666): hidden like the link-outs, but they play.
+  SECRET_STATIONS.forEach(function (c) {
+    app.channels.push(c);
+  });
+  Object.assign(app.about, SECRET_ABOUT);
   app.timelines = {};
 }
 
@@ -3862,6 +4032,8 @@ function askApp() {
 }
 
 async function boot() {
+  const bootVersion = document.querySelector(".boot-version");
+  if (bootVersion) bootVersion.textContent = "v" + VERSION;
   askApp();
   registerTvKeys();
   applyLook();
@@ -3903,6 +4075,10 @@ async function boot() {
   }, 700);
   app.state = "on";
   tuneTo(start);
+  // Once the start-up screen has gone: a welcome, or what's new since last time.
+  setTimeout(function () {
+    if (app.state === "on" && !overlayOpen()) showWhatsNew(false);
+  }, 1500);
   // Any standard controller drives the remote: D-pad to surf, A for OK, B to go back.
   createGamepad(
     function (a) {

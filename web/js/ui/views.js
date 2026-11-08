@@ -157,7 +157,7 @@ export function bannerHtml(d) {
     hintsHtml(d.hints) +
     "</div>" +
     '<div class="b-side"><div class="b-clock">' +
-    esc(fmtClock(new Date(), d.clock24)) +
+    esc(d.clockText || fmtClock(new Date(), d.clock24)) +
     "</div>" +
     next +
     "</div>"

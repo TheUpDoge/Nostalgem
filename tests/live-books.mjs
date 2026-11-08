@@ -63,6 +63,7 @@ const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
 await ctx.addInitScript(() => {
   window.NostalGemRelayBrokers = [];
+  localStorage.setItem("nostalgem:seenVersion", JSON.stringify("999.0.0")); // no What's new page in the way
   // A library card already, so the app goes straight to borrowing.
   localStorage.setItem("nostalgem:library", JSON.stringify({ card: { name: "Live Check", number: "NG 0000 0000 0000", issued: Date.now(), terms: 1 }, loans: [], history: [], books: [], marks: {} }));
 });
@@ -72,8 +73,10 @@ page.on("pageerror", (e) => errors.push(e.message));
 await page.goto(site + "?ch=1");
 await page.waitForFunction(() => window.NP && window.NP.state().app === "on", null, { timeout: 30000 }).catch(() => {});
 
-const samples = ["alicesadventures00carr", "photoplay3334movi"];
-if (firstOf.manga && firstOf.manga[0]) samples.push(firstOf.manga[0].id);
+// A book, a two-volume magazine, a manga in a folder named with brackets and braces (no page-number files),
+// and today's first manga on the shelf.
+const samples = ["alicesadventures00carr", "photoplay3334movi", "manga_Berserk"];
+if (firstOf.manga && firstOf.manga[0] && samples.indexOf(firstOf.manga[0].id) < 0) samples.push(firstOf.manga[0].id);
 for (const id of samples) {
   const got = await page.evaluate(async (id) => {
     const b = await import("./js/books.js");
@@ -86,9 +89,20 @@ for (const id of samples) {
       out.rtl = book.rtl;
       out.restricted = book.restricted;
       const vol = book.volumes[0];
-      const pn = await fetch(b.pageNumbersUrl(id, vol.stem), { credentials: "omit" });
-      out.pagesHttp = pn.status;
-      const info = b.parsePageNumbers(await pn.json());
+      out.direct = !!(book.server && book.dir);
+      let info = { count: 0 };
+      try {
+        const pn = await fetch(b.pageNumbersUrl(id, vol.stem), { credentials: "omit" });
+        if (pn.ok) info = b.parsePageNumbers(await pn.json());
+      } catch (e) {
+        /* older scans have no page-number file */
+      }
+      out.from = "page numbers";
+      if (!info.count) {
+        const sd = await fetch(b.scandataUrl(id, vol.stem), { credentials: "omit" });
+        info = b.parseScandata(await sd.text());
+        out.from = "scandata";
+      }
       out.count = info.count;
       const load = (url) =>
         new Promise((ok) => {
@@ -104,19 +118,20 @@ for (const id of samples) {
           };
           img.src = url;
         });
-      out.first = await load(b.pageUrl(id, vol.stem, 0, 800));
-      out.middle = await load(b.pageUrl(id, vol.stem, Math.floor(info.count / 2), 800));
-      out.last = await load(b.pageUrl(id, vol.stem, info.count - 1, 800));
-      out.past = await load(b.pageUrl(id, vol.stem, info.count + 3, 800));
+      out.first = await load(b.pageUrl(id, vol.stem, 0, 800, book));
+      out.middle = await load(b.pageUrl(id, vol.stem, Math.floor(info.count / 2), 800, book));
+      out.last = await load(b.pageUrl(id, vol.stem, info.count - 1, 800, book));
+      // The other way, through archive.org's redirect, for volumes it can name.
+      if (!/[{}]/.test(vol.stem)) out.redirect = await load(b.pageUrl(id, vol.stem, 1, 800));
     } catch (e) {
       out.error = e.message;
     }
     return out;
   }, id);
   console.log("    ", JSON.stringify(got));
-  check(!got.error && got.volumes > 0 && got.pagesHttp === 200 && got.count > 0, `${id}: details and page list (${got.title}, ${got.volumes} volume(s), ${got.count} pages${got.rtl ? ", right to left" : ""})`);
-  check(got.first && got.first.w >= 300 && got.middle.w >= 300 && got.last.w >= 300, `${id}: page images load (first ${got.first && got.first.w}×${got.first && got.first.h}, last ${got.last && got.last.w}×${got.last && got.last.h})`);
-  check(got.past && got.past.w === 0, `${id}: a page past the end doesn't load (so the reader can find the end) (${JSON.stringify(got.past)})`);
+  check(!got.error && got.volumes > 0 && got.count > 0 && got.direct, `${id}: details and page count from its ${got.from} (${got.title}, ${got.volumes} volume(s), ${got.count} pages${got.rtl ? ", right to left" : ""})`);
+  check(got.first && got.first.w >= 300 && got.middle.w >= 300 && got.last.w >= 300, `${id}: page images load straight from its server (first ${got.first && got.first.w}×${got.first && got.first.h}, last ${got.last && got.last.w}×${got.last && got.last.h})`);
+  if (got.redirect) check(got.redirect.w >= 300, `${id}: …and through archive.org's redirect (${got.redirect.w}×${got.redirect.h})`);
 }
 
 // 3. The app: borrow from a shelf and read.

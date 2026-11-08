@@ -9,6 +9,7 @@
     "test:browser": "node tests/smoke.browser.mjs",
     "test:lan": "node tests/lan-link.browser.mjs",
     "test:relay": "node tests/relay.browser.mjs",
+    "test:touch": "node tests/touch.browser.mjs",
     "lineup": "node tools/build-lineup.mjs"
   },
   "devDependencies": {

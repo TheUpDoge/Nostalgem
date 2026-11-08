@@ -72,36 +72,54 @@ const fake = { failing: false, downloads: 0 };
 // The Reading Room's books: a 7-page book, a two-volume manga (5 and 4 pages), and one the Archive only lends.
 const BOOKS = {
   test_book: { md: { identifier: "test_book", title: "Test Book", creator: "Carroll, Lewis, 1832-1898", date: "1911", imagecount: "7", description: "A book made for testing." }, vols: { test_book: 7 } },
-  test_manga: { md: { identifier: "test_manga", title: "MANGA: Test Manga", collection: ["manga_library"] }, vols: { "Test Manga v01 (Digital) (grp)": 5, "Test Manga v02 (Digital) (grp)": 4 } },
+  // The manga's volumes sit in a folder with brackets and braces in its name, its pages come straight from
+  // its own server, and it has no page-number files: the scan's page list counts its pages.
+  test_manga: { md: { identifier: "test_manga", title: "MANGA: Test Manga", collection: ["manga_library"] }, server: "ia800001.us.archive.org", dir: "/1/items/test_manga", scandata: true, vols: { "!Test [grp]{HD}/Test Manga v01 (Digital) (grp)": 5, "!Test [grp]{HD}/Test Manga v02 (Digital) (grp)": 4 } },
   test_lent: { md: { identifier: "test_lent", title: "Lent Book", "access-restricted-item": "true" }, vols: { test_lent: 9 } },
 };
 const json = (route, body) => route.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify(body) });
+// A portrait page that shows its own number, so a screenshot shows the order. 404 past the end.
+function pageImage(route, id, vol, n) {
+  const book = BOOKS[id];
+  const pages = book && book.vols[vol];
+  fake.pages = (fake.pages || 0) + 1;
+  if (!pages || n >= pages) return route.fulfill({ status: 404, body: "" });
+  const k = n + 1;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="900"><rect width="600" height="900" fill="#f4ecd8"/><rect x="40" y="60" width="520" height="300" fill="hsl(${k * 47},55%,60%)"/><text x="300" y="560" font-size="160" text-anchor="middle" font-family="serif" fill="#3a2a18">${k}</text><text x="300" y="820" font-size="36" text-anchor="middle" font-family="serif" fill="#6b5634">${id} · page ${k}</text></svg>`;
+  return route.fulfill({ status: 200, contentType: "image/svg+xml", body: svg });
+}
+// Stand-in for an item's own server, where page images come from.
+async function itemServer(route) {
+  const url = new URL(route.request().url());
+  if (url.pathname !== "/BookReader/BookReaderImages.php") return route.fulfill({ status: 404, body: "" });
+  const id = url.searchParams.get("id");
+  const book = BOOKS[id];
+  const page = /^n(\d+)(?:_w\d+)?\.jpg$/.exec(url.searchParams.get("page") || "");
+  if (!book || !page || url.searchParams.get("itemPath") !== book.dir || url.searchParams.get("server") !== url.hostname) return route.fulfill({ status: 404, body: "" });
+  fake.direct = (fake.direct || 0) + 1;
+  return pageImage(route, id, url.searchParams.get("subPrefix") || id, Number(page[1]));
+}
 async function archive(route) {
   const url = new URL(route.request().url());
   const p = url.pathname;
   const page = /^\/download\/([^/]+)\/(?:(.+)\/)?page\/n(\d+)(?:_w\d+)?\.jpg$/.exec(p);
-  if (page) {
-    const book = BOOKS[page[1]];
-    const vol = page[2] ? decodeURIComponent(page[2]) : page[1];
-    const n = book && book.vols[vol];
-    fake.pages = (fake.pages || 0) + 1;
-    if (!n || Number(page[3]) >= n) return route.fulfill({ status: 404, body: "" });
-    // A portrait page that shows its own number, so a screenshot shows the order.
-    const k = Number(page[3]) + 1;
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="900"><rect width="600" height="900" fill="#f4ecd8"/><rect x="40" y="60" width="520" height="300" fill="hsl(${k * 47},55%,60%)"/><text x="300" y="560" font-size="160" text-anchor="middle" font-family="serif" fill="#3a2a18">${k}</text><text x="300" y="820" font-size="36" text-anchor="middle" font-family="serif" fill="#6b5634">${page[1]} · page ${k}</text></svg>`;
-    return route.fulfill({ status: 200, contentType: "image/svg+xml", body: svg });
-  }
-  const numbers = /^\/cors\/([^/]+)\/(.+)_page_numbers\.json$/.exec(p);
+  if (page) return pageImage(route, page[1], page[2] ? decodeURIComponent(page[2]) : page[1], Number(page[3]));
+  const numbers = /^\/cors\/([^/]+)\/(.+)_(page_numbers\.json|scandata\.xml)$/.exec(p);
   if (numbers) {
     const book = BOOKS[numbers[1]];
     const n = book && book.vols[decodeURIComponent(numbers[2])];
-    if (!n) return route.fulfill({ status: 404, body: "" });
+    const xml = numbers[3] === "scandata.xml";
+    if (!n || xml !== !!book.scandata) return route.fulfill({ status: 404, body: "" });
+    if (xml) {
+      const pages = Array.from({ length: n + 1 }, (_, i) => `<page leafNum="${i}"><addToAccessFormats>${i === n ? "false" : "true"}</addToAccessFormats></page>`).join("");
+      return route.fulfill({ status: 200, contentType: "text/xml", headers: { "access-control-allow-origin": "*" }, body: `<book><bookData><leafCount>${n + 1}</leafCount></bookData><pageData>${pages}</pageData></book>` });
+    }
     return json(route, { pages: Array.from({ length: n }, (_, i) => ({ leafNum: i + 1, pageNumber: i < 2 ? "" : String(i - 1) })) });
   }
   const meta = /^\/metadata\/(test_book|test_manga|test_lent)$/.exec(p);
   if (meta) {
     const book = BOOKS[meta[1]];
-    return json(route, { metadata: book.md, files: Object.keys(book.vols).map((v) => ({ name: v + "_jp2.zip" })) });
+    return json(route, { server: book.server, dir: book.dir, metadata: book.md, files: Object.keys(book.vols).map((v) => ({ name: v + "_jp2.zip" })) });
   }
   if (p === "/advancedsearch.php" && /mediatype:texts/.test(url.searchParams.get("q") || "")) {
     return json(route, { response: { numFound: 3, docs: Object.values(BOOKS).map((b) => ({ identifier: b.md.identifier, title: b.md.title, creator: b.md.creator, date: b.md.date })) } });
@@ -150,6 +168,7 @@ try {
   // No relay here: tests/relay.browser.mjs covers it with a local broker.
   await ctx.addInitScript(() => {
     window.NostalGemRelayBrokers = [];
+    localStorage.setItem("nostalgem:seenVersion", JSON.stringify("999.0.0")); // no What's new page in the way
     // A channel built by typing 777 into Search (a remote with no number buttons), as older versions did.
     if (!localStorage.getItem("nostalgem:custom")) {
       const junk = { slug: "u-777-abc", number: 30, name: "777", tagline: "Your search: 777", icon: "📡", color: "#ff2a6d", kind: "video", items: [{ id: "x777", f: "x.mp4", t: "Junk", d: 60 }], custom: true };
@@ -162,6 +181,7 @@ try {
     if (m.type() === "error" && !/Failed to load resource/.test(m.text())) errors.push(m.text());
   });
   await page.route(/^https:\/\/archive\.org\//, archive);
+  await page.route(/^https:\/\/ia800001\.us\.archive\.org\//, itemServer);
   // The stand-in programs are 12 seconds long, so line every channel up to start its first program at
   // the epoch and freeze the clock 3 seconds in: every channel is then mid-program, on the air.
   const lineup = JSON.parse(await readFile(join(web, "data/lineup.json"), "utf8"));
@@ -635,9 +655,33 @@ try {
     check(!(await page.evaluate(() => document.getElementById("static").classList.contains("on"))) && !(await page.isVisible("#banner")), "…and the snow and the last channel's banner clear off it");
     await shot("4g-link-" + num);
   }
+  // The secret stations that play: 069 Bible Boys Church (a leading 0 waits for the rest), 666 Dead Air.
+  for (const d of "069") await key(d, 150);
+  await page.waitForFunction(() => window.NP.state().station === "bible-boys-church", null, { timeout: 5000 }).catch(() => {});
+  st = await state();
+  check(st.station === "bible-boys-church" && st.channel === 69 && st.intro && /BIBLE BOYS CHURCH/.test(await page.textContent("#intro")) && /You typed 69/.test(await page.textContent("#intro")), `0 6 9 tunes Bible Boys Church, with its card (CH ${st.channel} ${st.name})`);
+  await page.waitForTimeout(800);
+  await shot("4r-bbc");
+  await key("Enter", 300);
+  check(!(await state()).intro, "…any button skips the card");
+  await page.waitForTimeout(1500);
+  await key(" ", 300);
+  check(/Pausing the sermon/.test(await page.textContent("#toast")), "pausing the sermon gets a look: " + (await page.textContent("#toast")));
+  await key(" ", 300);
+  for (const d of "666") await key(d, 150);
+  await page.waitForFunction(() => window.NP.state().station === "dead-air", null, { timeout: 5000 }).catch(() => {});
+  st = await state();
+  check(st.station === "dead-air" && st.channel === 666 && /NOT ASSIGNED/.test(await page.textContent("#intro")) && (await page.evaluate(() => document.getElementById("tv").classList.contains("station-dead-air"))), `6 6 6 tunes Dead Air, with its card and its red glow (CH ${st.channel} ${st.name})`);
+  await page.waitForTimeout(800);
+  await shot("4s-dead-air");
+  await page.waitForTimeout(5400);
+  check((await page.isVisible("#banner")) && /6:66/.test(await page.textContent("#banner .b-clock")), "…then the banner, where the clock reads " + (await page.textContent("#banner .b-clock")));
+  await key("1", 120);
+  await key("2", 2200);
+  check(!(await page.evaluate(() => document.getElementById("tv").classList.contains("station-dead-air"))) && /here when you get back/.test(await page.textContent("#toast")), "leaving Dead Air takes the glow away, with a parting word");
   await key("g", 600);
   const guideText = await page.textContent("#guide");
-  check((await state()).overlay === "guide" && !/South Park|RetroGames|ASCII City/.test(guideText), "the guide doesn't list the hidden stations");
+  check((await state()).overlay === "guide" && !/South Park|RetroGames|ASCII City|Bible Boys|Dead Air/.test(guideText), "the guide doesn't list the hidden stations");
   await key("Escape", 300);
 
   // Mouse and touch: a big channel rocker and a dock; 123 on the dock opens the number pad.
@@ -647,7 +691,7 @@ try {
     await page.mouse.move(400, 300);
     await page.waitForTimeout(300);
     check((await page.isVisible("#touch .t-rocker")) && (await page.isVisible("#touch .t-dock")), "moving the mouse shows the channel rocker and the dock");
-    const sizes = await page.$$eval("#touch button", (bs) => bs.map((b) => Math.min(b.getBoundingClientRect().width, b.getBoundingClientRect().height)));
+    const sizes = await page.$$eval("#touch button", (bs) => bs.filter((b) => b.offsetParent).map((b) => Math.min(b.getBoundingClientRect().width, b.getBoundingClientRect().height)));
     check(Math.min(...sizes) >= 52, "…and every button is big enough for a finger (" + sizes.map(Math.round).join(", ") + ")");
     await page.click('#touch [data-act="chup"]');
     await page.waitForTimeout(900);
@@ -801,7 +845,7 @@ try {
     check(/right to left/.test(await dialogText()) && /2 volumes/.test(await dialogText()), "a manga's box says it reads right to left, and has 2 volumes");
     await btn(/Borrow/, 1200);
     rd = await reading();
-    check(rd.open && rd.rtl && rd.count === 5, `the manga opens right to left (${JSON.stringify(rd)})`);
+    check(rd.open && rd.rtl && rd.count === 5 && (fake.direct || 0) > 0 && (await page.$$("#reader .rd-page.ok")).length > 0, `the manga opens right to left, pages straight from its server, counted from its scan list (${JSON.stringify(rd)}, ${fake.direct || 0} direct)`);
     await key("ArrowLeft", 700);
     rd = await reading();
     const order = await page.$$eval("#reader .rd-page", (f) => f.map((x) => Number(x.getAttribute("data-k"))));

@@ -30,6 +30,8 @@ jobs:
         run: npm run test:lan
       - name: Phone remote through the relay, with WebRTC blocked (local message broker)
         run: npm run test:relay
+      - name: Touch screens (a phone held sideways): dock, dragging the menu and guide, swipes
+        run: npm run test:touch
 
   # Publishes web/ to GitHub Pages from main. One-time setup: Settings → Pages → Source: GitHub Actions.
   deploy:

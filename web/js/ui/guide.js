@@ -6,6 +6,7 @@ import { thumbUrl } from "../archive.js";
 import { isYouTube, videoIdOf, ytThumb } from "../youtube.js";
 import { escapeHtml as esc, fmtClock, pad2, clamp, chLabel } from "../util.js";
 import { programMeta, hintsHtml, LOGO } from "./views.js";
+import { dragSteps } from "./drag.js";
 
 const HALF_HOUR = 30 * 60 * 1000;
 const MAX_AHEAD = 24 * 3600 * 1000;
@@ -42,7 +43,22 @@ export class Guide {
     this.focusTime = 0;
     this.winStart = 0;
     const self = this;
+    // On a touch screen, drag up and down through the channels, left and right through time.
+    this.drag = dragSteps(root, {
+      stepY: function () {
+        const row = root.querySelector(".g-row");
+        return row ? row.offsetHeight + 4 : 48;
+      },
+      stepX: function () {
+        const slots = root.querySelector(".g-slots");
+        return slots ? slots.clientWidth / Math.max(1, self.winLen() / HALF_HOUR) : 120;
+      },
+      onStep: function (dir) {
+        if (self.isOpen) self.handle({ type: dir });
+      },
+    });
     root.addEventListener("click", function (e) {
+      if (self.drag.dragged()) return;
       const cell = e.target.closest ? e.target.closest("[data-row]") : null;
       if (!cell) return;
       self.row = Number(cell.getAttribute("data-row"));

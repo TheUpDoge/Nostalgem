@@ -47,6 +47,7 @@ const phCtx = await browser.newContext({ viewport: { width: 390, height: 844 } }
 for (const ctx of [tvCtx, phCtx]) {
   await ctx.addInitScript((b) => {
     window.NostalGemRelayBrokers = b;
+    localStorage.setItem("nostalgem:seenVersion", JSON.stringify("999.0.0")); // no What's new page in the way
     // No WebRTC at all: the relay is the only way.
     window.RTCPeerConnection = undefined;
     window.webkitRTCPeerConnection = undefined;

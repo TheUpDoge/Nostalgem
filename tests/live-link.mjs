@@ -85,6 +85,7 @@ async function pairUp(name, app, relayOnly) {
   for (const ctx of [tvCtx, phCtx]) {
     await ctx.addInitScript((o) => {
       window.NostalGemPeerOptions = o;
+      localStorage.setItem("nostalgem:seenVersion", JSON.stringify("999.0.0")); // no What's new page in the way
     }, peerOpts);
     if (app) await ctx.addInitScript(cannotResolveHidden);
     if (relayOnly)

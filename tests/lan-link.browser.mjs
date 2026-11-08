@@ -79,6 +79,7 @@ async function pairUp(code, withApp) {
     await ctx.addInitScript((o) => {
       window.NostalGemPeerOptions = o;
       window.NostalGemRelayBrokers = []; // this test is about the direct link
+      localStorage.setItem("nostalgem:seenVersion", JSON.stringify("999.0.0")); // no What's new page in the way
     }, peerOpts);
     await ctx.addInitScript(cannotResolveHidden);
     // Nothing from the internet: programs, the published lineup and YouTube stay out of it.

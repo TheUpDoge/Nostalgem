@@ -29,12 +29,14 @@
       <div id="card" class="card" hidden></div>
       <canvas id="static" class="static" aria-hidden="true"></canvas>
       <div class="lookfx" aria-hidden="true"></div>
+      <div class="haunt" aria-hidden="true"></div>
       <div class="crt" aria-hidden="true"></div>
       <div id="bug" class="bug" hidden></div>
       <div id="osd" class="osd" aria-live="polite"><div class="osd-num"></div><div class="osd-name"></div></div>
       <div id="banner" class="banner" hidden></div>
       <div id="guide" class="guide" hidden></div>
       <div id="menu" class="menu" hidden></div>
+      <div id="intro" class="intro" hidden></div>
       <div id="rewind" class="rewind" hidden></div>
       <div id="reader" class="reader" hidden></div>
       <div id="dialog" class="dialog" hidden></div>
@@ -42,9 +44,9 @@
       <div id="toast" class="toast" role="status" hidden></div>
       <div id="touch" class="touch" hidden>
         <div class="t-rocker" role="group" aria-label="Channel">
-          <button type="button" data-act="chup" aria-label="Channel up">▲</button>
+          <button type="button" data-act="chup" data-repeat aria-label="Channel up">▲</button>
           <span class="t-ch" aria-hidden="true">CH</span>
-          <button type="button" data-act="chdown" aria-label="Channel down">▼</button>
+          <button type="button" data-act="chdown" data-repeat aria-label="Channel down">▼</button>
         </div>
         <div class="t-dock">
           <button type="button" data-act="guide">GUIDE</button>
@@ -54,12 +56,22 @@
           <button type="button" data-act="menu">MENU</button>
           <button type="button" data-act="back">BACK</button>
         </div>
+        <!-- With the guide or a menu open: a remote's arrows, OK and BACK (hold an arrow to keep going). -->
+        <div class="t-dock t-navdock">
+          <button type="button" data-act="up" data-repeat aria-label="Up">▲</button>
+          <button type="button" data-act="down" data-repeat aria-label="Down">▼</button>
+          <button type="button" data-act="left" data-repeat aria-label="Left">◀</button>
+          <button type="button" data-act="right" data-repeat aria-label="Right">▶</button>
+          <button type="button" data-act="ok">OK</button>
+          <button type="button" data-act="back">BACK</button>
+        </div>
       </div>
       <div id="boot" class="boot">
         <div class="boot-lockup">
           <div class="logo">NOSTAL<span class="gem">GEM</span></div>
           <div class="logo-tv">TV</div>
           <div class="boot-status blink">TUNING IN…</div>
+          <div class="boot-version"></div>
         </div>
       </div>
     </div>

@@ -120,7 +120,10 @@ YouTube's player) and rebuilt daily:
   day. If several fail in a row, it shows colour bars and *PLEASE STAND BY* and retries by itself.
 - Sized for a TV across the room, inside overscan margins. It also works with a mouse, a keyboard,
   or a touch screen: big CH ▲▼ buttons on the right, a dock along the bottom (guide, info, pause,
-  number pad, menu, back), and swipe up/down to change channel.
+  number pad, menu, back), and swipe up/down to change channel. With the guide or a menu open, drag it
+  to move through it, and the dock becomes ▲ ▼ ◀ ▶ OK BACK (hold an arrow to keep going).
+- **What's new**: after an update, a page says what changed since the version you last saw (a welcome
+  on a first start); Menu ▸ 📰 What's new shows it again, with the version number.
 - **📼 Video Club**: the Archive's feature films, checked out like tapes from a neighborhood video store.
   Sign up for a free **library card** (three short pages: how the club works, what the Internet Archive
   is, and the fine print, signed with your name), then take up to **two tapes** at a time for **three
@@ -378,6 +381,8 @@ web/
   js/fxcanvas.js               the pixel and ASCII looks (and light versions of the others), drawn on a canvas
   js/framewatch.js             notices a filter making the picture choppy (Filter quality: Auto)
   js/library.js, js/ui/club.js the Video Club: library card, checkout rules, the store's shelves and screens
+  js/changes.js                What's new: the changes in each version
+  js/ui/drag.js                touch: a finger dragged over the guide or a menu moves through it
   js/books.js, js/ui/reader.js the Reading Room: Archive books as page images, and the reader
   js/ui/stacks.js              the Reading Room's book box and due-date slip
   data/books.json              the Reading Room's shelves (Archive searches)

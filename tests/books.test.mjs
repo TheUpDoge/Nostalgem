@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { shelfQuery, bookSearchUrl, parseBookSearch, authorName, yearOf, bookFromMetadata, isManga, volumeTitle, naturalCompare, pageUrl, pageNumbersUrl, parsePageNumbers, pickWidth, viewStart, viewPages, nextView, prevView, pageName, pageForNumber, parseShelves } from "../web/js/books.js";
+import { shelfQuery, bookSearchUrl, parseBookSearch, authorName, yearOf, bookFromMetadata, isManga, volumeTitle, naturalCompare, pageUrl, pageNumbersUrl, parsePageNumbers, scandataUrl, parseScandata, pickWidth, viewStart, viewPages, nextView, prevView, pageName, pageForNumber, parseShelves } from "../web/js/books.js";
 import { emptyLibrary, issueCard, borrowBook, returnBook, bookLoan, overdueBooks, setMark, markFor, cancelCard, cleanLibrary, checkOut, MAX_BOOKS, BOOK_DAYS } from "../web/js/library.js";
 import { bookBoxHtml, dueSlipHtml, stampDate } from "../web/js/ui/stacks.js";
 
@@ -178,4 +178,29 @@ test("a book's box and the stamped due date", () => {
   const lent = bookFromMetadata({ metadata: { identifier: "l", "access-restricted-item": "true" }, files: [] });
   assert.match(bookBoxHtml({ id: "l", t: "L" }, lent, null, null, T0, "lends"), /link-qr/);
   assert.doesNotMatch(html, /<script|\son[a-z]+=/i);
+});
+
+test("page images straight from the item's server, so volume names with brackets and braces work", () => {
+  const host = { server: "ia800406.us.archive.org", dir: "/26/items/manga_Berserk" };
+  const u = new URL(pageUrl("manga_Berserk", "!Berserk [danke-Empire]{HD}/Berserk v01 (2003)", 0, 800, host));
+  assert.equal(u.origin + u.pathname, "https://ia800406.us.archive.org/BookReader/BookReaderImages.php");
+  assert.equal(u.searchParams.get("id"), "manga_Berserk");
+  assert.equal(u.searchParams.get("itemPath"), "/26/items/manga_Berserk");
+  assert.equal(u.searchParams.get("server"), "ia800406.us.archive.org");
+  assert.equal(u.searchParams.get("subPrefix"), "!Berserk [danke-Empire]{HD}/Berserk v01 (2003)");
+  assert.equal(u.searchParams.get("page"), "n0_w800.jpg");
+  // One book: no subPrefix, like the Archive's own redirect.
+  assert.equal(new URL(pageUrl("alice", "alice", 3, 600, { server: "ia1.us.archive.org", dir: "/1/items/alice" })).searchParams.get("subPrefix"), null);
+  const b = bookFromMetadata({ server: "ia800406.us.archive.org", dir: "/26/items/x", metadata: { identifier: "x" }, files: [{ name: "x_jp2.zip" }] });
+  assert.equal(b.server, "ia800406.us.archive.org");
+  assert.equal(b.dir, "/26/items/x");
+  assert.equal(bookFromMetadata({ server: "evil.example/x?", dir: "../", metadata: { identifier: "x" }, files: [] }).server, "");
+});
+
+test("page counts from a scan's own page list, for books without a page-number file", () => {
+  const xml = '<book><bookData><leafCount>4</leafCount></bookData><pageData><page leafNum="0"><addToAccessFormats>true</addToAccessFormats></page><page leafNum="1"><addToAccessFormats>false</addToAccessFormats></page><page leafNum="2"><addToAccessFormats>true</addToAccessFormats></page><page leafNum="3"></page></pageData></book>';
+  assert.deepEqual(parseScandata(xml), { count: 3, labels: [] });
+  assert.equal(parseScandata("<book><leafCount>12</leafCount></book>").count, 12);
+  assert.equal(parseScandata("").count, 0);
+  assert.equal(scandataUrl("m", "!B [g]{HD}/B v1"), "https://archive.org/cors/m/!B%20%5Bg%5D%7BHD%7D/B%20v1_scandata.xml");
 });

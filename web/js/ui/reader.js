@@ -210,7 +210,7 @@ export class Reader {
   }
 
   url(k) {
-    return pageUrl(this.book.id, this.stem(), k, this.width());
+    return pageUrl(this.book.id, this.stem(), k, this.width(), this.book);
   }
 
   render(dir) {

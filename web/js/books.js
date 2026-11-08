@@ -5,8 +5,11 @@
 // What the Archive gives us, all public and CORS-friendly where it has to be:
 //   advancedsearch.php         the shelves and searches
 //   /metadata/<id>             a book's details and files: one book, or several volumes in one item
-//   /cors/<id>/<vol>_page_numbers.json   how many pages a volume has, and their printed page numbers
-//   /download/<id>[/<vol>]/page/n<k>_w<width>.jpg   page k (from 0), about <width> pixels wide
+//   /cors/<id>/<vol>_page_numbers.json   how many pages a volume has (or <vol>_scandata.xml, for books
+//                              scanned before the Archive made page-number files)
+//   page images: the item's own server's BookReaderImages.php (what /download/<id>[/<vol>]/page/n<k>.jpg
+//                              redirects to; asked directly, since that redirect mangles volume names
+//                              with brackets or braces in them, and it saves a hop per page)
 // Books the Archive only lends (borrowed with an archive.org account) are left off the shelves and, if
 // opened from a link, point to archive.org instead: their pages aren't open to read here.
 
@@ -144,6 +147,9 @@ export function bookFromMetadata(m) {
       return { stem: s, title: volumeTitle(s) };
     }),
     pages: Number(md.imagecount) || 0,
+    // Where the item's files live, for its page images.
+    server: typeof m.server === "string" && /^[\w.-]+$/.test(m.server) ? m.server : "",
+    dir: typeof m.dir === "string" && /^\/[\w./-]+$/.test(m.dir) ? m.dir : "",
   };
 }
 
@@ -151,15 +157,46 @@ function encPath(p) {
   return String(p).split("/").map(encodeURIComponent).join("/");
 }
 
-// Page n (from 0) of a volume, about width pixels wide (0: the Archive's own size).
-export function pageUrl(id, stem, n, width) {
-  let u = ARCHIVE + "/download/" + encodeURIComponent(id) + "/";
-  if (stem && stem !== id) u += encPath(stem) + "/";
-  return u + "page/n" + Math.max(0, Math.floor(n)) + (width ? "_w" + Math.round(width) : "") + ".jpg";
+// Page n (from 0) of a volume, about width pixels wide (0: the Archive's own size). host: the book's
+// { server, dir } from its details, to ask its server directly; without it, archive.org's /download/
+// address, which redirects there.
+export function pageUrl(id, stem, n, width, host) {
+  const page = "n" + Math.max(0, Math.floor(n)) + (width ? "_w" + Math.round(width) : "") + ".jpg";
+  const sub = stem && stem !== id ? stem : "";
+  if (host && host.server && host.dir) {
+    const p = new URLSearchParams();
+    p.set("id", id);
+    p.set("itemPath", host.dir);
+    p.set("server", host.server);
+    if (sub) p.set("subPrefix", sub);
+    p.set("page", page);
+    return "https://" + host.server + "/BookReader/BookReaderImages.php?" + p.toString();
+  }
+  return ARCHIVE + "/download/" + encodeURIComponent(id) + "/" + (sub ? encPath(sub) + "/" : "") + "page/" + page;
 }
 
 export function pageNumbersUrl(id, stem) {
   return corsUrl(id, (stem || id) + "_page_numbers.json");
+}
+
+export function scandataUrl(id, stem) {
+  return corsUrl(id, (stem || id) + "_scandata.xml");
+}
+
+// From <vol>_scandata.xml: { count, labels: [] } — the pages shown to readers (a scan's colour cards and
+// such are marked addToAccessFormats false and left out, the way the Archive's page numbers count).
+export function parseScandata(xml) {
+  const s = String(xml || "");
+  const pages = s.match(/<page\b[\s\S]*?<\/page>/g) || [];
+  let count = 0;
+  pages.forEach(function (p) {
+    if (!/<addToAccessFormats>\s*false\s*<\/addToAccessFormats>/i.test(p)) count++;
+  });
+  if (!pages.length) {
+    const m = /<leafCount>\s*(\d+)\s*<\/leafCount>/.exec(s);
+    if (m) count = Number(m[1]);
+  }
+  return { count: count, labels: [] };
 }
 
 export function coverUrl(id) {

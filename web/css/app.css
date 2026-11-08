@@ -63,6 +63,8 @@ html,
 body {
   margin: 0;
   height: 100%;
+  /* A swipe down on the picture changes channel; it mustn't pull the page down to reload it. */
+  overscroll-behavior: none;
   background: #000;
   color: var(--ink);
   font-family: var(--font-body);
@@ -85,6 +87,17 @@ body {
   bottom: 0;
   background: #000;
   overflow: hidden;
+}
+/* A long press on the picture shouldn't select text or pop up a menu. */
+.tv {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.tv input,
+.tv textarea {
+  -webkit-user-select: text;
+  user-select: text;
 }
 .tv.hide-cursor,
 .tv.hide-cursor * {
@@ -439,6 +452,41 @@ body {
   color: var(--yellow);
   letter-spacing: 0.2em;
   text-shadow: 0 0 0.4em rgba(255, 251, 150, 0.6);
+}
+
+.boot-version {
+  margin-top: 1.2rem;
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  letter-spacing: 0.2em;
+  color: var(--dim);
+}
+
+/* ---------- What's new (changes.js) ---------- */
+.wn-head {
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  color: var(--cyan);
+  margin-bottom: 0.6rem;
+}
+.wn-ver {
+  margin-top: 0.8rem;
+}
+.wn-v {
+  font-family: var(--font-mono);
+  color: var(--yellow);
+  font-size: 1.15rem;
+}
+.wn-t {
+  color: var(--ink);
+  font-weight: 700;
+}
+.wn-list {
+  margin: 0.3rem 0 0;
+  padding-left: 1.3rem;
+}
+.wn-list li {
+  margin: 0.25rem 0;
 }
 
 /* ---------- OSD and station bug ---------- */
@@ -1632,9 +1680,22 @@ body {
   bottom: calc(max(52px, 3.4rem) + max(8px, 0.5rem) * 2 + 0.6rem);
   right: calc(var(--safe-x) + max(68px, 5rem) + 1.2rem);
 }
-/* With the guide, a menu or a dialog up, they have the screen: only the dock stays (BACK is handy). */
-.touch.overlay .t-rocker {
+/* With the guide or a menu up, the dock turns into a remote's arrows, OK and BACK, and the guide and
+   menus end above it (the CH rocker steps aside). */
+.t-navdock,
+.touch.overlay .t-rocker,
+.touch.overlay .t-dock:not(.t-navdock) {
   display: none;
+}
+.touch.overlay .t-navdock {
+  display: grid;
+}
+.t-navdock button {
+  font-size: max(18px, 1.3rem);
+}
+.touch-nav .menu,
+.touch-nav .guide {
+  padding-bottom: calc(max(52px, 3.4rem) + max(8px, 0.5rem) * 2 + 0.6rem);
 }
 
 @media (max-aspect-ratio: 1/1) {
@@ -2609,5 +2670,170 @@ body {
   .bk-out {
     flex-direction: column;
     align-items: center;
+  }
+}
+
+/* ---------- the secret stations (secrets.js): 069 Bible Boys Church, 666 Dead Air ---------- */
+.intro {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 21;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  animation: intro-in 0.5s ease-out;
+}
+@keyframes intro-in {
+  from {
+    opacity: 0;
+  }
+}
+/* Bible Boys Church: stained glass, gold lettering, a hush. */
+.intro-bible-boys-church {
+  background: radial-gradient(ellipse at 50% 30%, rgba(255, 214, 120, 0.35), rgba(0, 0, 0, 0) 60%),
+    conic-gradient(from 0deg at 50% 120%, #1b2a6b, #6b1b2a, #1b5a3a, #6b4a1b, #2a1b6b, #1b2a6b);
+}
+.in-bbc {
+  font-family: Georgia, "Times New Roman", serif;
+  color: #ffe9b0;
+  text-shadow: 0 0.15rem 0.6rem rgba(0, 0, 0, 0.7);
+}
+.in-cross {
+  font-size: 5rem;
+  line-height: 1;
+  color: #ffd166;
+  text-shadow: 0 0 1.4rem rgba(255, 209, 102, 0.8);
+}
+.in-name {
+  margin-top: 0.6rem;
+  font-size: 3.4rem;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+}
+.in-short {
+  font-size: 1.2rem;
+  letter-spacing: 0.6em;
+  color: #ffd166;
+  margin: 0.2rem 0 1.4rem;
+}
+.in-line {
+  font-size: 1.7rem;
+  font-style: italic;
+}
+.in-small {
+  margin-top: 1.2rem;
+  font-size: 1.1rem;
+  opacity: 0.85;
+}
+.station-bible-boys-church .bug {
+  color: #ffd166;
+  opacity: 0.7;
+}
+/* Dead Air: a frequency that shouldn't exist. */
+.intro-dead-air {
+  background: #050000;
+}
+.in-dead {
+  font-family: var(--font-mono);
+  color: #ff2a2a;
+}
+.in-warn {
+  position: relative;
+  font-size: 2.6rem;
+  letter-spacing: 0.15em;
+  text-shadow: 0 0 0.6rem rgba(255, 0, 0, 0.8);
+  animation: dead-jitter 0.9s steps(1) infinite;
+}
+.in-warn::before,
+.in-warn::after {
+  content: attr(data-text);
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  opacity: 0.6;
+}
+.in-warn::before {
+  color: #00e5ff;
+  transform: translate(-0.2rem, 0);
+  clip-path: inset(0 0 55% 0);
+}
+.in-warn::after {
+  color: #ff00aa;
+  transform: translate(0.2rem, 0);
+  clip-path: inset(55% 0 0 0);
+}
+.in-666 {
+  margin-top: 1.4rem;
+  font-size: 7rem;
+  letter-spacing: 0.3em;
+  color: #b3001b;
+  text-shadow: 0 0 2rem rgba(255, 0, 0, 0.6);
+  animation: dead-flicker 2.6s infinite;
+}
+.in-dead .in-small {
+  color: #ff8080;
+}
+@keyframes dead-jitter {
+  0% {
+    transform: translate(0, 0);
+  }
+  20% {
+    transform: translate(-0.15rem, 0.05rem);
+  }
+  40% {
+    transform: translate(0.12rem, -0.05rem);
+  }
+  60% {
+    transform: translate(0, 0);
+  }
+  80% {
+    transform: translate(0.2rem, 0);
+  }
+}
+@keyframes dead-flicker {
+  0%,
+  19%,
+  21%,
+  60%,
+  62%,
+  100% {
+    opacity: 1;
+  }
+  20%,
+  61% {
+    opacity: 0.3;
+  }
+}
+/* While Dead Air is on: the picture glows red at the edges and flickers now and then. */
+.haunt {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  display: none;
+}
+.station-dead-air .haunt {
+  display: block;
+  background: radial-gradient(ellipse at center, rgba(120, 0, 0, 0) 50%, rgba(120, 0, 10, 0.6) 100%);
+  animation: dead-flicker 7s infinite;
+}
+.station-dead-air .bug {
+  color: #ff2a2a;
+  opacity: 0.8;
+  text-shadow: 0 0 0.5em #f00;
+  letter-spacing: 0.3em;
+}
+@media (prefers-reduced-motion: reduce) {
+  .in-warn,
+  .in-666,
+  .station-dead-air .haunt {
+    animation: none;
   }
 }

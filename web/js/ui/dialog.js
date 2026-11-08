@@ -105,6 +105,13 @@ export class Dialog {
 
   handle(a) {
     const n = this.focusables().length;
+    // A page longer than the box: ▲▼ scroll it first (a remote has no other way to).
+    const text = this.root.querySelector(".d-text");
+    if ((a.type === "up" || a.type === "down") && text && text.scrollHeight > text.clientHeight + 4) {
+      const before = text.scrollTop;
+      text.scrollTop = before + (a.type === "down" ? 1 : -1) * Math.max(40, text.clientHeight * 0.4);
+      if (text.scrollTop !== before) return true;
+    }
     switch (a.type) {
       case "up":
       case "left":

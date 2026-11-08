@@ -4,6 +4,7 @@
 
 import { escapeHtml as esc } from "../util.js";
 import { hintsHtml } from "./views.js";
+import { dragSteps } from "./drag.js";
 
 function resolve(v) {
   return typeof v === "function" ? v() : v;
@@ -16,7 +17,18 @@ export class Menu {
     this.stack = [];
     this.isOpen = false;
     const self = this;
+    // On a touch screen, dragging the list moves along it.
+    this.drag = dragSteps(root, {
+      stepY: function () {
+        const item = root.querySelector(".m-item:not(.head)");
+        return item ? item.offsetHeight : 40;
+      },
+      onStep: function (dir) {
+        if (self.isOpen) self.handle({ type: dir });
+      },
+    });
     root.addEventListener("click", function (e) {
+      if (self.drag.dragged()) return;
       const el = e.target.closest ? e.target.closest("[data-i]") : null;
       if (!el) return;
       self.top().focus = Number(el.getAttribute("data-i"));
