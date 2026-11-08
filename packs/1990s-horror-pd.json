@@ -1,0 +1,62 @@
+{
+  "pack": "1990s Horror — Public Domain",
+  "version": 1,
+  "note": "The honest public-domain version of a 1990s horror shelf. The famous 90s horror films (Scream, I Know What You Did Last Summer, The Blair Witch Project, The Sixth Sense, Candyman and the rest) are under copyright and are NOT in this pack — they live in the owner's personal packs, not the public repo. What is real here: public-domain horror features from the 1920s-60s (silent nightmares, Universal-era chillers, drive-in creature features), each verified live against the Archive and Wikipedia's public-domain film list. Every item ID was live-checked on the Archive metadata API; the evidence for each film is listed in packs/BUILD-REPORT.md. A note in this file does not change the copyright status of anything in it.",
+  "channels": [
+    {
+      "name": "Drive-In Horror",
+      "number": 32,
+      "kind": "video",
+      "tagline": "Public-domain horror features — silent nightmares to drive-in creatures",
+      "icon": "🎃",
+      "color": "#ff2a6d",
+      "minMinutes": 40,
+      "maxMinutes": 150,
+      "maxItems": 36,
+      "filesPerItem": 1,
+      "maxYear": 1969,
+      "sources": [
+        {
+          "items": [
+            "Night.Of.The.Living.Dead_1080p",
+            "CarnivalofSouls",
+            "last-man-on-earth-4-k",
+            "house_on_haunted_hill_ipod",
+            "Little_ShopOf_Horrors.avi",
+            "ABucketofBlood",
+            "TheTerror",
+            "TheScreamingSkull",
+            "The_Bat_Vincent_Price",
+            "white_zombie",
+            "Devil_Bat_movie",
+            "Nosferatu1922",
+            "DasKabinettdesDoktorCaligariTheCabinetofDrCaligari",
+            "Haxan_tinted_and_subtitled",
+            "TheGolem_893",
+            "ThePhantomoftheOpera",
+            "The_Monster_Walks",
+            "TheVampireBat",
+            "The_Thirteenth_Guest",
+            "The_Death_Kiss",
+            "TheApeMan",
+            "TheCorpseVanishes",
+            "Bowery_at_Midnight",
+            "The.Mad.Monster",
+            "Black_Raven_movie",
+            "TheDevilsDaughter_897",
+            "Maniac1934",
+            "bride_of_a_gorilla",
+            "Living_Ghost_movie",
+            "dementia-13_202311",
+            "BloodyPitOfHorror",
+            "Horror_Hotel",
+            "King_of_the_Zombies",
+            "CreatureFromTheHauntedSea",
+            "TheGhostTrain",
+            "DeadMenWalk"
+          ]
+        }
+      ]
+    }
+  ]
+}

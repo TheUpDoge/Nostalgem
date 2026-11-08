@@ -1,0 +1,614 @@
+{
+  "catalog": "NostalGem Video Club library catalog",
+  "version": 1,
+  "scope": "public-domain",
+  "note": "Public-domain books and Golden Age comics from the Internet Archive, for the Video Club's reading shelf. Every entry was live-checked against the Archive metadata API (exists, viewable files, not lending-restricted). Manga: no verifiably public-domain manga was found on the Archive — the Archive's manga holdings are overwhelmingly copyrighted scanlations, so the manga shelf stays empty rather than filled with them. This catalog is a link-out list until the Video Club wires a reading shelf into the club (see packs/BUILD-REPORT.md for the hook). A note in this file does not change the copyright status of anything in it.",
+  "entries": [
+    {
+      "id": "christmascar00dick",
+      "title": "A Christmas carol",
+      "author": "Dickens, Charles, 1812-1870; Rackham, Arthur, 1867-1939",
+      "year": 1915,
+      "type": "book",
+      "rights": "Public domain in the US (published 1915, before 1930).",
+      "url": "https://archive.org/details/christmascar00dick"
+    },
+    {
+      "id": "cu31924090934815",
+      "title": "A journey to the centre of the earth",
+      "author": "Verne, Jules, 1828-1905",
+      "year": 1905,
+      "type": "book",
+      "rights": "Public domain in the US (published 1905, before 1930).",
+      "url": "https://archive.org/details/cu31924090934815"
+    },
+    {
+      "id": "adventureshuckle00twaiiala",
+      "title": "Adventures of Huckleberry Finn (Tom Sawyer's comrade)...",
+      "author": "Twain, Mark, 1835-1910",
+      "year": 1885,
+      "type": "book",
+      "rights": "Public domain in the US (published 1885, before 1930).",
+      "url": "https://archive.org/details/adventureshuckle00twaiiala"
+    },
+    {
+      "id": "AlicesAdventuresInWonderland",
+      "title": "Alice's Adventures In Wonderland",
+      "author": "Carroll, Lewis",
+      "year": 1865,
+      "type": "book",
+      "rights": "Public domain in the US (published 1865, before 1930). Archive item carries a public-domain mark.",
+      "url": "https://archive.org/details/AlicesAdventuresInWonderland"
+    },
+    {
+      "id": "aroundworldineig00vern",
+      "title": "Around the world in eighty days",
+      "author": "Verne, Jules, 1828-1905",
+      "year": 1873,
+      "type": "book",
+      "rights": "Public domain in the US (published 1873, before 1930).",
+      "url": "https://archive.org/details/aroundworldineig00vern"
+    },
+    {
+      "id": "draculabr00stokuoft",
+      "title": "Dracula",
+      "author": "Stoker, Bram, 1847-1912",
+      "year": 1897,
+      "type": "book",
+      "rights": "Public domain in the US (published 1897, before 1930).",
+      "url": "https://archive.org/details/draculabr00stokuoft"
+    },
+    {
+      "id": "Frankenstein1818Edition",
+      "title": "Frankenstein 1818 edition",
+      "author": "Mary Shelley",
+      "year": 1818,
+      "type": "book",
+      "rights": "Public domain in the US (published 1818, before 1930). Archive item carries a public-domain mark.",
+      "url": "https://archive.org/details/Frankenstein1818Edition"
+    },
+    {
+      "id": "grimmsfairytal00grim",
+      "title": "Grimm's fairy tales",
+      "author": "Grimm, Jacob, 1785-1863",
+      "year": 1800,
+      "type": "book",
+      "rights": "Public domain in the US (published 1800, before 1930).",
+      "url": "https://archive.org/details/grimmsfairytal00grim"
+    },
+    {
+      "id": "janeeyre00broniala",
+      "title": "Jane Eyre",
+      "author": "Brontë, Charlotte, 1816-1855",
+      "year": 1899,
+      "type": "book",
+      "rights": "Public domain in the US (published 1899, before 1930).",
+      "url": "https://archive.org/details/janeeyre00broniala"
+    },
+    {
+      "id": "leavesofgrassrhys00whitrich",
+      "title": "Leaves of grass : the poems of Walt Whitman",
+      "author": "Whitman, Walt, 1819-1892; Rhys, Ernest, 1859-1946",
+      "year": 1886,
+      "type": "book",
+      "rights": "Public domain in the US (published 1886, before 1930).",
+      "url": "https://archive.org/details/leavesofgrassrhys00whitrich"
+    },
+    {
+      "id": "bub_gb_Oo0NAAAAQAAJ",
+      "title": "LES MISERABLES PAR VICTOR HUGO",
+      "author": "victor hugo",
+      "year": 1862,
+      "type": "book",
+      "rights": "Public domain in the US (published 1862, before 1930). Archive item carries a public-domain mark.",
+      "url": "https://archive.org/details/bub_gb_Oo0NAAAAQAAJ"
+    },
+    {
+      "id": "littlewomen0000alco_t3z5",
+      "title": "Little women",
+      "author": "Louisa May Alcott",
+      "year": 1868,
+      "type": "book",
+      "rights": "Public domain in the US (published 1868, before 1930).",
+      "url": "https://archive.org/details/littlewomen0000alco_t3z5"
+    },
+    {
+      "id": "mobydickorwhale01melvuoft",
+      "title": "Moby-Dick; or, The whale",
+      "author": "Melville, Herman, 1819-1891",
+      "year": 1922,
+      "type": "book",
+      "rights": "Public domain in the US (published 1922, before 1930).",
+      "url": "https://archive.org/details/mobydickorwhale01melvuoft"
+    },
+    {
+      "id": "in.ernet.dli.2015.93420",
+      "title": "Mrs. Dalloway",
+      "author": "Woolf, Virginia",
+      "year": 1923,
+      "type": "book",
+      "rights": "Public domain in the US (published 1923, before 1930).",
+      "url": "https://archive.org/details/in.ernet.dli.2015.93420"
+    },
+    {
+      "id": "prideprejudice00aust",
+      "title": "Pride and prejudice",
+      "author": "Austen, Jane, 1775-1817; Thomson, Hugh, 1860-1920, ill",
+      "year": 1894,
+      "type": "book",
+      "rights": "Public domain in the US (published 1894, before 1930).",
+      "url": "https://archive.org/details/prideprejudice00aust"
+    },
+    {
+      "id": "adventuresofsher001892doyl",
+      "title": "The adventures of Sherlock Holmes",
+      "author": "Doyle, Arthur Conan, Sir, 1859-1930; Paget, Sidney, 1861-1908, ill. ill",
+      "year": 1892,
+      "type": "book",
+      "rights": "Public domain in the US (published 1892, before 1930).",
+      "url": "https://archive.org/details/adventuresofsher001892doyl"
+    },
+    {
+      "id": "adventuresoftoms00twaiiala",
+      "title": "The adventures of Tom Sawyer",
+      "author": "Twain, Mark, 1835-1910",
+      "year": 1876,
+      "type": "book",
+      "rights": "Public domain in the US (published 1876, before 1930).",
+      "url": "https://archive.org/details/adventuresoftoms00twaiiala"
+    },
+    {
+      "id": "callofcthulhu0000love_k5c2",
+      "title": "The call of Cthulhu",
+      "author": "Lovecraft, H. P. (Howard Phillips), 1890-1937",
+      "year": 1928,
+      "type": "book",
+      "rights": "Public domain in the US (published 1928, before 1930).",
+      "url": "https://archive.org/details/callofcthulhu0000love_k5c2"
+    },
+    {
+      "id": "callofthewild00lond",
+      "title": "The call of the wild",
+      "author": "London, Jack, 1876-1916; Mitchill, Theodore Clarence, 1866-",
+      "year": 1917,
+      "type": "book",
+      "rights": "Public domain in the US (published 1917, before 1930).",
+      "url": "https://archive.org/details/callofthewild00lond"
+    },
+    {
+      "id": "countofmontecris01duma",
+      "title": "The Count of Monte-Cristo",
+      "author": "Dumas, Alexandre, 1802-1870; Maquet, Auguste, 1813-1888; Fiorentino, Pier Angelo, 1809-1864",
+      "year": 1888,
+      "type": "book",
+      "rights": "Public domain in the US (published 1888, before 1930).",
+      "url": "https://archive.org/details/countofmontecris01duma"
+    },
+    {
+      "id": "TheDunwichHorrorByH.P.LovecraftPg50133",
+      "title": "The Dunwich Horror By H. P. Lovecraft Pg 50133",
+      "author": "H. P. Lovecraft",
+      "year": 1929,
+      "type": "book",
+      "rights": "Public domain in the US (published 1929, before 1930). Archive item carries a public-domain mark.",
+      "url": "https://archive.org/details/TheDunwichHorrorByH.P.LovecraftPg50133"
+    },
+    {
+      "id": "fallhouseushera00rhysgoog",
+      "title": "The Fall of the House of Usher: And Other Tales and Prose Writings of Edgar Poe",
+      "author": "Edgar Allan Poe ,  Ernest Rhys",
+      "year": 1889,
+      "type": "book",
+      "rights": "Public domain in the US (published 1889, before 1930).",
+      "url": "https://archive.org/details/fallhouseushera00rhysgoog"
+    },
+    {
+      "id": "firstmeninmoo00well",
+      "title": "The first men in the moon",
+      "author": "Wells, H. G. (Herbert George), 1866-1946",
+      "year": 1901,
+      "type": "book",
+      "rights": "Public domain in the US (published 1901, before 1930).",
+      "url": "https://archive.org/details/firstmeninmoo00well"
+    },
+    {
+      "id": "foodofgodsandhow00welluoft",
+      "title": "The food of the gods, and how it came to earth",
+      "author": "Wells, H. G. (Herbert George), 1866-1946",
+      "year": 1906,
+      "type": "book",
+      "rights": "Public domain in the US (published 1906, before 1930).",
+      "url": "https://archive.org/details/foodofgodsandhow00welluoft"
+    },
+    {
+      "id": "in.ernet.dli.2015.184960",
+      "title": "The Great Gatsby",
+      "author": "F.scoot Fitzgerald",
+      "year": 1925,
+      "type": "book",
+      "rights": "Public domain in the US (published 1925, before 1930).",
+      "url": "https://archive.org/details/in.ernet.dli.2015.184960"
+    },
+    {
+      "id": "houndofbaskervil00doylrich",
+      "title": "The hound of the Baskervilles : another adventure of Sherlock Holmes",
+      "author": "Doyle, Arthur Conan, Sir, 1859-1930",
+      "year": 1902,
+      "type": "book",
+      "rights": "Public domain in the US (published 1902, before 1930).",
+      "url": "https://archive.org/details/houndofbaskervil00doylrich"
+    },
+    {
+      "id": "hunchbackofnotre1hugo",
+      "title": "The Hunchback of Notre-Dame",
+      "author": "Hugo, Victor, 1802-1885",
+      "year": 1900,
+      "type": "book",
+      "rights": "Public domain in the US (published 1900, before 1930).",
+      "url": "https://archive.org/details/hunchbackofnotre1hugo"
+    },
+    {
+      "id": "invisiblemanagr00wellgoog",
+      "title": "The Invisible Man: A Grotesque Romance",
+      "author": "Herbert George Wells",
+      "year": 1897,
+      "type": "book",
+      "rights": "Public domain in the US (published 1897, before 1930).",
+      "url": "https://archive.org/details/invisiblemanagr00wellgoog"
+    },
+    {
+      "id": "ironhee00lond",
+      "title": "The iron heel",
+      "author": "London, Jack, 1876-1916; Macmillan Company; Norwood Press",
+      "year": 1908,
+      "type": "book",
+      "rights": "Public domain in the US (published 1908, before 1930).",
+      "url": "https://archive.org/details/ironhee00lond"
+    },
+    {
+      "id": "islandofdoctormo00welluoft",
+      "title": "The island of Doctor Moreau ; a possibility",
+      "author": "Wells, H. G. (Herbert George), 1866-1946",
+      "year": 1896,
+      "type": "book",
+      "rights": "Public domain in the US (published 1896, before 1930).",
+      "url": "https://archive.org/details/islandofdoctormo00welluoft"
+    },
+    {
+      "id": "junglebook00kipl2",
+      "title": "The jungle book",
+      "author": "Kipling, Rudyard, 1865-1936; Kipling, John Lockwood, 1837-1911, ill; Drake, W. H., ill; Frenzeny, Paul, ill",
+      "year": 1910,
+      "type": "book",
+      "rights": "Public domain in the US (published 1910, before 1930).",
+      "url": "https://archive.org/details/junglebook00kipl2"
+    },
+    {
+      "id": "kinginyellow00chamrich",
+      "title": "The king in yellow",
+      "author": "Chambers, Robert W. (Robert William), 1865-1933",
+      "year": 1895,
+      "type": "book",
+      "rights": "Public domain in the US (published 1895, before 1930).",
+      "url": "https://archive.org/details/kinginyellow00chamrich"
+    },
+    {
+      "id": "legendofsleepyho00irviiala",
+      "title": "The legend of Sleepy Hollow",
+      "author": "Irving, Washington, 1783-1859",
+      "year": 1820,
+      "type": "book",
+      "rights": "Public domain in the US (published 1820, before 1930).",
+      "url": "https://archive.org/details/legendofsleepyho00irviiala"
+    },
+    {
+      "id": "lostworld00doyluoft",
+      "title": "The lost world",
+      "author": "Doyle, Arthur Conan, Sir, 1859-1930",
+      "year": 1912,
+      "type": "book",
+      "rights": "Public domain in the US (published 1912, before 1930).",
+      "url": "https://archive.org/details/lostworld00doyluoft"
+    },
+    {
+      "id": "manwhowasthursda00ches",
+      "title": "The man who was Thursday; a nightmare",
+      "author": "Chesterton, G. K. (Gilbert Keith), 1874-1936",
+      "year": 1908,
+      "type": "book",
+      "rights": "Public domain in the US (published 1908, before 1930).",
+      "url": "https://archive.org/details/manwhowasthursda00ches"
+    },
+    {
+      "id": "moonpool00merriala",
+      "title": "The moon pool",
+      "author": "Merritt, Abraham, 1882-1943",
+      "year": 1919,
+      "type": "book",
+      "rights": "Public domain in the US (published 1919, before 1930).",
+      "url": "https://archive.org/details/moonpool00merriala"
+    },
+    {
+      "id": "mysteriousisland1884vern",
+      "title": "The mysterious island",
+      "author": "Verne, Jules, 1828-1905",
+      "year": 1884,
+      "type": "book",
+      "rights": "Public domain in the US (published 1884, before 1930).",
+      "url": "https://archive.org/details/mysteriousisland1884vern"
+    },
+    {
+      "id": "nightlandlovetal00hodg",
+      "title": "The night land; a love tale",
+      "author": "Hodgson, William Hope, 1877-1918",
+      "year": 1921,
+      "type": "book",
+      "rights": "Public domain in the US (published 1921, before 1930).",
+      "url": "https://archive.org/details/nightlandlovetal00hodg"
+    },
+    {
+      "id": "phantomofopera00lero",
+      "title": "The phantom of the opera",
+      "author": "Leroux, Gaston, 1868-1927",
+      "year": 1911,
+      "type": "book",
+      "rights": "Public domain in the US (published 1911, before 1930).",
+      "url": "https://archive.org/details/phantomofopera00lero"
+    },
+    {
+      "id": "pictureofdoriang00wildiala",
+      "title": "The picture of Dorian Gray",
+      "author": "Wilde, Oscar, 1854-1900",
+      "year": 1890,
+      "type": "book",
+      "rights": "Public domain in the US (published 1890, before 1930).",
+      "url": "https://archive.org/details/pictureofdoriang00wildiala"
+    },
+    {
+      "id": "ravenandphilosop00poeerich",
+      "title": "The raven, and The philosophy of composition",
+      "author": "Poe, Edgar Allan, 1809-1849; Tomoyé Press. (1907) bkp CU-BANC; Paul Elder and Company. (1907) bkp CU-BANC; Perrett, Galen J; Jenkins, Will; Poe, Edgar Allan, 1809-1849; Nash, John Henry, 1871-1947; Nash, John Henry, 1871-1947",
+      "year": 1845,
+      "type": "book",
+      "rights": "Public domain in the US (published 1845, before 1930).",
+      "url": "https://archive.org/details/ravenandphilosop00poeerich"
+    },
+    {
+      "id": "scarletletter00hawt",
+      "title": "The scarlet letter",
+      "author": "Hawthorne, Nathaniel, 1804-1864",
+      "year": 1878,
+      "type": "book",
+      "rights": "Public domain in the US (published 1878, before 1930).",
+      "url": "https://archive.org/details/scarletletter00hawt"
+    },
+    {
+      "id": "cu31924021764158",
+      "title": "The scarlet plague",
+      "author": "London, Jack, 1876-1916",
+      "year": 1915,
+      "type": "book",
+      "rights": "Public domain in the US (published 1915, before 1930).",
+      "url": "https://archive.org/details/cu31924021764158"
+    },
+    {
+      "id": "secretgarden00burn",
+      "title": "The secret garden",
+      "author": "Burnett, Frances Hodgson, 1849-1924",
+      "year": 1911,
+      "type": "book",
+      "rights": "Public domain in the US (published 1911, before 1930).",
+      "url": "https://archive.org/details/secretgarden00burn"
+    },
+    {
+      "id": "strangecaseofdr00stevuoft",
+      "title": "The strange case of Dr. Jekyll and Mr. Hyde. Illustrated by Charles Raymond Macauley",
+      "author": "Stevenson, Robert Louis, 1850-1894",
+      "year": 1904,
+      "type": "book",
+      "rights": "Public domain in the US (published 1904, before 1930).",
+      "url": "https://archive.org/details/strangecaseofdr00stevuoft"
+    },
+    {
+      "id": "the-sun-also-rises-by-ernest-hemingway",
+      "title": "The Sun Also Rises by Ernest Hemingway",
+      "author": "Ernest Hemingway",
+      "year": 1926,
+      "type": "book",
+      "rights": "Public domain in the US (published 1926, before 1930). Archive item carries a public-domain mark.",
+      "url": "https://archive.org/details/the-sun-also-rises-by-ernest-hemingway"
+    },
+    {
+      "id": "worksalexdumas02dumauoft",
+      "title": "The three musketeers (being the first of the D'Artagnan romances.) Twenty years after, a sequel",
+      "author": "Dumas, Alexandre, 1802-1870; Maquet, Auguste, 1813-1888",
+      "year": 1893,
+      "type": "book",
+      "rights": "Public domain in the US (published 1893, before 1930). Archive item carries a public-domain mark.",
+      "url": "https://archive.org/details/worksalexdumas02dumauoft"
+    },
+    {
+      "id": "timemachineinven00well",
+      "title": "The time machine; an invention",
+      "author": "Wells, H. G. (Herbert George), 1866-1946",
+      "year": 1895,
+      "type": "book",
+      "rights": "Public domain in the US (published 1895, before 1930).",
+      "url": "https://archive.org/details/timemachineinven00well"
+    },
+    {
+      "id": "in.ernet.dli.2015.95031",
+      "title": "The Turn Of The Screw",
+      "author": "James, Henry",
+      "year": 1915,
+      "type": "book",
+      "rights": "Public domain in the US (published 1915, before 1930).",
+      "url": "https://archive.org/details/in.ernet.dli.2015.95031"
+    },
+    {
+      "id": "velveteenrabbito00bian",
+      "title": "The velveteen rabbit; or, How toys become real",
+      "author": "Bianco, Margery Williams, 1880-1944; Nicholson, William, Sir, 1872-1949, ill",
+      "year": 1922,
+      "type": "book",
+      "rights": "Public domain in the US (published 1922, before 1930).",
+      "url": "https://archive.org/details/velveteenrabbito00bian"
+    },
+    {
+      "id": "warofworlds00welluoft",
+      "title": "The war of the worlds",
+      "author": "Wells, H. G. (Herbert George), 1866-1946",
+      "year": 1898,
+      "type": "book",
+      "rights": "Public domain in the US (published 1898, before 1930).",
+      "url": "https://archive.org/details/warofworlds00welluoft"
+    },
+    {
+      "id": "wonderfulwizardo00baumiala",
+      "title": "The wonderful wizard of Oz",
+      "author": "Baum, L. Frank (Lyman Frank), 1856-1919; Denslow, W. W. (William Wallace), 1856-1915",
+      "year": 1900,
+      "type": "book",
+      "rights": "Public domain in the US (published 1900, before 1930).",
+      "url": "https://archive.org/details/wonderfulwizardo00baumiala"
+    },
+    {
+      "id": "yellowwallpaper00gilmgoog",
+      "title": "The yellow wallpaper",
+      "author": "Gilman, Charlotte Perkins, 1860-1935",
+      "year": 1899,
+      "type": "book",
+      "rights": "Public domain in the US (published 1899, before 1930).",
+      "url": "https://archive.org/details/yellowwallpaper00gilmgoog"
+    },
+    {
+      "id": "islandtreasure00stevrich",
+      "title": "Treasure Island",
+      "author": "Stevenson, Robert Louis, 1850-1894",
+      "year": 1883,
+      "type": "book",
+      "rights": "Public domain in the US (published 1883, before 1930).",
+      "url": "https://archive.org/details/islandtreasure00stevrich"
+    },
+    {
+      "id": "twentythousandle1875vern",
+      "title": "Twenty thousand leagues under the seas, or, The marvelous and exciting adventures of Pierre Aronnax, Conseil his servant, and Ned Land, a Canadian harpooner",
+      "author": "Verne, Jules, 1828-1905",
+      "year": 1875,
+      "type": "book",
+      "rights": "Public domain in the US (published 1875, before 1930).",
+      "url": "https://archive.org/details/twentythousandle1875vern"
+    },
+    {
+      "id": "cu31924021445741",
+      "title": "Walden; or, Life in the woods",
+      "author": "Thoreau, Henry David, 1817-1862",
+      "year": 1899,
+      "type": "book",
+      "rights": "Public domain in the US (published 1899, before 1930).",
+      "url": "https://archive.org/details/cu31924021445741"
+    },
+    {
+      "id": "whitefang00lond",
+      "title": "White Fang",
+      "author": "London, Jack, 1876-1916",
+      "year": 1906,
+      "type": "book",
+      "rights": "Public domain in the US (published 1906, before 1930).",
+      "url": "https://archive.org/details/whitefang00lond"
+    },
+    {
+      "id": "winnie-the-pooh_202201",
+      "title": "Winnie-The-Pooh",
+      "author": "Milne, A.A.",
+      "year": 1926,
+      "type": "book",
+      "rights": "Public domain in the US (published 1926, before 1930). Archive item carries a public-domain mark.",
+      "url": "https://archive.org/details/winnie-the-pooh_202201"
+    },
+    {
+      "id": "wutheringheights01bron",
+      "title": "Wuthering heights. A novel",
+      "author": "Brontë, Emily, 1818-1848; Brontë, Anne, 1820-1849. Agnes Grey",
+      "year": 1847,
+      "type": "book",
+      "rights": "Public domain in the US (published 1847, before 1930).",
+      "url": "https://archive.org/details/wutheringheights01bron"
+    },
+    {
+      "id": "GeneralElectricCompanyAdventuresInsideTheAtom1948",
+      "title": "Adventures Inside the Atom (General Electric, 1948)",
+      "author": "General Electric Company",
+      "year": 1948,
+      "type": "comic",
+      "rights": "Public-domain mark on the Archive item; Golden Age comic (1948).",
+      "url": "https://archive.org/details/GeneralElectricCompanyAdventuresInsideTheAtom1948"
+    },
+    {
+      "id": "AirFightersV2-02-00",
+      "title": "Air Fighters v2 #2 / Airboy (Hillman, November 1943)",
+      "author": "Hillman Periodicals",
+      "year": 1943,
+      "type": "comic",
+      "rights": "Public-domain mark on the Archive item; Golden Age comic (1943).",
+      "url": "https://archive.org/details/AirFightersV2-02-00"
+    },
+    {
+      "id": "ComicsNovel01AnarchoDictatorOfDeath1947",
+      "title": "Comics Novel #1: Anarcho, Dictator of Death (1947)",
+      "author": "Fawcett Publications, Inc.",
+      "year": 1947,
+      "type": "comic",
+      "rights": "Public-domain mark on the Archive item; Golden Age comic (1947).",
+      "url": "https://archive.org/details/ComicsNovel01AnarchoDictatorOfDeath1947"
+    },
+    {
+      "id": "ComicBook-CrackComics040",
+      "title": "Crack Comics #40 (Quality Comics)",
+      "author": "Quality Comics",
+      "year": null,
+      "type": "comic",
+      "rights": "Public-domain mark on the Archive item; Golden Age comic.",
+      "url": "https://archive.org/details/ComicBook-CrackComics040"
+    },
+    {
+      "id": "daredevilcomics01c2clevgleason1941julytitanfan",
+      "title": "Daredevil Comics #1 (Lev Gleason, July 1941)",
+      "author": "Lev Gleason Publications",
+      "year": 1941,
+      "type": "comic",
+      "rights": "Public-domain mark on the Archive item; Golden Age comic (1941).",
+      "url": "https://archive.org/details/daredevilcomics01c2clevgleason1941julytitanfan"
+    },
+    {
+      "id": "jumbo-comics-105-november-1947",
+      "title": "Jumbo Comics #105 (Fiction House, November 1947)",
+      "author": "Fiction House",
+      "year": 1947,
+      "type": "comic",
+      "rights": "Public-domain mark on the Archive item; Golden Age comic (1947).",
+      "url": "https://archive.org/details/jumbo-comics-105-november-1947"
+    },
+    {
+      "id": "ShadowComicsV102",
+      "title": "Shadow Comics v1 and v2 (Street & Smith, 1940)",
+      "author": "Street And Smith",
+      "year": 1940,
+      "type": "comic",
+      "rights": "Public-domain mark on the Archive item; Golden Age comic (1940).",
+      "url": "https://archive.org/details/ShadowComicsV102"
+    },
+    {
+      "id": "daredevil-by-lev-gleason-silver-streak-comics",
+      "title": "Silver Streak Comics (Lev Gleason)",
+      "author": "Lev Gleason",
+      "year": null,
+      "type": "comic",
+      "rights": "Public-domain mark on the Archive item; Golden Age comic.",
+      "url": "https://archive.org/details/daredevil-by-lev-gleason-silver-streak-comics"
+    }
+  ],
+  "gaps": {
+    "manga": "No verifiably public-domain manga was found. The Archive's manga holdings (12,000+ items under subject:manga, including Boruto, Pokemon Adventures, Azumanga Daioh) are copyrighted scanlations, some carrying self-asserted CC0/public-domain tags from uploaders — a tag does not make a commercial manga public domain. The personal catalog (outside the repo) lists some of these for the owner's own TV with honest rights notes."
+  }
+}
