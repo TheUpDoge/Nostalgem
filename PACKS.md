@@ -90,6 +90,14 @@ Packs point at the Internet Archive and nothing else. The loader rejects a pack 
 
 A pack is loaded or it isn't — a rejected pack adds nothing, and the TV says why.
 
+## Shipped packs
+
+- [`packs/1980s-sci-fi-pd.json`](packs/1980s-sci-fi-pd.json) — **1980s Sci-Fi — Public Domain**: 33 public-domain sci-fi features (1944–1965) on CH 30, from Plan 9 to The Brain That Wouldn't Die, plus 45 Shuttle-era NASA / space-age films (1980–1989) on CH 31. Every item ID was checked live against the Archive; the evidence for each film is listed in `packs/BUILD-REPORT.md`.
+- [`packs/1990s-horror-pd.json`](packs/1990s-horror-pd.json) — **1990s Horror — Public Domain**: 36 public-domain horror features (1919–1968) on CH 32, including Night of the Living Dead (1968) and the 1960 Little Shop of Horrors. Same live check; evidence in `packs/BUILD-REPORT.md`.
+- [`packs/library-catalog.json`](packs/library-catalog.json) — **Video Club library catalog**: 59 public-domain books and 8 Golden Age comics from the Archive, as a link-out list for the club's reading shelf (manga shelf is empty — no verifiably public-domain manga was found).
+
+Load either pack from Menu ▸ Load a channel pack. Each film channel is all features (40 minutes or more), so it becomes a Video Club shelf on its own — any film on it can be checked out like a tape. Neither pack holds 1980s/90s features: those are still under copyright, so they can't ship in a public pack.
+
 ## Your choice, your TV
 
 A pack is your choice on your own TV. The built-in lineup stays public-domain Archive
