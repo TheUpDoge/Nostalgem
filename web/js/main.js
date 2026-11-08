@@ -13,6 +13,8 @@ import { LINK_CHANNELS, isLinkChannel, isGuideVisible, linkCardName, linkUrl, op
 import { createGamepad } from "./gamepad.js";
 import { LOOKS, asciiMask, comboCss, lookById, lookCss, lookYtCss, looksSvg, mixable, nextLook } from "./looks.js";
 import { FrameWatch } from "./framewatch.js";
+import { MAX_TAPES, LOAN_HOURS, cleanLibrary, issueCard, cancelCard, loanFor, checkOut, setPosition, isRewound, rewind, returnTape, overdue, storeShelves, staffPicks, searchStore } from "./library.js";
+import * as Club from "./ui/club.js";
 import { CanvasLook } from "./fxcanvas.js";
 import { Ambience, AMBIENCES, ambienceName } from "./ambience.js";
 import { pickSubtitle, subtitleLabel } from "./captions.js";
@@ -22,11 +24,12 @@ import { Dialog } from "./ui/dialog.js";
 import { Numpad } from "./ui/numpad.js";
 import * as V from "./ui/views.js";
 import { TvLink, makeCode, cleanCode, remoteUrl, prettyCode, qrSvg, loadScript, isIPv4, PAGES_BASE } from "./link.js";
+import { pathsText } from "./relay.js";
 import { loadLineup, builtAt } from "./lineup.js";
 import { loadBumpers } from "./bumpers.js";
 import { pad2, escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder, numberText } from "./util.js";
 
-const VERSION = "1.6.0";
+const VERSION = "1.7.0";
 const NAME = "NostalGem";
 const params = new URLSearchParams(window.location.search);
 const ANDROID = params.get("tv") === "android";
@@ -199,6 +202,14 @@ const guide = new Guide($("guide"), {
 });
 const menu = new Menu($("menu"), updateBug);
 const dialog = new Dialog($("dialog"));
+// A picture that won't load (a box with no cover art) just stays blank.
+$("dialog").addEventListener(
+  "error",
+  function (e) {
+    if (e.target && e.target.tagName === "IMG") e.target.style.visibility = "hidden";
+  },
+  true
+);
 
 // ---------- channels ----------
 function current() {
@@ -626,6 +637,524 @@ function watchFromStart(ch, item) {
     showBanner(6000);
     V.toast("▶ From the start: " + item.t + ". Menu ▸ Back to live returns to the schedule.", 4500);
   }
+}
+
+// ---------- the Video Club: a library card and tapes to check out ----------
+let lib = cleanLibrary(load("library", null));
+function saveLib() {
+  save("library", lib);
+}
+
+// The store's shelves, worked out again when the channels change.
+let shelvesFor = null;
+let shelvesCache = [];
+function clubShelves() {
+  if (shelvesFor !== app.channels || shelvesCache.length === 0) {
+    shelvesFor = app.channels;
+    shelvesCache = storeShelves(app.channels, {
+      skip: function (item) {
+        return !!app.bad[programKey(item)];
+      },
+    });
+  }
+  return shelvesCache;
+}
+
+function findFilm(key) {
+  const shelves = clubShelves();
+  for (let i = 0; i < shelves.length; i++) {
+    for (let k = 0; k < shelves[i].films.length; k++) if (shelves[i].films[k].key === key) return shelves[i].films[k];
+  }
+  // Not on a shelf any more (its channel changed): the tape still plays from what the loan remembers.
+  const loan = loanFor(lib, key);
+  if (!loan) return null;
+  const ch = app.channels.filter(function (c) {
+    return c.slug === loan.ch;
+  })[0];
+  return { key: key, item: { id: loan.id, f: loan.f, t: loan.t, d: loan.d, y: loan.y }, ch: ch || null };
+}
+
+function dueDay(ms) {
+  const d = new Date(ms);
+  return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()] + " " + fmtClock(d, s.clock24);
+}
+
+function openClub() {
+  hideBanner();
+  guide.close();
+  if (!menu.isOpen) menu.open(rootPage());
+  menu.push(clubPage());
+  updateBug();
+}
+
+function clubPage() {
+  return {
+    title: "📼 Video Club",
+    sub: function () {
+      return lib.card
+        ? lib.card.name + " · " + lib.loans.length + " of " + MAX_TAPES + " tapes out · " + LOAN_HOURS / 24 + "-day rentals"
+        : "Feature films from the Internet Archive, checked out like tapes. A library card is free.";
+    },
+    items: function () {
+      const now = Date.now();
+      const list = [];
+      if (!lib.card) {
+        list.push({
+          label: "📇 Get a library card",
+          sub: true,
+          ok: function () {
+            openSignup(0, null, false);
+          },
+        });
+      } else {
+        list.push({
+          label: "📇 My library card",
+          sub: true,
+          value: lib.card.number,
+          ok: function () {
+            showMyCard(false, null);
+          },
+        });
+      }
+      list.push({ head: true, label: "Your tapes · " + lib.loans.length + " of " + MAX_TAPES });
+      if (!lib.loans.length) list.push({ head: true, label: lib.card ? "None out. Pick one off a shelf below." : "Get a card, then pick one off a shelf." });
+      lib.loans.forEach(function (loan) {
+        list.push({
+          label: "📼 " + loan.t,
+          sub: true,
+          value: function () {
+            return Club.tapeState(loan, now);
+          },
+          ok: function () {
+            const film = findFilm(loan.key);
+            if (film) openTape(film);
+          },
+        });
+      });
+      list.push({ head: true, label: "Shelves" });
+      const shelves = clubShelves();
+      const picks = staffPicks(shelves, Math.floor(now / (7 * 86400000)), 12);
+      list.push({
+        label: "🆕 New this week",
+        sub: true,
+        value: picks.length + " tapes",
+        ok: function () {
+          menu.push(shelfPage("🆕 New this week", picks));
+        },
+      });
+      list.push({
+        label: "🔎 Search the store",
+        sub: true,
+        ok: function () {
+          openStoreSearch();
+        },
+      });
+      shelves.forEach(function (sh) {
+        list.push({
+          label: (sh.ch.icon || "📼") + " " + sh.ch.name,
+          sub: true,
+          value: sh.films.length + (sh.films.length === 1 ? " tape" : " tapes"),
+          ok: function () {
+            menu.push(shelfPage((sh.ch.icon || "📼") + " " + sh.ch.name, sh.films));
+          },
+        });
+      });
+      list.push({
+        label: "📜 Club rules & the fine print",
+        sub: true,
+        ok: function () {
+          openSignup(0, null, true);
+        },
+      });
+      return list;
+    },
+  };
+}
+
+function shelfPage(title, films) {
+  return {
+    title: title,
+    sub: films.length + (films.length === 1 ? " tape" : " tapes") + " · OK to look at the box",
+    items: function () {
+      return films.map(function (f) {
+        return {
+          label: f.item.t,
+          value: function () {
+            const out = loanFor(lib, f.key);
+            return (out ? "📼 YOURS · " : "") + (f.item.y ? String(f.item.y) : "");
+          },
+          ok: function () {
+            openTape(f);
+          },
+        };
+      });
+    },
+  };
+}
+
+function openStoreSearch() {
+  dialog.open({
+    title: "🔎 Search the store",
+    html: "A word or two from the title, like <b>western</b>, <b>night</b> or <b>lady</b>.",
+    input: { placeholder: "Title words" },
+    buttons: [
+      {
+        label: "Search",
+        action: function (d) {
+          const text = d.value();
+          const found = searchStore(clubShelves(), text);
+          if (!found.length) {
+            d.status("No tapes with that in the title. Try another word.");
+            return;
+          }
+          d.close();
+          if (!menu.isOpen) menu.open(rootPage());
+          menu.push(shelfPage("🔎 " + text, found));
+        },
+      },
+      {
+        label: "Cancel",
+        action: function (d) {
+          d.close();
+        },
+      },
+    ],
+  });
+}
+
+// The sign-up: what the club is, what the Archive is, and the fine print to sign. readOnly: just reading
+// the rules again (a member). film: the tape they were looking at, to go back to afterwards.
+function openSignup(i, film, readOnly) {
+  const pages = Club.SIGNUP_PAGES;
+  const p = pages[i];
+  const last = i === pages.length - 1;
+  const sign = last && !readOnly;
+  const buttons = [];
+  if (sign) {
+    buttons.push({
+      label: "✍ I agree · issue my card",
+      action: function (d) {
+        const r = issueCard(lib, d.value(), Date.now());
+        if (r.error) {
+          d.status(r.error);
+          return;
+        }
+        lib = r.lib;
+        saveLib();
+        d.close();
+        showMyCard(true, film);
+      },
+    });
+  } else if (!last) {
+    buttons.push({
+      label: "Next ▶",
+      action: function (d) {
+        d.close();
+        openSignup(i + 1, film, readOnly);
+      },
+    });
+  }
+  if (i > 0) {
+    buttons.push({
+      label: "◀ Back",
+      action: function (d) {
+        d.close();
+        openSignup(i - 1, film, readOnly);
+      },
+    });
+  }
+  buttons.push({
+    label: readOnly ? "Close" : "Cancel",
+    action: function (d) {
+      d.close();
+    },
+  });
+  dialog.open({
+    title: p.title + "  " + (i + 1) + "/" + pages.length,
+    html: p.html,
+    input: sign ? { placeholder: "Sign here: your name" } : null,
+    buttons: buttons,
+  });
+}
+
+function showMyCard(welcome, film) {
+  if (!lib.card) return;
+  const buttons = [];
+  if (film) {
+    buttons.push({
+      label: "📼 Back to " + (film.item.t.length > 24 ? film.item.t.slice(0, 23) + "…" : film.item.t),
+      action: function (d) {
+        d.close();
+        openTape(film);
+      },
+    });
+  }
+  buttons.push({
+    label: "📼 Browse the shelves",
+    action: function (d) {
+      d.close();
+      openClub();
+    },
+  });
+  buttons.push({
+    label: "Close",
+    action: function (d) {
+      d.close();
+    },
+  });
+  if (!welcome) {
+    buttons.push({
+      label: "✂ Cut up my card",
+      action: function (d) {
+        d.close();
+        confirmCancelCard();
+      },
+    });
+  }
+  const seen = lib.history.length;
+  dialog.open({
+    title: welcome ? "🎉 Welcome to the club!" : "📇 Your library card",
+    html:
+      Club.cardHtml(lib.card) +
+      '<div class="club-sub">' +
+      (welcome
+        ? "Pick a tape off a shelf: up to " + MAX_TAPES + " at a time, " + LOAN_HOURS / 24 + " days each."
+        : lib.loans.length + " of " + MAX_TAPES + " tapes out · " + seen + (seen === 1 ? " tape" : " tapes") + " returned") +
+      "</div>",
+    buttons: buttons,
+  });
+}
+
+function confirmCancelCard() {
+  dialog.open({
+    title: "✂ Cut up your card?",
+    html: "Your tapes go back on the shelf and the card is gone from this TV. You can sign up again any time.",
+    buttons: [
+      {
+        label: "Keep my card",
+        action: function (d) {
+          d.close();
+        },
+      },
+      {
+        label: "Cut it up",
+        action: function (d) {
+          ejectTape();
+          lib = cancelCard(lib, Date.now());
+          saveLib();
+          d.close();
+          V.toast("✂ Card cut up. Come back any time.", 3500);
+        },
+      },
+    ],
+  });
+}
+
+// A tape's box, with what you can do with it.
+function openTape(film, focusLabel) {
+  const now = Date.now();
+  const loan = loanFor(lib, film.key);
+  const buttons = [];
+  let note = "";
+  if (loan) {
+    buttons.push({
+      label: isRewound(loan) ? "▶ Play" : "▶ Play from " + fmtDuration(loan.pos),
+      action: function (d) {
+        d.close();
+        playTape(film.key);
+      },
+    });
+    if (!isRewound(loan)) {
+      buttons.push({
+        label: "◀◀ Rewind",
+        action: function (d) {
+          d.close();
+          rewindTape(film.key, function () {
+            openTape(film, "⏏ Return");
+          });
+        },
+      });
+    }
+    buttons.push({
+      label: "⏏ Return",
+      action: function (d) {
+        const r = returnTapeNow(film.key);
+        if (r.error) d.status(r.text);
+        else d.close();
+      },
+    });
+  } else if (!lib.card) {
+    note = "On the shelf · a free library card checks it out";
+    buttons.push({
+      label: "📇 Get a library card",
+      action: function (d) {
+        d.close();
+        openSignup(0, film, false);
+      },
+    });
+  } else if (lib.loans.length >= MAX_TAPES) {
+    note = "You have " + MAX_TAPES + " tapes out. Rewind and return one to make room.";
+    buttons.push({
+      label: "📼 Your tapes",
+      action: function (d) {
+        d.close();
+        openClub();
+      },
+    });
+  } else {
+    note = "On the shelf · " + LOAN_HOURS / 24 + "-day rental";
+    buttons.push({
+      label: "⏏ Check out & play",
+      action: function (d) {
+        const r = checkOut(lib, film, Date.now());
+        if (r.error) {
+          d.status(r.text);
+          return;
+        }
+        lib = r.lib;
+        saveLib();
+        d.close();
+        playTape(film.key);
+        V.toast("📼 Checked out " + film.item.t + " · due back " + dueDay(r.loan.due), 5000);
+      },
+    });
+  }
+  buttons.push({
+    label: "Close",
+    action: function (d) {
+      d.close();
+    },
+  });
+  dialog.open({ title: "📼 Video Club", html: Club.tapeBoxHtml(film, loan, app.about[film.item.id], now, note), buttons: buttons });
+  if (focusLabel) {
+    for (let i = 0; i < buttons.length; i++) {
+      if (buttons[i].label === focusLabel) {
+        dialog.focus = i;
+        dialog.paint();
+      }
+    }
+  }
+}
+
+// Put a tape you have out in the VCR: it plays from where you stopped it, off the schedule.
+function playTape(key) {
+  const loan = loanFor(lib, key);
+  const film = findFilm(key);
+  if (!loan || !film) return;
+  if (app.tape && app.tape !== key) ejectTape(); // the other tape comes out first, keeping its place
+  closeOverlays();
+  let ch = film.ch;
+  if (!ch || isLinkChannel(ch)) ch = isLinkChannel(current()) ? visibleChannels()[0] : current();
+  if (ch && ch !== current()) tuneTo(ch, { quiet: true });
+  const at = loan.pos >= loan.d - 30 ? 0 : loan.pos;
+  if (player.playFromStart(film.item, at)) {
+    app.tape = key;
+    app.tapePos = at;
+    app.tapeDur = 0;
+    app.tapeSavedAt = Date.now();
+    showBanner(5000);
+    V.toast("📼 Now playing your tape: " + film.item.t + (at > 2 ? " · from " + fmtDuration(at) : ""), 4000);
+  }
+}
+
+// The tape leaves the VCR (back to the schedule): remember where it stopped.
+function ejectTape() {
+  if (!app.tape) return;
+  const key = app.tape;
+  app.tape = "";
+  const loan = loanFor(lib, key);
+  if (loan) {
+    const end = app.tapeDur > 0 ? app.tapeDur : loan.d;
+    let pos = app.tapePos || loan.pos;
+    const atEnd = pos >= end - Math.min(20, end * 0.02);
+    if (atEnd) pos = loan.d;
+    lib = setPosition(lib, key, pos);
+    saveLib();
+    if (atEnd) V.toast("📼 That's the end of the tape. Rewind it and return it: Menu ▸ 📼 Video Club", 6000);
+  }
+  app.tapePos = 0;
+}
+
+// Twice a second: follow the tape in the VCR, and send overdue tapes back.
+function clubTick(now) {
+  if (app.tape) {
+    const sl = player.slot;
+    const playing = sl && sl.onDemand && programKey(sl.item) === app.tape && player.mode !== "off" && player.mode !== "gap" && player.mode !== "empty";
+    if (playing) {
+      if (player.mode === "playing" || player.mode === "paused") {
+        const t = player.v.currentTime;
+        if (isFinite(t) && t > 0) app.tapePos = t;
+        const dur = player.v.duration;
+        if (isFinite(dur) && dur > 0) app.tapeDur = dur;
+      }
+      if (now - app.tapeSavedAt > 5000 && app.tapePos > 0) {
+        app.tapeSavedAt = now;
+        lib = setPosition(lib, app.tape, app.tapePos);
+        saveLib();
+      }
+    } else ejectTape();
+  }
+  if (now - (app.dueCheckedAt || 0) > 30000) {
+    app.dueCheckedAt = now;
+    const late = overdue(lib, now).filter(function (l) {
+      return l.key !== app.tape; // the one playing goes back when it's over
+    });
+    late.forEach(function (l) {
+      lib = returnTape(lib, l.key, now, true).lib;
+      V.toast("📼 " + l.t + " was due back, so it went back on the shelf. No late fees. Be kind, rewind!", 6000);
+    });
+    if (late.length) saveLib();
+  }
+}
+
+// ◀◀: the reels spin backwards and the counter runs down to 0:00:00. done() runs after.
+function rewindTape(key, done) {
+  const loan = loanFor(lib, key);
+  if (!loan) return;
+  if (app.tape === key) {
+    ejectTape();
+    player.goLive();
+  }
+  closeOverlays();
+  const from = loanFor(lib, key).pos;
+  const ms = Math.round(Math.min(3600, 900 + (from / loan.d) * 2700));
+  const el = $("rewind");
+  el.innerHTML = Club.rewindHtml(loan.t, from);
+  el.hidden = false;
+  Club.whirr(ms);
+  const clock = function () {
+    return typeof performance !== "undefined" ? performance.now() : Date.now();
+  };
+  const t0 = clock();
+  clearInterval(app.rewindTimer);
+  app.rewindTimer = setInterval(function () {
+    const k = Math.min(1, (clock() - t0) / ms);
+    const c = el.querySelector(".rw-counter");
+    if (c) c.textContent = Club.counter(from * (1 - k));
+    if (k < 1) return;
+    clearInterval(app.rewindTimer);
+    lib = rewind(lib, key);
+    saveLib();
+    setTimeout(function () {
+      el.hidden = true;
+      el.innerHTML = "";
+      if (done) done();
+    }, 450);
+  }, 50);
+}
+
+function returnTapeNow(key) {
+  const loan = loanFor(lib, key);
+  const r = returnTape(lib, key, Date.now(), false);
+  if (r.error) return r;
+  if (app.tape === key) {
+    ejectTape();
+    player.goLive();
+  }
+  lib = r.lib;
+  saveLib();
+  V.toast("⏏ Returned " + (loan ? loan.t : "the tape") + ". Thanks for rewinding!", 4000);
+  return r;
 }
 
 // ---------- playback problems ----------
@@ -1197,6 +1726,16 @@ function rootPage() {
         ok: function () {
           openFind("");
           return "close";
+        },
+      });
+      list.push({
+        label: "📼 Video Club",
+        sub: true,
+        value: function () {
+          return lib.card ? lib.loans.length + " of " + MAX_TAPES + " tapes out" : "Get a library card";
+        },
+        ok: function () {
+          menu.push(clubPage());
         },
       });
       list.push({
@@ -2160,6 +2699,8 @@ function pairStatus() {
       "📱 A phone called, but the two couldn't reach each other. " +
       (ANDROID ? "Guest Wi-Fi, VPNs and “AP isolation” on a router block it." : "On the same Wi-Fi, the NostalGem TV app links more reliably than a browser.") +
       (app.callingWhy ? " (" + app.callingWhy + ")" : "");
+  // Which ways in are open, so a phone that won't link can be compared against it.
+  if (link.status !== "off" && link.status !== "unsupported") text += "  ·  This TV: " + pathsText(link.paths());
   dialog.status(text);
 }
 
@@ -2694,6 +3235,14 @@ window.NP = {
       lineup: { source: app.lineupSource, built: app.lineup ? app.lineup.built : "" },
       country: app.country,
       ambience: { mode: ambience.mode, on: ambience.active, audio: ambience.ctx ? ambience.ctx.state : "" },
+      club: {
+        card: lib.card ? lib.card.name : "",
+        tape: app.tape,
+        loans: lib.loans.map(function (l) {
+          return { t: l.t, pos: Math.round(l.pos), rewound: isRewound(l) };
+        }),
+        returned: lib.history.length,
+      },
       look: { id: s.look, mix: s.mix, key: lookKey(), lite: lookIsLite(), quality: s.lookQuality, watching: frameWatch.key, fps: frameWatch.last },
     };
   },
@@ -2706,6 +3255,8 @@ function tick() {
   player.tick();
   ambience.setActive(app.state === "on" && !app.suspended && !player.muted);
   watchFrames();
+  clubTick(now);
+  if (app.pairOpen && app.ticks % 4 === 0) pairStatus(); // relay servers coming and going
   if (app.bannerUntil) {
     if (now > app.bannerUntil && player.mode !== "paused") hideBanner();
     else if (app.ticks % 2 === 0) renderBanner();

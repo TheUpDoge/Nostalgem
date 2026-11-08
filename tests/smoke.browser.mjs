@@ -626,6 +626,85 @@ try {
     check(!(await page.isVisible("#numpad .np-box")), "…and a tap beside the pad closes it");
   }
 
+  // The Video Club: sign for a library card, check out two tapes, a third has to wait, rewind and return.
+  {
+    const dialogText = () => page.textContent("#dialog");
+    const btn = async (re, wait) => {
+      await page.locator("#dialog .d-btn", { hasText: re }).first().click();
+      await page.waitForTimeout(wait == null ? 300 : wait);
+    };
+    const toClub = async () => {
+      for (let i = 0; i < 6 && (await state()).overlay; i++) await key("Escape", 150);
+      await key("ArrowRight", 300);
+      await page.click('#menu .m-item:has-text("Video Club")');
+      await page.waitForTimeout(300);
+    };
+    await toClub();
+    const clubMenu = await page.textContent("#menu");
+    check(/Get a library card/.test(clubMenu) && /Shelves/.test(clubMenu) && /New this week/.test(clubMenu), "Menu ▸ 📼 Video Club has shelves of tapes and offers a library card");
+    await page.click('#menu .m-item:has-text("Get a library card")');
+    await page.waitForTimeout(300);
+    check(/1\/3/.test(await dialogText()) && /two tapes/.test(await dialogText()), "…signing up starts with how the club works (1/3)");
+    await btn(/Next/);
+    check(/2\/3/.test(await dialogText()) && /non-profit library/.test(await dialogText()), "…then what the Internet Archive is (2/3)");
+    await btn(/Next/);
+    const fine = await dialogText();
+    check(/3\/3/.test(fine) && /not an archive\.org account/.test(fine) && /terms of use/.test(fine) && (await page.isVisible("#dialog input")), "…then the fine print, with a line to sign (3/3)");
+    await btn(/I agree/);
+    check(/Sign with your name/.test(await page.textContent("#dialog .d-status")), "…no card without a signature");
+    await page.fill("#dialog input", "Marty McFly");
+    await btn(/I agree/);
+    st = await state();
+    check(st.club.card === "Marty McFly" && /Welcome to the club/.test(await dialogText()) && /NG \d{4} \d{4} \d{4}/.test(await dialogText()), "…signed: a library card with a number, in the member's name");
+    await shot("4k-library-card");
+    await btn(/Close/);
+
+    const checkOutTape = async (i) => {
+      await toClub();
+      await page.click('#menu .m-item:has-text("New this week")');
+      await page.waitForTimeout(300);
+      const title = (await page.textContent("#menu .m-item[data-i='" + i + "'] .l")).trim();
+      await page.click("#menu .m-item[data-i='" + i + "']");
+      await page.waitForTimeout(300);
+      return title;
+    };
+    const first = await checkOutTape(0);
+    check(/Check out/.test(await dialogText()) && (await page.$("#dialog .club-art img")) !== null, `a tape's box (${first}) has its cover and ⏏ Check out & play`);
+    await shot("4l-tape-box");
+    await btn(/Check out/, 2000);
+    st = await state();
+    check(st.club.loans.length === 1 && !!st.club.tape && st.shifted && st.program === first, `checked out, it plays off the schedule (${st.program}, ${st.mode})`);
+    const second = await checkOutTape(1);
+    await btn(/Check out/, 1500);
+    st = await state();
+    check(st.club.loans.length === 2 && st.program === second && st.club.loans[0].pos > 0 && st.club.loans[0].pos < 30, `a second tape; the first one keeps its place (${JSON.stringify(st.club.loans)})`);
+    await checkOutTape(2);
+    check(/2 tapes out/.test(await dialogText()) && !(await page.locator("#dialog .d-btn", { hasText: /Check out/ }).count()), "a third tape has to wait: two at a time");
+    await btn(/Close/);
+    await key("Escape", 200);
+    await key("Escape", 200);
+    await key("Escape", 200);
+
+    // Return the first one: it has been played, so it needs rewinding first.
+    await toClub();
+    await page.click('#menu .m-item:has-text("📼 ' + first.replace(/"/g, '\\"') + '")');
+    await page.waitForTimeout(300);
+    await btn(/Return/);
+    check(/Be kind, rewind/.test(await page.textContent("#dialog .d-status")), "returning a played tape: Be kind, rewind!");
+    await btn(/Rewind/, 600);
+    check((await page.isVisible("#rewind .rw-reel")) && /REWIND/.test(await page.textContent("#rewind")), "◀◀ Rewind shows the reels spinning back and the counter running down");
+    await shot("4m-rewind");
+    await page.waitForFunction(() => document.getElementById("rewind").hidden && document.querySelector("#dialog .d-btn.focus"), null, { timeout: 8000 }).catch(() => {});
+    check(/Return/.test(await page.textContent("#dialog .d-btn.focus")), "…then the box comes back with ⏏ Return ready");
+    await key("Enter", 400);
+    st = await state();
+    check(st.club.loans.length === 1 && st.club.returned === 1 && st.club.loans[0].t === second, `…and it's back on the shelf: one tape out (${JSON.stringify(st.club)})`);
+    await key("Escape", 200);
+    await key("Escape", 200);
+    await key("Escape", 200);
+    await key("l", 800);
+  }
+
   // A game controller: the poller starts when a pad connects, and its D-pad changes channel.
   await key("1", 120);
   await key("2", 2200);

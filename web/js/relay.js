@@ -30,6 +30,64 @@ export function relayBrokers() {
   return w.NostalGemRelayBrokers || RELAY_BROKERS;
 }
 
+// A relay server's short name for the pairing screens: "EMQX", "HiveMQ", "Eclipse", or its host.
+export function brokerName(url) {
+  const m = /^wss?:\/\/([^/:]+)/i.exec(String(url || ""));
+  const host = m ? m[1].toLowerCase() : String(url || "");
+  if (/emqx/.test(host)) return "EMQX";
+  if (/hivemq/.test(host)) return "HiveMQ";
+  if (/eclipse/.test(host)) return "Eclipse";
+  return host;
+}
+
+// Can this device reach each relay server? Resolves [{ url, name, ok }] within ms. For the pairing
+// screens: when the phone and the TV can both reach the same server, the relay should work.
+export function probeBrokers(urls, ms) {
+  const list = urls || relayBrokers();
+  return Promise.all(
+    list.map(function (url) {
+      return new Promise(function (done) {
+        let ws = null;
+        let settled = false;
+        const finish = function (ok) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          try {
+            if (ws) ws.close();
+          } catch (e) {
+            /* fine */
+          }
+          done({ url: url, name: brokerName(url), ok: ok });
+        };
+        const timer = setTimeout(function () {
+          finish(false);
+        }, ms || 6000);
+        try {
+          ws = new WebSocket(url, "mqtt");
+          ws.onopen = function () {
+            finish(true);
+          };
+          ws.onerror = function () {
+            finish(false);
+          };
+        } catch (e) {
+          finish(false);
+        }
+      });
+    })
+  );
+}
+
+// "EMQX ✓ · HiveMQ ✗ · Eclipse ✓"
+export function pathsText(list) {
+  return list
+    .map(function (p) {
+      return p.name + (p.ok ? " ✓" : " ✗");
+    })
+    .join(" · ");
+}
+
 // ---------- MQTT 3.1.1, just what's needed: connect, subscribe, publish (QoS 0), ping ----------
 function varint(n) {
   const out = [];

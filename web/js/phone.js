@@ -3,7 +3,7 @@
 // reach each other directly, and shows what the TV reports back.
 
 import { cleanCode, peerIdFor, prettyCode, peerClass, peerOptions, linkReport, PROTOCOL } from "./link.js";
-import { relayConnect, relaySupported } from "./relay.js";
+import { relayConnect, relaySupported, probeBrokers, pathsText } from "./relay.js";
 import { escapeHtml as esc, fmtDuration, pad2 } from "./util.js";
 
 const KEY = "nostalgem-remote:";
@@ -323,8 +323,18 @@ function giveUpIfBothFailed() {
         ? " The relay couldn't be reached from this network either."
         : "";
   setStatus(r.notFound && r.relayWhy === "no tv" ? "notfound" : "lost");
-  $("pairWhy").textContent = r.p2pWhy ? "Details: " + r.p2pWhy + (r.relayWhy ? " · relay: " + r.relayWhy : "") : r.relayWhy ? "Details: relay: " + r.relayWhy : "";
+  const details = r.p2pWhy ? "Details: " + r.p2pWhy + (r.relayWhy ? " · relay: " + r.relayWhy : "") : r.relayWhy ? "Details: relay: " + r.relayWhy : "";
+  $("pairWhy").textContent = details;
   retry((r.p2pMsg || "Couldn't reach the TV.") + relayWords + " Trying again…");
+  // Which relay servers this phone can reach: compare with "This TV: …" on the TV's pairing screen.
+  if (!r.probing && relaySupported()) {
+    r.probing = true;
+    probeBrokers(null, 6000).then(function (list) {
+      r.probing = false;
+      if (r.conn && r.conn.open) return;
+      $("pairWhy").textContent = (details ? details + " · " : "") + "This phone: " + (list.length ? pathsText(list) : "no relay servers");
+    });
+  }
 }
 
 function lostLink() {

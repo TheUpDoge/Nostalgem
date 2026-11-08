@@ -121,6 +121,13 @@ YouTube's player) and rebuilt daily:
 - Sized for a TV across the room, inside overscan margins. It also works with a mouse, a keyboard,
   or a touch screen: big CH ▲▼ buttons on the right, a dock along the bottom (guide, info, pause,
   number pad, menu, back), and swipe up/down to change channel.
+- **📼 Video Club**: the Archive's feature films, checked out like tapes from a neighborhood video store.
+  Sign up for a free **library card** (three short pages: how the club works, what the Internet Archive
+  is, and the fine print, signed with your name), then take up to **two tapes** at a time for **three
+  days** each. A tape you have out plays from where you stopped it; when you're done, **◀◀ rewind** it
+  and **⏏ return** it. A tape still out when it's due goes back by itself, with no late fees. The card
+  lives on that TV only: it isn't an archive.org account and doesn't borrow from the Archive's own
+  lending library. Menu ▸ 📼 Video Club.
 - **Search the Archive** builds a channel from words, Archive search terms, or a pasted archive.org link
   (one item or a whole collection). A channel number typed there just tunes that channel.
 
@@ -360,6 +367,7 @@ web/
   js/looks.js, js/ambience.js  picture filters and lo-fi sound (Menu ▸ Picture & sound, V key)
   js/fxcanvas.js               the pixel and ASCII looks (and light versions of the others), drawn on a canvas
   js/framewatch.js             notices a filter making the picture choppy (Filter quality: Auto)
+  js/library.js, js/ui/club.js the Video Club: library card, checkout rules, the store's shelves and screens
   js/packs.js                  channel packs: format, validator, loader (Menu ▸ Load a channel pack)
   js/main.js                   wires it all together
   data/channels.json           channel definitions

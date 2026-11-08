@@ -17,7 +17,7 @@
 // public message brokers, encrypted with a key made from the code. Both run at once; the phone keeps
 // whichever opens first and moves to the direct link if that comes up later.
 
-import { RelayHost, relaySupported } from "./relay.js";
+import { RelayHost, relaySupported, brokerName } from "./relay.js";
 
 export const PEER_PREFIX = "nostalgem-";
 export const PROTOCOL = 1;
@@ -323,6 +323,16 @@ export class TvLink {
     this.relayReady = false;
     this.setStatus("off");
     this.phonesChanged();
+  }
+
+  // Each way a phone can reach this TV, for the pairing screen: the pairing service (a direct link) and
+  // each relay server. [{ name, ok }]
+  paths() {
+    const out = [{ name: "Direct", ok: this.peerStatus === "ready" }];
+    (this.relay ? this.relay.brokers : []).forEach(function (b) {
+      out.push({ name: brokerName(b.url), ok: !!b.up });
+    });
+    return out;
   }
 
   // A new code locks out every phone paired with the old one.

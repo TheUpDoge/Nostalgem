@@ -83,6 +83,16 @@ await tv.waitForTimeout(1500);
 const after = await tv.evaluate(() => window.NP.state().channel);
 check(after !== before, `CH ▲ on the phone changes the TV's channel (${before} → ${after})`);
 
+// The TV's pairing screen lists each way in: here no direct link, a dead relay server and a live one.
+await tv.keyboard.press("ArrowRight");
+await tv.waitForTimeout(300);
+await tv.click('#menu .m-item:has-text("Phone remote")');
+await tv.waitForTimeout(2500);
+const pairText = (await tv.textContent("#dialog .d-status")) || "";
+check(/This TV: Direct ✗ · 127\.0\.0\.1 ✗ · 127\.0\.0\.1 ✓/.test(pairText), "the TV's pairing screen shows which ways in are open: " + pairText);
+await tv.keyboard.press("Escape");
+await tv.waitForTimeout(300);
+
 const plain = broker.seen.map((b) => b.toString("latin1")).join("\n");
 check(broker.seen.length > 3 && !/chup|hello|state|channels|RTY234/.test(plain), `nothing readable went through the broker (${broker.seen.length} messages)`);
 

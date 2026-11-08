@@ -187,7 +187,7 @@ export class Player {
       this.tryPlay(this.token);
       return true;
     }
-    if (this.slot && this.slot.onDemand) this.load(0);
+    if (this.slot && this.slot.onDemand) this.load(this.slot.into || 0);
     else this.syncToLive();
     return true;
   }
@@ -387,14 +387,17 @@ export class Player {
 
   // On demand: one of this channel's programs from its start, off the schedule. It plays to the end (or
   // until "Back to live"), and then the channel's schedule takes over again.
-  playFromStart(item) {
+  // at: seconds in to start from (a Video Club tape picks up where it was stopped).
+  playFromStart(item, at) {
     if (!this.tl || !item || item.live || !(item.d > 0)) return false;
+    const into = Math.max(0, Math.min(item.d - 5, Number(at) || 0));
     const now = Date.now();
+    const start = now - into * 1000;
     this.shifted = true;
     this.retryAt = 0;
-    this.slot = { index: -1, item: item, into: 0, startMs: now, endMs: now + item.d * 1000, slotEndMs: now + item.d * 1000, inGap: false, next: null, onDemand: true };
+    this.slot = { index: -1, item: item, into: into, startMs: start, endMs: start + item.d * 1000, slotEndMs: start + item.d * 1000, inGap: false, next: null, onDemand: true };
     this.emit("program", this.slot);
-    this.load(0);
+    this.load(into);
     return true;
   }
 

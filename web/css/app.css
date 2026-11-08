@@ -1399,6 +1399,8 @@ body {
   color: var(--dim);
   font-size: 1rem;
   line-height: 1.45;
+  max-height: 64vh;
+  overflow-y: auto;
 }
 .d-text b {
   color: var(--ink);
@@ -1867,3 +1869,236 @@ body {
   image-rendering: pixelated;
 }
 /* The rain is drawn on a see-through canvas: no blending needed (blending is costly on a TV). */
+
+/* ---------- the Video Club (library.js, ui/club.js) ---------- */
+.club-list {
+  margin: 0.5rem 0 0;
+  padding-left: 1.3rem;
+}
+.club-list li {
+  margin: 0.35rem 0;
+}
+.club-sign,
+.club-sub {
+  margin-top: 0.8rem;
+  color: var(--ink);
+}
+/* The library card: a wallet card in sunset colors, with the member's signature. */
+.club-card {
+  position: relative;
+  width: 26rem;
+  max-width: 100%;
+  aspect-ratio: 1.586;
+  margin: 0.4rem auto 0;
+  padding: 1rem 1.2rem;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, #2b0a5c 0%, #7a1fa2 45%, #ff2a6d 80%, #ff9f1c 100%);
+  box-shadow: 0 0.6rem 1.6rem rgba(0, 0, 0, 0.5), inset 0 0.08rem 0 rgba(255, 255, 255, 0.35);
+  color: #fff;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.club-card::after {
+  content: "";
+  position: absolute;
+  left: -30%;
+  right: -30%;
+  top: 58%;
+  height: 0.12rem;
+  background: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 0.5rem 0 rgba(255, 255, 255, 0.15), 0 1rem 0 rgba(255, 255, 255, 0.08);
+  transform: rotate(-4deg);
+}
+.club-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+.club-logo {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 1.1rem;
+  letter-spacing: 0.06em;
+}
+.club-logo b {
+  color: var(--cyan);
+}
+.club-kind {
+  font-family: var(--font-display);
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  opacity: 0.9;
+}
+.club-card-name {
+  margin-top: auto;
+  font-family: "Brush Script MT", "Segoe Script", "Snell Roundhand", cursive;
+  font-size: 2rem;
+  line-height: 1.1;
+  text-shadow: 0 0.1rem 0.3rem rgba(0, 0, 0, 0.4);
+  position: relative;
+  z-index: 1;
+}
+.club-card-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  letter-spacing: 0.08em;
+  position: relative;
+  z-index: 1;
+}
+.club-barcode {
+  display: flex;
+  align-items: stretch;
+  height: 1.4rem;
+  margin-top: 0.4rem;
+  padding: 0.15rem 0.3rem;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 0.2rem;
+  width: max-content;
+  position: relative;
+  z-index: 1;
+}
+.club-barcode i {
+  display: block;
+  background: #111;
+}
+.club-card-foot {
+  margin-top: 0.4rem;
+  font-family: var(--font-display);
+  font-size: 0.55rem;
+  letter-spacing: 0.2em;
+  opacity: 0.85;
+  position: relative;
+  z-index: 1;
+}
+/* A tape's box: cover art in a VHS sleeve, and the details beside it. */
+.club-box {
+  display: flex;
+  gap: 1.2rem;
+  align-items: flex-start;
+}
+.club-art {
+  position: relative;
+  flex: 0 0 9rem;
+  height: 13rem;
+  border-radius: 0.4rem;
+  background: linear-gradient(180deg, #1a0838, #090114);
+  border: 0.12rem solid var(--line);
+  overflow: hidden;
+}
+.club-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.club-vhs {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0.2rem 0;
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 0.8rem;
+  letter-spacing: 0.3em;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.7);
+}
+.club-box-text {
+  min-width: 0;
+}
+.club-box-title {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 1.4rem;
+  line-height: 1.2;
+  color: var(--ink);
+}
+.club-box-meta {
+  margin-top: 0.3rem;
+  color: var(--cyan);
+}
+.club-box-about {
+  margin-top: 0.5rem;
+  font-size: 0.95rem;
+}
+.club-box-state {
+  margin-top: 0.7rem;
+  color: var(--yellow);
+}
+.club-box-link {
+  margin-top: 0.3rem;
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+/* ◀◀ REWIND: blue VCR screen, reels spinning backwards, the counter running down. */
+.rewind {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 38;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0018a8;
+}
+.rw-box {
+  text-align: center;
+  color: #fff;
+  font-family: var(--font-mono);
+}
+.rw-label {
+  font-size: 3.4rem;
+  letter-spacing: 0.1em;
+}
+.rw-tape {
+  display: flex;
+  justify-content: center;
+  gap: 4rem;
+  margin: 1.4rem auto;
+  padding: 1.2rem 2.4rem;
+  width: max-content;
+  border: 0.2rem solid #fff;
+  border-radius: 0.6rem;
+}
+.rw-reel {
+  display: block;
+  width: 4.4rem;
+  height: 4.4rem;
+  border-radius: 50%;
+  border: 0.5rem dotted #fff;
+  animation: rw-spin 0.45s linear infinite reverse;
+}
+@keyframes rw-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.rw-counter {
+  font-size: 4.6rem;
+  letter-spacing: 0.08em;
+}
+.rw-title {
+  margin-top: 0.6rem;
+  font-size: 1.6rem;
+  opacity: 0.85;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rw-reel {
+    animation: none;
+  }
+}
+@media (max-aspect-ratio: 1/1) {
+  .club-box {
+    flex-direction: column;
+    align-items: center;
+  }
+}
