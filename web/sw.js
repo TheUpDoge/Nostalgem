@@ -46,6 +46,7 @@ const SHELL = [
   "js/secrets.js",
   "js/church.js",
   "js/cuts.js",
+  "js/zip.js",
   "js/changes.js",
   "js/ui/reader.js",
   "js/ui/stacks.js",

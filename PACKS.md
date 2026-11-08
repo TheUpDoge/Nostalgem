@@ -1,8 +1,8 @@
 # Channel packs
 
 A channel pack is a small JSON file that adds channels on your own TV, without touching
-the shipped lineup. From the Menu: **Load a channel pack**, then choose a `.json` file or
-paste its text. Everything happens on your TV — no upload, no server.
+the shipped lineup. From the Menu: **Load a channel pack**, then choose a `.json` file (or a
+`.zip` of them) or paste its text. Everything happens on your TV — no upload, no server.
 
 Pack channels land on **CH 30–49** and are saved on that TV only, exactly like channels
 you add by search (Menu ▸ Add a channel). Loading a pack never changes
@@ -89,6 +89,17 @@ Packs point at the Internet Archive and nothing else. The loader rejects a pack 
 - an item ID with spaces, slashes or anything that isn't an Archive identifier.
 
 A pack is loaded or it isn't — a rejected pack adds nothing, and the TV says why.
+
+## Several packs in a .zip
+
+Packs can travel together: zip them up and choose the `.zip`. Every `.json` file in it is read, in
+folders or not, as a pack or as a skip-list file (`nostalgem-skip-lists/1`, below), and they all show
+on one "Load these packs?" screen. A file that doesn't check out is listed there with what's wrong and
+left out; the rest load together, one channel after another (a number one pack took moves the next
+one's channel along). Other files (a README, pictures) and macOS's `__MACOSX` copies are ignored.
+
+Any zip tool's usual settings work: files stored or deflated. Not read: password-protected zips, ZIP64,
+and zips split into parts. A zip may hold up to 200 `.json` files and unpack to 8 MB in all.
 
 ## Clean cuts in a pack
 

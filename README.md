@@ -319,9 +319,9 @@ app pick it up.
 ### Channel packs
 
 A channel pack is a small JSON file that adds channels on your own TV, without touching
-the shipped lineup. From the Menu: **Load a channel pack**, then choose a `.json` file or
-paste its text. Pack channels land on CH 30–49 and are saved on that TV only, like channels
-you add by search.
+the shipped lineup. From the Menu: **Load a channel pack**, then choose a `.json` file, or a
+`.zip` holding several packs, or paste its text. Pack channels land on CH 30–49 and are saved
+on that TV only, like channels you add by search.
 
 A pack defines one or more channels — a name, a number (30–49), and an Archive source:
 a collection search or explicit Archive item IDs. Nothing else is allowed: no YouTube, no
@@ -417,6 +417,7 @@ web/
   data/library-catalog.json    the club's catalog: checked public-domain books and comics (the catalog shelves)
   data/skip-lists.json         clean cuts that ship (none yet: times come from a real viewing pass)
   js/packs.js                  channel packs: format, validator, loader (Menu ▸ Load a channel pack)
+  js/zip.js                    reads a .zip of packs (stored or deflated files; its own inflate and CRC-32)
   js/main.js                   wires it all together
   data/channels.json           channel definitions
   data/bumpers.json            house bumpers for the station breaks

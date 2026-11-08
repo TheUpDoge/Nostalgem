@@ -36,7 +36,7 @@ jobs:
         run: npm run test:tvapp
       - name: Stations with their own picture and sound (666 slow and red, 111 stained glass and church echo)
         run: npm run test:stations
-      - name: Clean cuts (card on a live channel, skip on a tape) and the Reading Room's catalog shelves
+      - name: Clean cuts (card live, skip on a tape), the Reading Room's catalog shelves, and packs in a .zip
         run: npm run test:cuts
 
   # Publishes web/ to GitHub Pages from main. One-time setup: Settings → Pages → Source: GitHub Actions.

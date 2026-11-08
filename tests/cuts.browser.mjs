@@ -5,6 +5,8 @@
 //   Video Club tape: its TV-safe cut is off until the viewer turns it on, so it plays as it is; turned on
 //   (on the tape's box), a listed scene is jumped over, with a word on screen.
 //   Reading Room: the club's catalog shelves (checked public domain), and the empty manga shelf's note.
+//   Packs in a .zip: every pack in it on one "Load?" screen (a broken one listed, not loaded), then loaded
+//   together: a channel and clean cuts.
 //
 // The scenes here are TEST VALUES on a 12-second test video. Real lists come only from a viewing pass of
 // the Archive's own file; the shipped file has none.
@@ -18,6 +20,7 @@ import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { makeTimeline } from "../web/js/schedule.js";
 import { BBC_CHANNEL } from "../web/js/secrets.js";
+import { makeZip } from "./fixtures/make-zip.mjs";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
@@ -111,6 +114,17 @@ await ctx.route(/\/data\/library-catalog\.json$/, (r) => r.fulfill({ status: 200
 await ctx.route(/^https:\/\/archive\.org\//, (r) => {
   const url = new URL(r.request().url());
   if (url.pathname.startsWith("/download/")) return r.fulfill({ status: 302, headers: { location: base + "__media/test.mp4" } });
+  if (url.pathname === "/metadata/test_zip_film") {
+    return r.fulfill({
+      status: 200,
+      contentType: "application/json",
+      headers: { "access-control-allow-origin": "*" },
+      body: JSON.stringify({
+        metadata: { identifier: "test_zip_film", title: "Zip Film", year: "1950" },
+        files: [{ name: "zipfilm.mp4", format: "h.264", source: "original", length: "3600" }],
+      }),
+    });
+  }
   if (url.pathname === "/metadata/test_pd_book") {
     return r.fulfill({
       status: 200,
@@ -220,6 +234,46 @@ check(/A Test Book/.test(await page.textContent("#menu")) && /1890/.test(await p
 await page.click('#menu .m-item:has-text("A Test Book")');
 await page.waitForTimeout(800);
 check(/A Test Book/.test(await dialogText()) && /Borrow/.test(await dialogText()), "…and a book opens its box, to borrow and read in the Reading Room: " + (await dialogText()).replace(/\s+/g, " ").slice(0, 120));
+
+// ---------- packs in a .zip ----------
+const zip = makeZip([
+  { name: "packs/zip-films.json", data: JSON.stringify({ pack: "Zip Films", version: 1, channels: [{ name: "Zip Films", number: 44, sources: [{ items: ["test_zip_film"] }] }] }) },
+  { name: "packs/cuts/film-z.json", data: JSON.stringify({ format: "nostalgem-skip-lists/1", lists: [{ item: "test_film_z", skips: [{ start: 1, end: 2, reason: "sexual-content", note: "test" }] }] }), method: 0 },
+  { name: "packs/broken.json", data: JSON.stringify({ pack: "Broken", version: 2, channels: [] }) },
+  { name: "__MACOSX/packs/._zip-films.json", data: "junk" },
+  { name: "README.txt", data: "two packs and a broken one" },
+]);
+for (let i = 0; i < 6 && (await st()).overlay; i++) await page.keyboard.press("Escape");
+await page.keyboard.press("ArrowRight");
+await page.waitForFunction(() => window.NP.state().overlay === "menu", null, { timeout: 5000 }).catch(() => {});
+await page.waitForTimeout(500);
+await page.locator("#menu .m-item", { hasText: "Load a channel pack" }).first().click();
+await page.waitForTimeout(300);
+check(/Choose a \.json or \.zip file/.test(await page.textContent("#menu")), "Load a channel pack takes a .json or a .zip");
+const [chooser] = await Promise.all([page.waitForEvent("filechooser"), page.locator("#menu .m-item", { hasText: "Choose a .json or .zip file" }).first().click()]);
+check(/\.zip/.test((await chooser.element().getAttribute("accept")) || ""), "…the file picker lets a .zip be picked");
+await chooser.setFiles({ name: "my-packs.zip", mimeType: "application/zip", buffer: Buffer.from(zip) });
+await page.waitForFunction(() => /Load these packs/.test(document.getElementById("dialog").textContent), null, { timeout: 5000 }).catch(() => {});
+const confirm = await dialogText();
+check(/my-packs\.zip holds 2 packs/.test(confirm) && /Zip Films/.test(confirm) && /CH 44/.test(confirm) && /film-z/.test(confirm) && /Clean cuts for 1 film/.test(confirm), "…every pack in it on one screen: " + confirm.replace(/\s+/g, " ").slice(0, 200));
+check(/Not loaded \(1\)/.test(confirm) && /broken\.json: version/.test(confirm) && !/MACOSX|README/.test(confirm), "…a broken one listed and left out, Mac copies and other files ignored");
+await btn(/Load 2 packs/, 300);
+await page.waitForFunction(() => window.NP.state().name === "Zip Films", null, { timeout: 15000 }).catch(() => {});
+s = await st();
+check(s.name === "Zip Films" && s.channel === 44, `…loaded: the pack's channel is on the air (CH ${s.channel} ${s.name})`);
+check(/Packs on the air/.test(await page.textContent("#toast")) && /clean cuts for 1 film/.test(await page.textContent("#toast")), "…and says so: " + (await page.textContent("#toast")));
+check(await page.evaluate(() => JSON.parse(localStorage.getItem("nostalgem:skipLists") || "[]").some((l) => l.item === "test_film_z")), "…its clean cuts kept on this TV");
+// A file that isn't a zip at all.
+for (let i = 0; i < 6 && (await st()).overlay; i++) await page.keyboard.press("Escape");
+await page.keyboard.press("ArrowRight");
+await page.waitForFunction(() => window.NP.state().overlay === "menu", null, { timeout: 5000 }).catch(() => {});
+await page.waitForTimeout(500);
+await page.locator("#menu .m-item", { hasText: "Load a channel pack" }).first().click();
+await page.waitForTimeout(300);
+const [chooser2] = await Promise.all([page.waitForEvent("filechooser"), page.locator("#menu .m-item", { hasText: "Choose a .json or .zip file" }).first().click()]);
+await chooser2.setFiles({ name: "oops.zip", mimeType: "application/zip", buffer: Buffer.from("this is not a zip") });
+await page.waitForTimeout(500);
+check(/won't load/.test(await dialogText()) && /isn't a zip/.test(await dialogText()), "a file that isn't a zip says so: " + (await dialogText()).replace(/\s+/g, " ").slice(0, 120));
 
 check(!errors.length, "no page errors " + errors.join(" | "));
 await browser.close();

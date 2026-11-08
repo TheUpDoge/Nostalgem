@@ -9,6 +9,7 @@ export const CHANGES = [
     items: [
       "Reading Room: the club's catalog, 59 books and 8 Golden Age comics checked one by one to be public domain, on shelves of their own.",
       "Clean cuts: a scene a film can't air goes under a card, with the sound off, while the film plays on. A Video Club tape plays as it is, unless you turn its TV-safe cut on to skip the scene instead. None are listed yet: each one is timed by hand.",
+      "Channel packs can come as a .zip: every pack in it loads together.",
     ],
   },
   {

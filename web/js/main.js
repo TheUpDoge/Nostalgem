@@ -8,7 +8,7 @@ import { actionFor, isTypingTarget, registerTvKeys } from "./remote.js";
 import { load, save } from "./store.js";
 import { archiveLinkQuery, buildChannel, browserFetchJson, metadataUrl } from "./archive.js";
 import { archiveAboutHtml } from "./about.js";
-import { buildItemsChannel, packChannelDef, packSkipLists, parsePack, validatePack, PACK_MIN_NUMBER, PACK_MAX_NUMBER } from "./packs.js";
+import { asPack, buildItemsChannel, packChannelDef, packFilesFromZip, packSkipLists, parsePack, validatePack, PACK_MIN_NUMBER, PACK_MAX_NUMBER } from "./packs.js";
 import { LINK_CHANNELS, isLinkChannel, isGuideVisible, linkCardName, linkUrl, openLinkChannel } from "./linkout.js";
 import { createGamepad } from "./gamepad.js";
 import { LOOKS, asciiMask, comboCss, lookById, lookCss, lookYtCss, looksSvg, mixable, nextLook } from "./looks.js";
@@ -3038,7 +3038,7 @@ function packPage() {
       return [
         { head: true, label: "From a file" },
         {
-          label: "Choose a .json file…",
+          label: "Choose a .json or .zip file…",
           ok: function () {
             pickPackFile();
             return "close";
@@ -3074,6 +3074,7 @@ function showPackHelp() {
       "Pack channels land on <b>CH 30–49</b> and are saved on this TV only, like channels you add by search. " +
       "Loading a pack never changes the shipped lineup.<br><br>" +
       "The format is in <b>PACKS.md</b>, with an example pack in <b>packs/example-pack.json</b>. " +
+      "Several packs can come together in one <b>.zip</b>: every .json file in it is loaded. " +
       "On a TV with no file picker, use Paste pack JSON instead. " +
       "Channels you load are your choice on your own TV.",
     buttons: [
@@ -3113,13 +3114,15 @@ function showPackErrors(label, errors) {
 function pickPackFile() {
   const input = document.createElement("input");
   input.type = "file";
-  input.accept = ".json,application/json";
+  input.accept = ".json,.zip,application/json,application/zip,application/x-zip-compressed";
   input.addEventListener("change", function () {
     const file = input.files && input.files[0];
     if (!file) return;
+    const zip = /\.zip$/i.test(file.name) || /zip/i.test(file.type || "");
     const reader = new FileReader();
     reader.onload = function () {
-      handlePackText(String(reader.result || ""), file.name);
+      if (zip) handlePackZip(reader.result, file.name);
+      else handlePackText(String(reader.result || ""), file.name);
     };
     reader.onerror = function () {
       dialog.open({
@@ -3135,7 +3138,8 @@ function pickPackFile() {
         ],
       });
     };
-    reader.readAsText(file);
+    if (zip) reader.readAsArrayBuffer(file);
+    else reader.readAsText(file);
   });
   input.click();
 }
@@ -3167,9 +3171,37 @@ function openPackPaste() {
 function handlePackText(text, label) {
   const parsed = parsePack(text);
   if (!parsed.ok) return showPackErrors(label, parsed.errors);
-  const v = validatePack(parsed.pack);
+  const pack = asPack(parsed.pack, label);
+  const v = validatePack(pack);
   if (!v.ok) return showPackErrors(label, v.errors);
-  const pack = parsed.pack;
+  confirmPacks([{ pack: pack, warnings: v.warnings }], [], label);
+}
+
+// A .zip of packs: every .json file in it, each a pack or a skip-list file. The ones that check out can be
+// loaded together; the others are listed with what's wrong.
+function handlePackZip(buf, label) {
+  let files;
+  try {
+    files = packFilesFromZip(buf);
+  } catch (e) {
+    return showPackErrors(label, [e.message]);
+  }
+  const good = [];
+  const bad = [];
+  files.forEach(function (f) {
+    const parsed = parsePack(f.text);
+    if (!parsed.ok) return bad.push(f.name + ": " + parsed.errors[0]);
+    const pack = asPack(parsed.pack, f.name);
+    const v = validatePack(pack);
+    if (!v.ok) return bad.push(f.name + ": " + v.errors[0] + (v.errors.length > 1 ? " (and " + (v.errors.length - 1) + " more)" : ""));
+    good.push({ pack: pack, warnings: v.warnings });
+  });
+  if (!good.length) return showPackErrors(label, bad.length ? bad : ["There are no packs (.json files) in this zip."]);
+  confirmPacks(good, bad, label);
+}
+
+// What a pack would add, for the "Load?" dialog.
+function packSummaryHtml(pack) {
   const channels = pack.channels || [];
   const cuts = packSkipLists(pack);
   let html = "<b>" + esc(pack.pack) + "</b>";
@@ -3195,19 +3227,49 @@ function handlePackText(text, label) {
       (cuts.length === 1 ? "" : "s") +
       ": scenes covered with a card, or skipped on a tape whose TV-safe cut is turned on.";
   }
-  if (v.warnings.length) {
-    html += "<br><br>Heads up:<br>" + v.warnings.map(esc).join("<br>");
+  return html;
+}
+
+// good: [{ pack, warnings }] that check out; bad: lines about the files that didn't (from a zip).
+function confirmPacks(good, bad, label) {
+  let html = good.length > 1 ? "<b>" + esc(label) + "</b> holds " + good.length + " packs.<br><br>" : "";
+  html += good
+    .map(function (g) {
+      return packSummaryHtml(g.pack);
+    })
+    .join("<br><br>");
+  const warnings = [];
+  good.forEach(function (g) {
+    g.warnings.forEach(function (w) {
+      warnings.push((good.length > 1 ? g.pack.pack + ": " : "") + w);
+    });
+  });
+  if (warnings.length) html += "<br><br>Heads up:<br>" + warnings.slice(0, 10).map(esc).join("<br>");
+  if (bad.length) {
+    html +=
+      "<br><br>Not loaded (" +
+      bad.length +
+      "):<br>" +
+      bad
+        .slice(0, 8)
+        .map(esc)
+        .join("<br>") +
+      (bad.length > 8 ? "<br>…and " + (bad.length - 8) + " more." : "");
   }
   html += "<br><br>Channels you load are saved on this TV only. They never change the shipped lineup.";
   dialog.open({
-    title: "Load this pack?",
+    title: good.length > 1 ? "Load these packs?" : "Load this pack?",
     html: html,
     buttons: [
       {
-        label: "Load pack",
+        label: good.length > 1 ? "Load " + good.length + " packs" : "Load pack",
         action: function (d) {
           d.close();
-          loadPack(pack);
+          loadPacks(
+            good.map(function (g) {
+              return g.pack;
+            })
+          );
         },
       },
       {
@@ -3238,18 +3300,26 @@ function keepSkipLists(lists) {
   skipLists.packs = checkSkipLists({ format: SKIP_FORMAT, lists: kept }).lists;
 }
 
-function loadPack(pack) {
+// Load packs, one channel after another (a zip can hold several; a number one pack took moves the next
+// one's channel along).
+function loadPacks(packs) {
   let cancelled = false;
   const done = [];
   const notes = [];
-  const cuts = packSkipLists(pack);
-  if (cuts.length) {
-    keepSkipLists(cuts);
-    notes.push("✂ clean cuts for " + cuts.length + " film" + (cuts.length === 1 ? "" : "s"));
-  }
-  pack.channels = pack.channels || [];
+  const queue = [];
+  packs.forEach(function (pack) {
+    const cuts = packSkipLists(pack);
+    if (cuts.length) {
+      keepSkipLists(cuts);
+      notes.push((packs.length > 1 ? pack.pack + ": " : "") + "✂ clean cuts for " + cuts.length + " film" + (cuts.length === 1 ? "" : "s"));
+    }
+    (pack.channels || []).forEach(function (ch) {
+      queue.push({ pack: pack, ch: ch });
+    });
+  });
+  const name = packs.length > 1 ? packs.length + " packs" : packs[0].pack;
   dialog.open({
-    title: "Loading " + pack.pack,
+    title: "Loading " + name,
     html: "Asking the Internet Archive for programs. This takes a few seconds per channel.",
     onClose: function () {
       cancelled = true;
@@ -3271,7 +3341,7 @@ function loadPack(pack) {
     dialog.close();
     if (!done.length) {
       dialog.open({
-        title: notes.length && !pack.channels.length ? "Pack loaded" : "Pack loaded — nothing new",
+        title: notes.length && !queue.length ? (packs.length > 1 ? "Packs loaded" : "Pack loaded") : packs.length > 1 ? "Packs loaded — nothing new" : "Pack loaded — nothing new",
         html: notes.length ? notes.map(esc).join("<br>") : "No channels were added.",
         buttons: [
           {
@@ -3286,7 +3356,7 @@ function loadPack(pack) {
     }
     const first = done[0];
     tuneTo(first);
-    let msg = "Pack on the air: " + done.map(function (c) {
+    let msg = (packs.length > 1 ? "Packs on the air: " : "Pack on the air: ") + done.map(function (c) {
       return "CH " + chLabel(c) + " " + c.name;
     }).join(", ");
     if (notes.length) msg += ". " + notes.join("; ");
@@ -3294,10 +3364,11 @@ function loadPack(pack) {
   };
   const step = function () {
     if (cancelled) return;
-    if (i >= pack.channels.length) return finish();
-    const ch = pack.channels[i];
+    if (i >= queue.length) return finish();
+    const pack = queue[i].pack;
+    const ch = queue[i].ch;
     i++;
-    dialog.status("Building " + ch.name + " (" + i + " of " + pack.channels.length + ")…");
+    dialog.status("Building " + ch.name + " (" + i + " of " + queue.length + ")…");
     const def = packChannelDef(pack.pack, ch);
     const job = def.items
       ? buildItemsChannel(def.items, def, channelCtx())
