@@ -90,11 +90,45 @@ Packs point at the Internet Archive and nothing else. The loader rejects a pack 
 
 A pack is loaded or it isn't — a rejected pack adds nothing, and the TV says why.
 
+## Clean cuts in a pack
+
+A pack can also carry **clean cuts**: scenes in its films that the player keeps off the screen without
+touching the file. Add a `skipLists` section, either a list of lists or the whole skip-list file:
+
+```json
+"skipLists": {
+  "format": "nostalgem-skip-lists/1",
+  "mode": "card",
+  "lists": [
+    {
+      "item": "<archive item id>",
+      "file": "<file name, optional: when the item holds several>",
+      "title": "<for people>",
+      "mode": "skip",
+      "enabled": true,
+      "skips": [{ "start": 1234.5, "end": 1267, "reason": "sex-scene", "note": "<one sentence>" }]
+    }
+  ]
+}
+```
+
+- **Sexual content only.** `reason` is one of `sexual-assault`, `attempted-sexual-assault`,
+  `sexual-violence`, `sexualized-minor`, `nudity-sexualized`, `sex-scene`, `sexual-content`. Gore and
+  violence are never cut: a list with any other reason is refused, and so is the pack.
+- `start` and `end` are seconds into **that file**. Take them from a real viewing pass of the Archive's
+  copy — the same scene sits at different times in different cuts — and never guess them.
+- `mode`: `"card"` covers the scene with a full-screen card (`cardText`, default *EXTREMELY GRAPHIC
+  SCENE IS PLAYING*) and cuts the sound while the film plays on; it works everywhere, live channels
+  included. `"skip"` jumps over the scene, on Video Club tapes only, when the tape's *TV-safe cut* is on;
+  live, the card is used instead, so the clock never slips.
+- A pack can be only clean cuts, with no `channels`. Lists are kept on this TV; a newer list for the same
+  film replaces the older one. The app's own lists are `web/data/skip-lists.json` (none yet).
+
 ## Shipped packs
 
 - [`packs/1980s-sci-fi-pd.json`](packs/1980s-sci-fi-pd.json) — **1980s Sci-Fi — Public Domain**: 33 public-domain sci-fi features (1944–1965) on CH 30, from Plan 9 to The Brain That Wouldn't Die, plus 45 Shuttle-era NASA / space-age films (1980–1989) on CH 31. Every item ID was checked live against the Archive; the evidence for each film is listed in `packs/BUILD-REPORT.md`.
 - [`packs/1990s-horror-pd.json`](packs/1990s-horror-pd.json) — **1990s Horror — Public Domain**: 36 public-domain horror features (1919–1968) on CH 32, including Night of the Living Dead (1968) and the 1960 Little Shop of Horrors. Same live check; evidence in `packs/BUILD-REPORT.md`.
-- [`packs/library-catalog.json`](packs/library-catalog.json) — **Video Club library catalog**: 59 public-domain books and 8 Golden Age comics from the Archive, as a link-out list for the club's reading shelf (manga shelf is empty — no verifiably public-domain manga was found).
+- [`web/data/library-catalog.json`](web/data/library-catalog.json) — **the club's library catalog**: 59 public-domain books and 8 Golden Age comics from the Archive. The app reads it: they're the Reading Room's catalog shelves, read in its own reader (the manga shelf is empty and says why — no verifiably public-domain manga was found).
 
 Load either pack from Menu ▸ Load a channel pack. Each film channel is all features (40 minutes or more), so it becomes a Video Club shelf on its own — any film on it can be checked out like a tape. Neither pack holds 1980s/90s features: those are still under copyright, so they can't ship in a public pack.
 

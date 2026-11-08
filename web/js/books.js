@@ -56,6 +56,10 @@ export function authorName(v) {
       .replace(/,?\s*(b\.\s*)?\d{3,4}\s*-\s*(\d{3,4})?\.?$/, "")
       .trim();
   }
+  // A company keeps its name ("Fawcett Publications, Inc."); "Doyle, Arthur Conan, Sir" is Sir Arthur.
+  if (/,\s*(inc|ltd|co|corp|company)\.?$/i.test(s)) return s;
+  const sir = /^([^,]+),\s*([^,]+),\s*(sir|dame|lord|lady)\.?$/i.exec(s);
+  if (sir) return sir[3].charAt(0).toUpperCase() + sir[3].slice(1).toLowerCase() + " " + sir[2] + " " + sir[1];
   const m = /^([^,]+),\s*([^,]+)$/.exec(s);
   if (m) s = m[2] + " " + m[1];
   return s;
@@ -281,4 +285,48 @@ export function parseShelves(json) {
     .map(function (s) {
       return { id: s.id, name: s.name, icon: typeof s.icon === "string" ? s.icon : "📚", q: s.q };
     });
+}
+
+// ---------- the club's catalog ----------
+// data/library-catalog.json: public-domain books and Golden Age comics that were checked one by one (rights,
+// and that the item exists and can be read). The Reading Room shows it as shelves of its own, one per
+// kind, in title order. The manga shelf shows even when it's empty, with the catalog's note on why.
+const CATALOG_SHELVES = [
+  { type: "book", id: "pd-books", icon: "📜", name: "Books" },
+  { type: "comic", id: "pd-comics", icon: "💥", name: "Comics" },
+  { type: "manga", id: "pd-manga", icon: "🗾", name: "Manga" },
+];
+const CATALOG_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+
+function titleKey(t) {
+  return String(t)
+    .replace(/^(the|a|an)\s+/i, "")
+    .toLowerCase();
+}
+
+// -> [{ id, icon, name, books: [{ id, t, by, y }], note }]
+export function parseCatalog(json) {
+  const entries = json && Array.isArray(json.entries) ? json.entries : [];
+  const gaps = json && json.gaps && typeof json.gaps === "object" ? json.gaps : {};
+  return CATALOG_SHELVES.map(function (sh) {
+    const seen = {};
+    const books = entries
+      .filter(function (e) {
+        if (!e || e.type !== sh.type || typeof e.id !== "string" || !CATALOG_ID.test(e.id) || seen[e.id]) return false;
+        seen[e.id] = 1;
+        return true;
+      })
+      .map(function (e) {
+        return {
+          id: e.id,
+          t: cleanText(e.title, 140) || e.id,
+          by: authorName(String(e.author || "").split(";")[0]),
+          y: yearOf(e.year),
+        };
+      })
+      .sort(function (a, b) {
+        return naturalCompare(titleKey(a.t), titleKey(b.t));
+      });
+    return { id: sh.id, icon: sh.icon, name: sh.name, books: books, note: typeof gaps[sh.type] === "string" ? cleanText(gaps[sh.type], 700) : "" };
+  });
 }

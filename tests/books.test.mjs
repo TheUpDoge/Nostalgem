@@ -204,3 +204,46 @@ test("page counts from a scan's own page list, for books without a page-number f
   assert.equal(parseScandata("").count, 0);
   assert.equal(scandataUrl("m", "!B [g]{HD}/B v1"), "https://archive.org/cors/m/!B%20%5Bg%5D%7BHD%7D/B%20v1_scandata.xml");
 });
+
+test("the club's catalog: checked public-domain shelves, the manga shelf empty with its note", async () => {
+  const { parseCatalog } = await import("../web/js/books.js");
+  const { readFile } = await import("node:fs/promises");
+  const json = JSON.parse(await readFile(new URL("../web/data/library-catalog.json", import.meta.url), "utf8"));
+  const shelves = parseCatalog(json);
+  assert.deepEqual(
+    shelves.map((s) => [s.id, s.books.length]),
+    [
+      ["pd-books", 59],
+      ["pd-comics", 8],
+      ["pd-manga", 0],
+    ]
+  );
+  assert.match(shelves[2].note, /No verifiably public-domain manga/);
+  const ids = shelves.flatMap((s) => s.books.map((b) => b.id));
+  assert.equal(new Set(ids).size, ids.length, "each item once");
+  assert.ok(shelves[0].books.every((b) => b.t && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(b.id)));
+  // Title order, "The" and "A" aside; authors as names.
+  const t = shelves[0].books.map((b) => b.t);
+  const i = t.indexOf("The adventures of Sherlock Holmes");
+  assert.ok(i >= 0 && i < t.indexOf("Around the world in eighty days") && t.indexOf("Around the world in eighty days") < t.indexOf("A Christmas carol"), t.slice(0, 8).join(" | "));
+  assert.equal(shelves[0].books.find((b) => b.id === "christmascar00dick").by, "Charles Dickens");
+  assert.equal(shelves[0].books.find((b) => b.id === "adventuresofsher001892doyl").by, "Sir Arthur Conan Doyle");
+});
+
+test("a catalog entry that isn't right is left off its shelf", async () => {
+  const { parseCatalog } = await import("../web/js/books.js");
+  const shelves = parseCatalog({
+    entries: [
+      { id: "ok_book", title: "Ok", type: "book", year: 1900 },
+      { id: "ok_book", title: "Again", type: "book" },
+      { id: "bad id", title: "Bad", type: "book" },
+      { id: "ok_comic", title: "Comic", type: "comic" },
+      { id: "x", title: "Film", type: "film" },
+      null,
+    ],
+    gaps: { manga: "None found." },
+  });
+  assert.deepEqual(shelves.map((s) => s.books.map((b) => b.id)), [["ok_book"], ["ok_comic"], []]);
+  assert.equal(shelves[2].note, "None found.");
+  assert.deepEqual(parseCatalog(null).map((s) => s.books.length), [0, 0, 0]);
+});

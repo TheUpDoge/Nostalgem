@@ -100,6 +100,7 @@ export function bannerHtml(d) {
   if (d.cc) badges.push('<span class="badge">' + esc(d.ccLabel || "CC") + "</span>");
   if (d.fav) badges.push('<span class="badge warn">★ FAV</span>');
   if (d.sleepLeft) badges.push('<span class="badge warn">SLEEP ' + Math.ceil(d.sleepLeft / 60000) + "m</span>");
+  if (d.cut) badges.push('<span class="badge">✂ TV-SAFE CUT</span>');
 
   let main;
   if (item) {
@@ -314,6 +315,20 @@ export function adBreakCard(quip) {
     "</div>" +
     '<div class="ad-hint">your show starts right after · ch ▲▼ to surf</div>' +
     '<div class="ad-sig">nostalgem</div>' +
+    "</div>"
+  );
+}
+
+// Clean cuts (cuts.js): the card over a scene that can't air. The film plays on underneath, without sound.
+export function cutCardHtml(text) {
+  return (
+    '<div class="cc-bars" aria-hidden="true"></div>' +
+    '<div class="cc-box">' +
+    '<div class="cc-tag">✂ TV-SAFE CUT</div>' +
+    '<div class="cc-text">' +
+    esc(text || "EXTREMELY GRAPHIC SCENE IS PLAYING") +
+    "</div>" +
+    '<div class="cc-sub">The picture and sound come back when it\'s over.</div>' +
     "</div>"
   );
 }

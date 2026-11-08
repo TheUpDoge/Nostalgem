@@ -134,6 +134,12 @@ export function setPosition(lib, key, pos) {
   return withLoan(lib, key, { pos: Math.max(0, Math.min(l.d, Number(pos) || 0)) });
 }
 
+// A tape's TV-safe cut (clean cuts, cuts.js): on unless the viewer turned it off for this tape.
+export function setUncut(lib, key, uncut) {
+  if (!loanFor(lib, key)) return lib;
+  return withLoan(lib, key, { uncut: !!uncut });
+}
+
 export function isRewound(loan) {
   return !loan || loan.pos < REWOUND_AT;
 }

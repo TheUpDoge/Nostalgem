@@ -2,7 +2,7 @@
   "catalog": "NostalGem Video Club library catalog",
   "version": 1,
   "scope": "public-domain",
-  "note": "Public-domain books and Golden Age comics from the Internet Archive, for the Video Club's reading shelf. Every entry was live-checked against the Archive metadata API (exists, viewable files, not lending-restricted). Manga: no verifiably public-domain manga was found on the Archive — the Archive's manga holdings are overwhelmingly copyrighted scanlations, so the manga shelf stays empty rather than filled with them. This catalog is a link-out list until the Video Club wires a reading shelf into the club (see packs/BUILD-REPORT.md for the hook). A note in this file does not change the copyright status of anything in it.",
+  "note": "Public-domain books and Golden Age comics from the Internet Archive, for the Video Club's reading shelf. Every entry was live-checked against the Archive metadata API (exists, viewable files, not lending-restricted). Manga: no verifiably public-domain manga was found on the Archive — the Archive's manga holdings are overwhelmingly copyrighted scanlations, so the manga shelf stays empty rather than filled with them. The Reading Room shows it as its checked public-domain shelves (books, Golden Age comics, and the manga shelf with the note below) and opens each item in its own reader; an item with no page images opens on archive.org. A note in this file does not change the copyright status of anything in it.",
   "entries": [
     {
       "id": "christmascar00dick",

@@ -14,12 +14,17 @@
 // it can't come back out, so the next ordinary film gets a fresh <video> (hooks.media hears about it), and a
 // file that won't load with CORS plays the ordinary way, with echoes (after the first, the rest aren't
 // tried).
+//
+// Clean cuts (cuts.js): hooks.cutsFor(slot) says how this program plays with its list of scenes — a card over
+// each one with the sound cut (anywhere), or jumping over each one (Video Club tapes) — and hooks.cut hears
+// when the card goes up or comes down, and when a scene was skipped.
 
 import { slotAt } from "./schedule.js";
 import { downloadUrl, corsUrl } from "./archive.js";
 import { srtToVtt, pickSubtitle, subtitleLabel } from "./captions.js";
 import { YtMedia, isYouTube, videoIdOf } from "./youtube.js";
 import { failureInfo } from "./problems.js";
+import { sceneAt, nextScene } from "./cuts.js";
 
 const TUNE_TIMEOUT = 25000; // no picture this long after tuning: give up on the file
 const STALL_TIMEOUT = 40000; // buffering this long mid-program: give up on the file
@@ -27,6 +32,7 @@ const AD_TIMEOUT = 180000; // an "ad" this long is something else: ask for a but
 const MAX_DRIFT = 30; // fallen this many seconds behind live after buffering: jump back to live
 const RETRY_AFTER = 30000; // standby retry interval
 const SKIPS_IN_A_ROW = 6; // this many programs in a row that can't play here: say so instead of trying them all
+const CUT_WATCH_MS = 100; // how often a film with a clean-cut list is checked against its scenes
 
 export class Player {
   constructor(video, hooks) {
@@ -57,6 +63,11 @@ export class Player {
     this.routed = null; // the <video> whose sound is in the church
     this.noCors = {}; // films that wouldn't load with CORS: they play the ordinary way, with echoes
     this.corsBroken = !this.hooks.corsReverb; // no CORS this session: don't keep trying
+    this.cuts = null; // { mode: "card" | "skip", skips, text } for the program playing now
+    this.cutScene = null; // the scene the card is covering
+    this.cutSkipped = 0;
+    this.cutTimer = 0;
+    this.cutSoon = 0;
 
     this.wire(video);
   }
@@ -81,6 +92,11 @@ export class Player {
     el.addEventListener("ended", function () {
       if (self.v === el) self.onEnded();
     });
+    const cutCheck = function () {
+      if (self.v === el && self.cuts) self.watchCuts();
+    };
+    el.addEventListener("seeked", cutCheck);
+    el.addEventListener("timeupdate", cutCheck);
   }
 
   youtube() {
@@ -171,6 +187,7 @@ export class Player {
     this.waitingSince = 0;
     this.stopFade();
     v.volume = 1;
+    this.setCuts(this.hooks.cutsFor ? this.hooks.cutsFor(this.slot) : null);
     v.muted = this.muted;
     this.setMode("tuning");
     // The media fragment starts the download near the live point instead of at 0:00.
@@ -429,6 +446,7 @@ export class Player {
     this.token++;
     this.pendingSeek = false;
     this.removeTrack();
+    this.setCuts(null);
     if (this.church) this.church.quiet();
     const v = this.v;
     try {
@@ -561,7 +579,74 @@ export class Player {
 
   setMuted(m) {
     this.muted = !!m;
-    this.v.muted = this.muted;
+    this.v.muted = this.muted || !!this.cutScene;
+  }
+
+  // ---------- clean cuts ----------
+  // How this program plays with its list of scenes (or null: untouched). Starts or stops the watch.
+  setCuts(c) {
+    if (this.cutScene) {
+      this.cutScene = null;
+      this.v.muted = this.muted;
+      this.emit("cut", { card: false });
+    }
+    clearInterval(this.cutTimer);
+    clearTimeout(this.cutSoon);
+    this.cutTimer = 0;
+    this.cutSoon = 0;
+    this.cutSkipped = 0;
+    this.cuts = c && c.skips && c.skips.length ? c : null;
+    if (!this.cuts) return;
+    const self = this;
+    this.cutTimer = setInterval(function () {
+      self.watchCuts();
+    }, CUT_WATCH_MS);
+  }
+
+  // The tape's TV-safe cut was turned on or off while it plays.
+  refreshCuts() {
+    this.setCuts(this.hooks.cutsFor && this.slot ? this.hooks.cutsFor(this.slot) : null);
+    if (this.cuts) this.watchCuts();
+  }
+
+  // Where the film is against its scenes: the card up or down, or a jump over the scene.
+  watchCuts() {
+    const c = this.cuts;
+    const v = this.v;
+    if (!c || !v.getAttribute("src") || v.readyState < 1) return;
+    const t = v.currentTime;
+    if (!isFinite(t)) return;
+    const scene = sceneAt(c.skips, t);
+    if (c.mode === "skip") {
+      if (scene && !v.seeking) {
+        try {
+          v.currentTime = scene.end;
+        } catch (e) {
+          return;
+        }
+        this.cutSkipped++;
+        this.emit("cut", { skipped: this.cutSkipped, of: c.skips.length });
+      }
+    } else if (scene !== this.cutScene) {
+      this.cutScene = scene;
+      v.muted = this.muted || !!scene;
+      this.emit("cut", { card: !!scene, text: c.text, end: scene ? scene.end : 0 });
+    }
+    // A scene about to start gets a check right on time, not up to a tenth of a second late.
+    const next = nextScene(c.skips, t);
+    const rate = v.playbackRate || 1;
+    if (next && !this.cutSoon && !v.paused && next.start - t < 0.3) {
+      const self = this;
+      this.cutSoon = setTimeout(function () {
+        self.cutSoon = 0;
+        self.watchCuts();
+      }, Math.max(0, ((next.start - t) * 1000) / rate));
+    }
+  }
+
+  // For the app's state report and tests.
+  cutState() {
+    return this.cuts ? { mode: this.cuts.mode, scenes: this.cuts.skips.length, card: !!this.cutScene, skipped: this.cutSkipped } : null;
   }
 
   // strict: only the wanted language will do (no English fallback)

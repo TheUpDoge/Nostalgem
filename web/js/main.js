@@ -8,18 +8,19 @@ import { actionFor, isTypingTarget, registerTvKeys } from "./remote.js";
 import { load, save } from "./store.js";
 import { archiveLinkQuery, buildChannel, browserFetchJson, metadataUrl } from "./archive.js";
 import { archiveAboutHtml } from "./about.js";
-import { buildItemsChannel, packChannelDef, parsePack, validatePack, PACK_MIN_NUMBER, PACK_MAX_NUMBER } from "./packs.js";
+import { buildItemsChannel, packChannelDef, packSkipLists, parsePack, validatePack, PACK_MIN_NUMBER, PACK_MAX_NUMBER } from "./packs.js";
 import { LINK_CHANNELS, isLinkChannel, isGuideVisible, linkCardName, linkUrl, openLinkChannel } from "./linkout.js";
 import { createGamepad } from "./gamepad.js";
 import { LOOKS, asciiMask, comboCss, lookById, lookCss, lookYtCss, looksSvg, mixable, nextLook } from "./looks.js";
 import { FrameWatch } from "./framewatch.js";
-import { MAX_TAPES, LOAN_HOURS, MAX_BOOKS, BOOK_DAYS, cleanLibrary, issueCard, cancelCard, loanFor, checkOut, setPosition, isRewound, rewind, returnTape, overdue, storeShelves, staffPicks, searchStore, bookLoan, borrowBook, returnBook, overdueBooks, setMark, markFor } from "./library.js";
-import { bookSearchUrl, parseBookSearch, bookFromMetadata, pageNumbersUrl, parsePageNumbers, scandataUrl, parseScandata, parseShelves } from "./books.js";
+import { MAX_TAPES, LOAN_HOURS, MAX_BOOKS, BOOK_DAYS, cleanLibrary, issueCard, cancelCard, loanFor, checkOut, setPosition, setUncut, isRewound, rewind, returnTape, overdue, storeShelves, staffPicks, searchStore, bookLoan, borrowBook, returnBook, overdueBooks, setMark, markFor } from "./library.js";
+import { bookSearchUrl, parseBookSearch, bookFromMetadata, pageNumbersUrl, parsePageNumbers, scandataUrl, parseScandata, parseShelves, parseCatalog } from "./books.js";
 import { Reader } from "./ui/reader.js";
 import * as Stacks from "./ui/stacks.js";
 import * as Club from "./ui/club.js";
 import { SECRET_STATIONS, SECRET_ABOUT, secretStation, introHtml, introSound, stationQuip, stationClock, bugText } from "./secrets.js";
 import { Church } from "./church.js";
+import { checkSkipLists, cutsFor, listFor, SKIP_FORMAT } from "./cuts.js";
 import { CHANGES, whatsNew, changesHtml, WELCOME_HTML } from "./changes.js";
 import { CanvasLook } from "./fxcanvas.js";
 import { Ambience, AMBIENCES, ambienceName } from "./ambience.js";
@@ -35,7 +36,7 @@ import { loadLineup, builtAt } from "./lineup.js";
 import { loadBumpers } from "./bumpers.js";
 import { pad2, escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder, numberText } from "./util.js";
 
-const VERSION = "1.10.2";
+const VERSION = "1.11.0";
 const NAME = "NostalGem";
 const params = new URLSearchParams(window.location.search);
 const ANDROID = params.get("tv") === "android";
@@ -127,6 +128,30 @@ const frameWatch = new FrameWatch(function (key) {
 });
 const canvasLook = new CanvasLook({ video: $("screen"), yt: $("yt"), before: $("yt"), rainBefore: $("radio") });
 const church = new Church(); // 111's sound
+
+// Clean cuts (cuts.js): the lists that ship (data/skip-lists.json, none yet) and any a pack brought to this
+// TV. A list names scenes by time; the player covers them with a card, or skips them on a tape.
+const skipLists = { shipped: [], packs: [] };
+function allSkipLists() {
+  return skipLists.shipped.concat(skipLists.packs);
+}
+function loadSkipLists() {
+  skipLists.packs = checkSkipLists({ format: SKIP_FORMAT, lists: load("skipLists", []) }).lists;
+  fetch("data/skip-lists.json", { credentials: "omit" })
+    .then(function (r) {
+      return r.ok ? r.json() : null;
+    })
+    .then(function (json) {
+      if (json) skipLists.shipped = checkSkipLists(json).lists;
+    })
+    .catch(function () {
+      /* none, then */
+    });
+}
+// The film's enabled list, if it has one.
+function filmList(item) {
+  return listFor(allSkipLists(), item);
+}
 const numpad = new Numpad($("numpad"), {
   describe: function (typed) {
     const exact = channelForDigits(typed, false);
@@ -164,6 +189,17 @@ function openNumpad() {
 const player = new Player($("screen"), {
   ytHost: $("yt"),
   church: church,
+  // Clean cuts: a tape (Video Club) skips its scenes when its list says so and its TV-safe cut is on;
+  // anything else covers them with a card.
+  cutsFor: function (slot) {
+    const item = slot && slot.item;
+    if (!item) return null;
+    const tapeKey = app.tapeLoading || app.tape;
+    const tape = !!(slot.onDemand && tapeKey && programKey(item) === tapeKey);
+    const loan = tape ? loanFor(lib, tapeKey) : null;
+    return cutsFor(allSkipLists(), item, tape, !!(loan && loan.uncut));
+  },
+  cut: onCut,
   // 111's films echo around the nave. The full reverb needs CORS, which the Archive's video servers don't
   // send; ?reverb=1 tries it anyway (tests, or the day they do).
   corsReverb: params.get("reverb") === "1",
@@ -538,6 +574,24 @@ function togglePause(kind) {
 }
 
 // ---------- player events ----------
+// Clean cuts: the card goes up over a listed scene (the sound cut) and comes down after it; on a tape with
+// its TV-safe cut on, a skipped scene gets a flash of snow and a word, so a jump doesn't look like a glitch.
+function onCut(info) {
+  const el = $("cutcard");
+  if (info.skipped) {
+    staticBurst(300);
+    V.toast("⏭ TV-safe cut: skipped a scene (" + info.skipped + " of " + info.of + ")", 3000);
+    return;
+  }
+  if (info.card) {
+    el.innerHTML = V.cutCardHtml(info.text);
+    el.hidden = false;
+  } else {
+    el.hidden = true;
+    el.innerHTML = "";
+  }
+}
+
 function onPlayerState(mode, extra) {
   const ch = current();
   tv.classList.toggle("paused", mode === "paused");
@@ -1059,6 +1113,7 @@ function openTape(film, focusLabel) {
   const loan = loanFor(lib, film.key);
   const buttons = [];
   let note = "";
+  const list = filmList(film.item);
   if (loan) {
     buttons.push({
       label: isRewound(loan) ? "▶ Play" : "▶ Play from " + fmtDuration(loan.pos),
@@ -1067,6 +1122,22 @@ function openTape(film, focusLabel) {
         playTape(film.key);
       },
     });
+    if (list) {
+      // Clean cuts: this film has a few scenes that can't air. On, they're skipped (or covered with a
+      // card); off, the tape plays as it is.
+      buttons.push({
+        label: loan.uncut ? "✂ Play TV-safe cut: Off" : "✂ Play TV-safe cut: On",
+        action: function (d) {
+          const now = loanFor(lib, film.key);
+          lib = setUncut(lib, film.key, !(now && now.uncut));
+          saveLib();
+          if (app.tape === film.key) player.refreshCuts();
+          d.close();
+          openTape(film, loanFor(lib, film.key).uncut ? "✂ Play TV-safe cut: Off" : "✂ Play TV-safe cut: On");
+        },
+      });
+      note = loan.uncut ? "TV-safe cut off: plays as it is" : "✂ TV-safe cut: " + list.skips.length + " scene" + (list.skips.length === 1 ? "" : "s") + (list.mode === "skip" ? " skipped" : " covered");
+    }
     if (!isRewound(loan)) {
       buttons.push({
         label: "◀◀ Rewind",
@@ -1087,7 +1158,7 @@ function openTape(film, focusLabel) {
       },
     });
   } else if (!lib.card) {
-    note = "On the shelf · a free library card checks it out";
+    note = "On the shelf · a free library card checks it out" + (list ? " · ✂ TV-safe cut" : "");
     buttons.push({
       label: "📇 Get a library card",
       action: function (d) {
@@ -1114,7 +1185,7 @@ function openTape(film, focusLabel) {
       },
     });
   } else {
-    note = "On the shelf · " + LOAN_HOURS / 24 + "-day rental";
+    note = "On the shelf · " + LOAN_HOURS / 24 + "-day rental" + (list ? " · ✂ TV-safe cut" : "");
     buttons.push({
       label: "⏏ Check out & play",
       action: function (d) {
@@ -1159,13 +1230,20 @@ function playTape(key) {
   if (!ch || isLinkChannel(ch)) ch = isLinkChannel(current()) ? visibleChannels()[0] : current();
   if (ch && ch !== current()) tuneTo(ch, { quiet: true });
   const at = loan.pos >= loan.d - 30 ? 0 : loan.pos;
-  if (player.playFromStart(film.item, at)) {
+  app.tapeLoading = key; // so the player knows it's a tape, for its TV-safe cut
+  const ok = player.playFromStart(film.item, at);
+  app.tapeLoading = "";
+  if (ok) {
     app.tape = key;
     app.tapePos = at;
     app.tapeDur = 0;
     app.tapeSavedAt = Date.now();
     showBanner(5000);
-    V.toast("📼 Now playing your tape: " + film.item.t + (at > 2 ? " · from " + fmtDuration(at) : ""), 4000);
+    const c = player.cutState();
+    let note = "";
+    if (c && c.mode === "skip") note = " · ✂ TV-safe cut: " + c.scenes + " scene" + (c.scenes === 1 ? "" : "s") + " skipped";
+    else if (c) note = " · ✂ TV-safe cut: " + c.scenes + " scene" + (c.scenes === 1 ? "" : "s") + " covered";
+    V.toast("📼 Now playing your tape: " + film.item.t + (at > 2 ? " · from " + fmtDuration(at) : "") + note, 5000);
   }
 }
 
@@ -1294,6 +1372,30 @@ function bookShelves() {
   return shelvesDef;
 }
 
+// The club's catalog (data/library-catalog.json): shelves of books and comics checked one by one to be
+// public domain, with a note on the manga shelf about why it's empty.
+let catalogDef = null;
+let catalogList = null;
+function catalogShelves() {
+  if (!catalogDef) {
+    catalogDef = fetch("data/library-catalog.json", { credentials: "omit" })
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(parseCatalog)
+      .then(function (list) {
+        catalogList = list;
+        return list;
+      })
+      .catch(function () {
+        catalogDef = null;
+        return [];
+      });
+  }
+  return catalogDef;
+}
+
 // A shelf's books, a page of search results at a time: { books, page, loading, error, done }.
 const shelfState = {};
 function loadShelf(shelf) {
@@ -1387,6 +1489,9 @@ function stacksPage() {
   bookShelves().then(function () {
     if (menu.isOpen) menu.render();
   });
+  catalogShelves().then(function () {
+    if (menu.isOpen) menu.render();
+  });
   return {
     title: "📚 Reading Room",
     sub: function () {
@@ -1446,6 +1551,21 @@ function stacksPage() {
           openBookLink();
         },
       });
+      if (catalogList && catalogList.length) {
+        list.push({ head: true, label: "Checked public domain · the club's catalog" });
+        catalogList.forEach(function (sh) {
+          list.push({
+            label: sh.icon + " " + sh.name,
+            sub: true,
+            value: sh.books.length ? String(sh.books.length) : "none yet",
+            ok: function () {
+              if (sh.books.length) menu.push(catalogShelfPage(sh));
+              else showCatalogNote(sh);
+            },
+          });
+        });
+        list.push({ head: true, label: "The Archive's stacks" });
+      }
       (shelvesCacheList || []).forEach(function (sh) {
         list.push({
           label: sh.icon + " " + sh.name,
@@ -1470,6 +1590,43 @@ let shelvesCacheList = null;
 bookShelves().then(function (list) {
   shelvesCacheList = list;
 });
+
+// A shelf of the club's catalog: every book on it was checked to be public domain.
+function catalogShelfPage(sh) {
+  return {
+    title: sh.icon + " " + sh.name,
+    sub: "Checked public domain · " + sh.books.length + " on the shelf · OK to look at one",
+    items: function () {
+      return sh.books.map(function (b) {
+        return {
+          label: b.t,
+          value: function () {
+            return (bookLoan(lib, b.id) ? "📚 YOURS · " : "") + (b.y ? String(b.y) : "");
+          },
+          ok: function () {
+            openBookBox(b);
+          },
+        };
+      });
+    },
+  };
+}
+
+// An empty catalog shelf says why it's empty.
+function showCatalogNote(sh) {
+  dialog.open({
+    title: sh.icon + " " + sh.name + " · checked public domain",
+    html: esc(sh.note || "Nothing on this shelf yet."),
+    buttons: [
+      {
+        label: "OK",
+        action: function (d) {
+          d.close();
+        },
+      },
+    ],
+  });
+}
 
 function bookShelfPage(shelf) {
   loadShelf(shelf);
@@ -2097,6 +2254,7 @@ function renderBanner() {
     desc: item ? app.about[item.id] : "",
     clock24: s.clock24,
     clockText: stationClock(app.station, s.clock24),
+    cut: player.cutState(),
     hints: hints(),
   });
 }
@@ -3006,20 +3164,31 @@ function handlePackText(text, label) {
   const v = validatePack(parsed.pack);
   if (!v.ok) return showPackErrors(label, v.errors);
   const pack = parsed.pack;
-  let html =
-    "<b>" +
-    esc(pack.pack) +
-    "</b> — " +
-    pack.channels.length +
-    " channel" +
-    (pack.channels.length > 1 ? "s" : "") +
-    ":<br>" +
-    pack.channels
-      .map(function (ch) {
-        return "CH " + ch.number + " · " + ch.name + (ch.kind === "audio" ? " (radio)" : "");
-      })
-      .map(esc)
-      .join("<br>");
+  const channels = pack.channels || [];
+  const cuts = packSkipLists(pack);
+  let html = "<b>" + esc(pack.pack) + "</b>";
+  if (channels.length) {
+    html +=
+      " — " +
+      channels.length +
+      " channel" +
+      (channels.length > 1 ? "s" : "") +
+      ":<br>" +
+      channels
+        .map(function (ch) {
+          return "CH " + ch.number + " · " + ch.name + (ch.kind === "audio" ? " (radio)" : "");
+        })
+        .map(esc)
+        .join("<br>");
+  }
+  if (cuts.length) {
+    html +=
+      "<br>✂ Clean cuts for " +
+      cuts.length +
+      " film" +
+      (cuts.length === 1 ? "" : "s") +
+      ": scenes covered with a card, or skipped on a tape with its TV-safe cut on.";
+  }
   if (v.warnings.length) {
     html += "<br><br>Heads up:<br>" + v.warnings.map(esc).join("<br>");
   }
@@ -3045,10 +3214,34 @@ function handlePackText(text, label) {
   });
 }
 
+// Clean cuts a pack brought: kept on this TV, replacing older lists for the same film.
+function keepSkipLists(lists) {
+  const key = function (l) {
+    return l.item + "/" + (l.file || "");
+  };
+  const fresh = {};
+  lists.forEach(function (l) {
+    fresh[key(l)] = 1;
+  });
+  const kept = skipLists.packs
+    .filter(function (l) {
+      return !fresh[key(l)];
+    })
+    .concat(lists);
+  save("skipLists", kept);
+  skipLists.packs = checkSkipLists({ format: SKIP_FORMAT, lists: kept }).lists;
+}
+
 function loadPack(pack) {
   let cancelled = false;
   const done = [];
   const notes = [];
+  const cuts = packSkipLists(pack);
+  if (cuts.length) {
+    keepSkipLists(cuts);
+    notes.push("✂ clean cuts for " + cuts.length + " film" + (cuts.length === 1 ? "" : "s"));
+  }
+  pack.channels = pack.channels || [];
   dialog.open({
     title: "Loading " + pack.pack,
     html: "Asking the Internet Archive for programs. This takes a few seconds per channel.",
@@ -3072,7 +3265,7 @@ function loadPack(pack) {
     dialog.close();
     if (!done.length) {
       dialog.open({
-        title: "Pack loaded — nothing new",
+        title: notes.length && !pack.channels.length ? "Pack loaded" : "Pack loaded — nothing new",
         html: notes.length ? notes.map(esc).join("<br>") : "No channels were added.",
         buttons: [
           {
@@ -3938,6 +4131,8 @@ window.NP = {
       intro: !$("intro").hidden,
       look: { id: lookId(), setting: s.look, station: app.stationLook || "", mix: s.mix, key: lookKey(), lite: lookIsLite(), quality: s.lookQuality, watching: frameWatch.key, fps: frameWatch.last },
       sound: player.soundState(),
+      cut: player.cutState(),
+      cutCard: !$("cutcard").hidden,
     };
   },
 };
@@ -4110,6 +4305,7 @@ async function boot() {
   loadBumpers("data/bumpers.json").then(function (list) {
     app.bumpers = list;
   });
+  loadSkipLists();
   const asked = (params.get("ch") || "").replace(/[^0-9]/g, "").replace(/^0+(?=\d)/, "");
   const lastSlug = load("last", "");
   const start =

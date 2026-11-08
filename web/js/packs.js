@@ -3,6 +3,8 @@
 // viewer-added path as Menu ▸ Add a channel (numbers 30–49, saved on this TV only).
 // Packs point at the Archive and nothing else: a collection search, or Archive item
 // IDs. No YouTube, no other sites, no direct video links.
+// A pack may also carry clean cuts ("skipLists", cuts.js): scenes to cover or skip in its films. A pack
+// can be only that.
 
 import {
   cleanText,
@@ -14,6 +16,7 @@ import {
   textOf,
 } from "./archive.js";
 import { hash32, mapLimit, mulberry32, shuffle, spreadApart } from "./util.js";
+import { checkSkipLists, SKIP_FORMAT } from "./cuts.js";
 
 export const PACK_VERSION = 1;
 export const PACK_MIN_NUMBER = 30;
@@ -107,6 +110,16 @@ function checkSource(src, where, errors, warnings) {
   }
 }
 
+// A pack's "skipLists": the whole skip-list file's shape, or just its lists.
+function skipListFile(v) {
+  return Array.isArray(v) ? { format: SKIP_FORMAT, lists: v } : v;
+}
+
+// A validated pack's clean cuts, ready to keep on this TV.
+export function packSkipLists(pack) {
+  return pack && pack.skipLists != null ? checkSkipLists(skipListFile(pack.skipLists)).lists : [];
+}
+
 // A parsed pack -> { ok, errors, warnings }. Errors block loading; warnings don't.
 export function validatePack(pack) {
   const errors = [];
@@ -121,6 +134,16 @@ export function validatePack(pack) {
   }
   if (pack.version !== PACK_VERSION) {
     errors.push("version: this app loads pack version " + PACK_VERSION + ".");
+  }
+  if (pack.skipLists != null) {
+    const cuts = checkSkipLists(skipListFile(pack.skipLists));
+    cuts.errors.forEach(function (e) {
+      errors.push("skipLists: " + e);
+    });
+    cuts.warnings.forEach(function (w) {
+      warnings.push("skipLists: " + w);
+    });
+    if (pack.channels == null) return { ok: errors.length === 0, errors: errors, warnings: warnings }; // clean cuts only
   }
   if (!Array.isArray(pack.channels) || !pack.channels.length) {
     errors.push("channels: a pack lists at least one channel.");
