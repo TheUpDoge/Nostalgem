@@ -43,6 +43,25 @@ test("validatePack: the shipped example pack is clean", () => {
   assert.deepEqual(v.warnings, []);
 });
 
+test("validatePack: the shipped Video Club packs are clean", () => {
+  const expectations = {
+    "1980s-sci-fi-pd.json": { channels: 2, items: [33, 45] },
+    "1990s-horror-pd.json": { channels: 1, items: [36] },
+  };
+  for (const [name, expect] of Object.entries(expectations)) {
+    const text = readFileSync(fileURLToPath(new URL("../packs/" + name, import.meta.url)), "utf8");
+    const parsed = parsePack(text);
+    assert.equal(parsed.ok, true, name);
+    const v = validatePack(parsed.pack);
+    assert.deepEqual(v.errors, [], name);
+    assert.deepEqual(v.warnings, [], name);
+    assert.equal(parsed.pack.channels.length, expect.channels, name);
+    parsed.pack.channels.forEach((ch, i) => {
+      assert.equal(ch.sources[0].items.length, expect.items[i], name + " ch" + i);
+    });
+  }
+});
+
 test("validatePack: name, version and channels are required", () => {
   assert.match(validatePack({ version: 1, channels: [channel()] }).errors.join(" "), /name/);
   assert.match(validatePack(pack([channel()], { version: 2 })).errors.join(" "), /version/);

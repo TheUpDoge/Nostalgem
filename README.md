@@ -132,7 +132,8 @@ YouTube's player) and rebuilt daily:
   days** each. A tape you have out plays from where you stopped it; when you're done, **◀◀ rewind** it
   and **⏏ return** it. A tape still out when it's due goes back by itself, with no late fees. The card
   lives on that TV only: it isn't an archive.org account and doesn't borrow from the Archive's own
-  lending library. Menu ▸ 📼 Video Club.
+  lending library. Any channel that's all feature films becomes a shelf of its own in the club, so
+  any film on it can be checked out like a tape. Menu ▸ 📼 Video Club.
 - **📚 Reading Room**: the Archive's scanned books, comics, manga and magazines, read like a book open on a
   desk under a reading lamp. On a TV it shows two pages side by side (the cover on its own); **manga reads
   right to left**; there's one page at a time, and *Fit width* for small print (▲▼ scroll). Day, sepia or
@@ -143,6 +144,9 @@ YouTube's player) and rebuilt daily:
   (with an archive.org account) aren't on the shelves; opened from a link, they show a code to read them
   on archive.org. Menu ▸ 📚 Reading Room. Remote: ◀▶ turn, OK settings, BACK close; touch: tap the
   edges or swipe.
+- **📱 Phone remote**: Menu ▸ Phone remote shows a QR code; the phone opens it and becomes a
+  remote for that TV — channels, volume, guide — over a direct connection. The pairing code is
+  kept, so a paired phone reconnects after the TV restarts.
 - **Search the Archive** builds a channel from words, Archive search terms, or a pasted archive.org link
   (one item or a whole collection). A channel number typed there just tunes that channel.
 
@@ -314,6 +318,14 @@ a collection search or explicit Archive item IDs. Nothing else is allowed: no Yo
 other sites, no direct video links. The full format is in [PACKS.md](PACKS.md), with an
 example in [packs/example-pack.json](packs/example-pack.json) (a western-features channel
 built from the same Archive query as CH 1 High Noon).
+
+Two packs ship with the repo: [1980s Sci-Fi — Public Domain](packs/1980s-sci-fi-pd.json)
+(CH 30: 33 public-domain sci-fi features; CH 31: 45 Shuttle-era NASA and space-age films)
+and [1990s Horror — Public Domain](packs/1990s-horror-pd.json) (CH 32: 36 public-domain
+horror features), plus a [library catalog](packs/library-catalog.json) of public-domain
+books and Golden Age comics, kept as a link-out list until the app reads it. The 1980s/90s features
+themselves are still under copyright, so they can't ship in a public pack — those live
+on your own TV by pack, if you choose.
 
 Packs are your choice on your own TV. They never change `web/data/lineup.json`.
 
