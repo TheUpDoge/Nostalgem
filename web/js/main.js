@@ -33,6 +33,7 @@ import * as V from "./ui/views.js";
 import { TvLink, makeCode, cleanCode, remoteUrl, prettyCode, qrSvg, loadScript, isIPv4, PAGES_BASE } from "./link.js";
 import { pathsText } from "./relay.js";
 import { loadLineup, builtAt } from "./lineup.js";
+import { SNOW_FRAMES, createTurnOn, introAudible, playTurnOnSound, prefersStill, showBootSnow, snowBufferSize, snowPixels, turnOnAction, turnOnDuration } from "./intro.js";
 import { loadBumpers } from "./bumpers.js";
 import { pad2, escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder, numberText } from "./util.js";
 
@@ -402,8 +403,12 @@ function tuneTo(ch, opts) {
   }
   clearTimeout(app.surfTimer);
   app.pendingIdx = -1;
-  staticBurst(450);
-  V.osdChannel(ch);
+  // The turn-on draws its own snow. The surf snow repaints a canvas until it stops;
+  // starting that under the ident would be work nobody can see.
+  if (!(app.turnOn && app.turnOn.active())) {
+    staticBurst(450);
+    V.osdChannel(ch);
+  }
   app.lastProgKey = "";
   applyCaptions();
   // The secret stations dress the set while they're on (Dead Air's red glow), and say goodbye.
@@ -3530,11 +3535,28 @@ function phoneWake() {
 }
 
 function phoneMessage(m) {
-  if (app.state === "boot") return;
+  const turnOnUp = !!(app.turnOn && app.turnOn.active());
+  if (app.state === "boot") {
+    // No channel yet. The press still skips the turn-on; mute is remembered for the tune.
+    if (turnOnUp) skipTurnOn();
+    if (m.t === "key" && m.type === "mute") {
+      player.setMuted(true);
+      V.toast("Sound off");
+    }
+    return;
+  }
   if (m.t === "key") {
-    if (m.type === "back") back();
-    else handleAction({ type: m.type, digit: m.digit });
-  } else if (m.t === "tune") {
+    // Back only dismisses the ident: it must not also arm "press again to exit".
+    if (m.type === "back") {
+      if (turnOnUp) skipTurnOn();
+      else back();
+      return;
+    }
+    handleAction({ type: m.type, digit: m.digit });
+    return;
+  }
+  if (turnOnUp) skipTurnOn();
+  if (m.t === "tune") {
     const ch = app.channels.filter(function (c) {
       return c.slug === m.slug;
     })[0];
@@ -3808,6 +3830,11 @@ function handleAction(a) {
       /* fine */
     }
   }
+  // The turn-on takes this press. Back only dismisses it. Anything else dismisses it and still happens
+  // (mute, channel up, OK).
+  const turn = turnOnAction(!!(app.turnOn && app.turnOn.active()), a.type);
+  if (turn !== "run") skipTurnOn();
+  if (turn === "skip") return;
   if (app.state === "boot") return;
   if (app.stillShownAt) {
     app.stillShownAt = 0;
@@ -3980,6 +4007,12 @@ function back() {
 }
 
 document.addEventListener("keydown", function (e) {
+  // Keys the remote doesn't use still skip the turn-on. "a" should not have to be OK.
+  if (app.turnOn && app.turnOn.active() && !actionFor(e) && !isTypingTarget(e.target)) {
+    skipTurnOn();
+    e.preventDefault();
+    return;
+  }
   const a = actionFor(e);
   if (!a) return;
   if (isTypingTarget(e.target)) {
@@ -4068,6 +4101,20 @@ touch.addEventListener("pointerdown", function (e) {
 });
 document.addEventListener("mousemove", pointerActivity);
 document.addEventListener("touchstart", pointerActivity, { passive: true });
+// A tap skips the turn-on. The click that follows belongs to that tap, so it doesn't also press OK.
+let turnOnTap = false;
+document.addEventListener(
+  "pointerdown",
+  function () {
+    if (!(app.turnOn && app.turnOn.active())) return;
+    skipTurnOn();
+    turnOnTap = true;
+    setTimeout(function () {
+      turnOnTap = false;
+    }, 700);
+  },
+  true
+);
 touch.addEventListener("click", function (e) {
   const b = e.target.closest ? e.target.closest("[data-act]") : null;
   if (!b) return;
@@ -4083,6 +4130,10 @@ touch.addEventListener("click", function (e) {
   syncTouch();
 });
 tv.addEventListener("click", function (e) {
+  if (turnOnTap) {
+    turnOnTap = false;
+    return;
+  }
   // A click on a menu row or dialog button can remove that element before the click gets here (the menu
   // closes and a dialog opens). It was a click on an overlay, not on the picture: don't press OK again.
   if (!tv.contains(e.target)) return;
@@ -4206,6 +4257,7 @@ window.NP = {
       reader: reader.state(),
       station: app.station || "",
       intro: !$("intro").hidden,
+      turnOn: !!(app.turnOn && app.turnOn.active()),
       look: { id: lookId(), setting: s.look, station: app.stationLook || "", mix: s.mix, key: lookKey(), lite: lookIsLite(), quality: s.lookQuality, watching: frameWatch.key, fps: frameWatch.last },
       sound: player.soundState(),
       cut: player.cutState(),
@@ -4318,6 +4370,64 @@ function swapLineup(lineup, source) {
 }
 
 // ---------- boot ----------
+function skipTurnOn() {
+  if (!app.turnOn || !app.turnOn.active()) return false;
+  app.turnOn.skip();
+  return true;
+}
+
+function endTurnOn() {
+  if (app.turnOnEnded) return;
+  app.turnOnEnded = true;
+  const bootEl = $("boot");
+  if (bootEl) {
+    bootEl.classList.add("gone");
+    setTimeout(function () {
+      bootEl.hidden = true;
+      bootEl.innerHTML = "";
+      app.turnOn = null;
+    }, 480);
+  }
+  // What's new waits until the picture is actually on screen.
+  setTimeout(function () {
+    if (app.state === "on" && !overlayOpen()) showWhatsNew(false);
+  }, 1100);
+}
+
+function holdTurnOn() {
+  const bootEl = $("boot");
+  if (bootEl) bootEl.classList.add("boot-hold");
+}
+
+// A few stills of snow, then stop. No animation frame loop.
+function paintBootSnow(turnOn) {
+  const c = $("boot-snow");
+  if (!c || !c.getContext) return;
+  let ctx = null;
+  try {
+    ctx = c.getContext("2d");
+  } catch (e) {
+    return;
+  }
+  if (!ctx) return;
+  const size = snowBufferSize(c.clientWidth || 160, c.clientHeight || 90, window.devicePixelRatio || 1);
+  c.width = size.w;
+  c.height = size.h;
+  function draw() {
+    if (!turnOn.active()) return;
+    try {
+      const img = ctx.createImageData(size.w, size.h);
+      img.data.set(snowPixels(size.w, size.h));
+      ctx.putImageData(img, 0, 0);
+    } catch (e) {
+      /* no canvas: the bars still play */
+    }
+  }
+  // Snow is on screen just after the raster opens (~1.1s). Three stills, then the canvas sits.
+  let i;
+  for (i = 0; i < SNOW_FRAMES.length; i++) turnOn.arm(draw, 1100 + SNOW_FRAMES[i]);
+}
+
 function wait(ms) {
   return new Promise(function (r) {
     setTimeout(r, ms);
@@ -4359,14 +4469,39 @@ function askApp() {
 }
 
 async function boot() {
+  const bootEl = $("boot");
   const bootVersion = document.querySelector(".boot-version");
   if (bootVersion) bootVersion.textContent = "v" + VERSION;
   askApp();
   registerTvKeys();
   applyLook();
   tv.classList.add("hide-cursor");
+  const still = prefersStill(function (q) {
+    return window.matchMedia(q);
+  });
+  if (!showBootSnow(s.staticFx) || still) bootEl.classList.add("boot-quiet");
   const status = document.querySelector(".boot-status");
-  const t0 = Date.now();
+  // The ident plays over the load. It does not wait, and it does not hold the tuner.
+  const turnOn = createTurnOn({
+    now: function () {
+      return typeof performance !== "undefined" ? performance.now() : Date.now();
+    },
+    duration: turnOnDuration(still),
+    schedule: function (fn, ms) {
+      return setTimeout(fn, ms);
+    },
+    cancel: function (id) {
+      clearTimeout(id);
+    },
+    audible: function () {
+      return !still && introAudible({ muted: player.muted, staticFx: s.staticFx });
+    },
+    playSound: playTurnOnSound,
+    onFinish: endTurnOn,
+    onWait: holdTurnOn,
+  });
+  app.turnOn = turnOn;
+  if (!still && showBootSnow(s.staticFx)) paintBootSnow(turnOn);
   let got = null;
   while (!got) {
     got = await loadLineup({ bundled: "data/lineup.json", live: LIVE_LINEUP });
@@ -4393,20 +4528,12 @@ async function boot() {
       return c.slug === lastSlug;
     })[0] ||
     app.channels[0];
+  if (status) status.textContent = "CH " + chLabel(start) + "  ·  " + start.name;
 
-  await wait(Math.max(0, 1300 - (Date.now() - t0)));
-  const bootEl = $("boot");
-  bootEl.classList.add("gone");
-  setTimeout(function () {
-    bootEl.hidden = true;
-    bootEl.innerHTML = "";
-  }, 700);
+  // Tune the moment the lineup is in. The ident is still up; uncovering it is lineupReady's job.
   app.state = "on";
   tuneTo(start);
-  // Once the start-up screen has gone: a welcome, or what's new since last time.
-  setTimeout(function () {
-    if (app.state === "on" && !overlayOpen()) showWhatsNew(false);
-  }, 1500);
+  turnOn.lineupReady();
   // Any standard controller drives the remote: D-pad to surf, A for OK, B to go back.
   createGamepad(
     function (a) {
@@ -4428,6 +4555,4 @@ async function boot() {
   }
 }
 
-// The boot screen shares the sunset scene.
-$("boot").insertAdjacentHTML("afterbegin", V.SCENE);
 boot();

@@ -420,7 +420,9 @@ body {
   }
 }
 
-/* ---------- boot ---------- */
+/* ---------- boot ----------
+   One-shot CRT turn-on, then the ident. Every animation below is a single pass
+   (nothing here repeats). 3.4s matches TURN_ON_MS in intro.js. */
 .boot {
   position: absolute;
   top: 0;
@@ -432,18 +434,170 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  transition: opacity 0.5s ease;
-}
-.boot .scene {
-  z-index: -1;
+  background: #000;
+  transition: opacity 0.4s ease;
 }
 .boot.gone {
   opacity: 0;
   pointer-events: none;
 }
+.boot-world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: radial-gradient(1px 1px at 12% 14%, #fff, transparent), radial-gradient(1px 1px at 31% 8%, #ffd6ff, transparent),
+    radial-gradient(1.5px 1.5px at 47% 21%, #fff, transparent), radial-gradient(1px 1px at 66% 11%, #c8f7ff, transparent),
+    radial-gradient(1.5px 1.5px at 83% 18%, #fff, transparent), radial-gradient(1px 1px at 92% 6%, #fff, transparent),
+    radial-gradient(1px 1px at 6% 33%, #fff, transparent), radial-gradient(1px 1px at 74% 31%, #fff, transparent),
+    linear-gradient(180deg, #0d0221 0%, #241056 38%, #6c1a74 58%, #ff4f8b 62%, #0d0221 62.1%);
+}
+.boot-world .cacti {
+  z-index: 1;
+  filter: drop-shadow(0 0 0.5vh #ff71ce);
+}
+.boot-world .horizon {
+  z-index: 2;
+}
+.boot-grid {
+  position: absolute;
+  left: -40%;
+  right: -40%;
+  top: 62%;
+  bottom: -30%;
+  z-index: 1;
+  background-color: #12032c;
+  background-image: linear-gradient(rgba(255, 42, 212, 0.85) 0.3vh, transparent 0.3vh), linear-gradient(90deg, rgba(255, 42, 212, 0.85) 0.3vh, transparent 0.3vh);
+  background-size: 7vh 7vh;
+  transform: perspective(28vh) rotateX(64deg);
+  transform-origin: center top;
+}
+.boot-tube {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  overflow: hidden;
+  pointer-events: none;
+}
+.boot-power,
+.boot-snow,
+.boot-bars,
+.boot-flash,
+.boot-bloom,
+.boot-beam {
+  position: absolute;
+  pointer-events: none;
+  animation-duration: 3.4s;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+.boot-power {
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  background: #000;
+  opacity: 1;
+  animation-name: boot-power;
+}
+.boot-snow {
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 7;
+  opacity: 0;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  animation-name: boot-snow;
+}
+.boot-bars {
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 8;
+  opacity: 0;
+  background: linear-gradient(90deg, #c0c0c0 0 14.28%, #c0c000 14.28% 28.57%, #00c0c0 28.57% 42.85%, #00c000 42.85% 57.14%, #c000c0 57.14% 71.42%, #c00000 71.42% 85.71%, #0000c0 85.71%);
+  animation-name: boot-bars;
+}
+.boot-bars::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 24%;
+  background: linear-gradient(90deg, #00214c 0 18%, #fff 18% 36%, #32006a 36% 54%, #131313 54% 72%, #090909 72% 78%, #131313 78% 84%, #1d1d1d 84% 90%, #131313 90%);
+}
+.boot-flash,
+.boot-bloom {
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #f4fff8;
+  transform-origin: center center;
+}
+.boot-flash {
+  z-index: 4;
+  transform: scaleY(0.012);
+  animation-name: boot-flash;
+}
+.boot-bloom {
+  z-index: 5;
+  opacity: 0;
+  background: #fff;
+  animation-name: boot-bloom;
+}
+.boot-beam {
+  z-index: 6;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 0.4vh;
+  margin-top: -0.2vh;
+  background: #f4fff8;
+  box-shadow: 0 0 1.2vh 0.3vh rgba(190, 255, 245, 0.95), 0 0 3.5vh 0.8vh rgba(5, 217, 232, 0.4);
+  transform: scaleX(0.02);
+  transform-origin: center center;
+  animation-name: boot-beam;
+}
+.boot-scan {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  pointer-events: none;
+  opacity: 0;
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 0) calc(100vh / 540), rgba(0, 0, 0, 0.22) calc(100vh / 360), rgba(0, 0, 0, 0) calc(100vh / 270)),
+    radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 58%, rgba(0, 0, 0, 0.45) 100%);
+  animation: boot-scan 3.4s linear forwards;
+}
 .boot-lockup {
+  position: relative;
+  z-index: 8;
   text-align: center;
-  margin-top: -18vh;
+  margin-top: -16vh;
+  opacity: 0;
+  animation: boot-lockup 3.4s linear forwards;
+}
+.boot-net {
+  font-family: var(--font-mono);
+  font-size: 1.45rem;
+  letter-spacing: 0.34em;
+  color: var(--cyan);
+  text-shadow: 0 0 0.45em rgba(5, 217, 232, 0.75);
+  margin-bottom: 0.85rem;
 }
 .boot-status {
   margin-top: 2.6rem;
@@ -453,13 +607,185 @@ body {
   letter-spacing: 0.2em;
   text-shadow: 0 0 0.4em rgba(255, 251, 150, 0.6);
 }
-
+.boot .boot-status {
+  margin-top: 1.5rem;
+  max-width: 92vw;
+  padding: 0 3vw;
+}
 .boot-version {
   margin-top: 1.2rem;
   font-family: var(--font-mono);
   font-size: 1.1rem;
   letter-spacing: 0.2em;
   color: var(--dim);
+}
+.boot-hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--safe-y);
+  z-index: 8;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 1.45rem;
+  letter-spacing: 0.28em;
+  color: var(--yellow);
+  text-shadow: 0 0 0.4em rgba(255, 251, 150, 0.45);
+  opacity: 0;
+  animation: boot-hint 3.4s linear forwards;
+}
+.boot-quiet .boot-snow {
+  display: none !important;
+}
+
+@keyframes boot-power {
+  0%,
+  30% {
+    opacity: 1;
+  }
+  40%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes boot-beam {
+  0% {
+    transform: scaleX(0.02);
+    opacity: 1;
+  }
+  9% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  18% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  26%,
+  100% {
+    transform: scaleX(1);
+    opacity: 0;
+  }
+}
+@keyframes boot-flash {
+  0%,
+  7% {
+    transform: scaleY(0.012);
+    opacity: 1;
+  }
+  23% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+  30% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+  38%,
+  100% {
+    transform: scaleY(1);
+    opacity: 0;
+  }
+}
+@keyframes boot-bloom {
+  0%,
+  18% {
+    opacity: 0;
+  }
+  24% {
+    opacity: 0.92;
+  }
+  34%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes boot-snow {
+  0%,
+  24% {
+    opacity: 0;
+  }
+  31% {
+    opacity: 0.92;
+  }
+  40% {
+    opacity: 0.8;
+  }
+  48%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes boot-bars {
+  0%,
+  36% {
+    opacity: 0;
+    transform: translateY(6%);
+  }
+  43%,
+  52% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  62%,
+  100% {
+    opacity: 0;
+    transform: translateY(-108%);
+  }
+}
+@keyframes boot-lockup {
+  0%,
+  50% {
+    opacity: 0;
+  }
+  62%,
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes boot-hint {
+  0%,
+  64% {
+    opacity: 0;
+  }
+  74%,
+  100% {
+    opacity: 0.9;
+  }
+}
+@keyframes boot-scan {
+  0%,
+  54% {
+    opacity: 0;
+  }
+  68%,
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Skipped before a channel can play: a still ident, no beam, no snow. */
+.boot.boot-hold .boot-tube,
+.boot.boot-hold .boot-scan {
+  display: none;
+}
+.boot.boot-hold .boot-lockup,
+.boot.boot-hold .boot-hint {
+  animation: none;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boot-tube,
+  .boot-scan {
+    display: none !important;
+  }
+  .boot-lockup,
+  .boot-hint,
+  .boot-world {
+    animation: none !important;
+    opacity: 1 !important;
+  }
 }
 
 /* ---------- What's new (changes.js) ---------- */
