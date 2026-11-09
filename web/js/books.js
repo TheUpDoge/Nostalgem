@@ -330,3 +330,105 @@ export function parseCatalog(json) {
     return { id: sh.id, icon: sh.icon, name: sh.name, books: books, note: typeof gaps[sh.type] === "string" ? cleanText(gaps[sh.type], 700) : "" };
   });
 }
+
+// Sections inside the public-domain book shelf, so fifty-nine titles aren't one flat list. This is not
+// the channel-family shelf plan (that one is SHELF_PLAN in library.js). First matching rule wins.
+// A rule is { id, name, words: ["alice", ...] } or { id, name, rest: true } for whatever is left.
+// A book no rule claims still appears, under "On this shelf", so a plan never hides one.
+// Swap CATALOG_SECTIONS for a finer list; parseCatalog itself stays the three catalog shelves.
+export const CATALOG_SECTIONS = [
+  { id: "wonder", name: "Nursery & wonder", words: ["alice", "wizard of oz", "winnie", "velveteen", "grimm", "jungle book", "secret garden", "christmas carol", "sleepy hollow"] },
+  { id: "gothic", name: "Gothic & the weird", words: ["dracula", "frankenstein", "jekyll", "dorian gray", "usher", "raven", "cthulhu", "dunwich", "king in yellow", "phantom of the opera", "yellow wallpaper", "turn of the screw", "night land", "moon pool"] },
+  { id: "detection", name: "Detection", words: ["sherlock", "baskerville"] },
+  { id: "voyage", name: "Voyages & adventure", words: ["journey to the centre", "around the world", "huckleberry", "tom sawyer", "monte-cristo", "monte cristo", "call of the wild", "white fang", "lost world", "mysterious island", "twenty thousand", "treasure island", "musketeers", "hunchback", "moby"] },
+  { id: "fantastic", name: "Scientific romance", words: ["time machine", "war of the worlds", "first men in the moon", "food of the gods", "moreau", "invisible man", "scarlet plague", "iron heel"] },
+  { id: "novels", name: "The novel shelf", rest: true },
+];
+
+function sectionHay(book) {
+  return (String(book.t || "") + " " + String(book.by || "")).toLowerCase();
+}
+
+function ruleHits(rule, book, hay) {
+  if (rule.rest) return false;
+  const ids = rule.ids || [];
+  if (book.id && ids.indexOf(book.id) >= 0) return true;
+  const words = rule.words || [];
+  for (let i = 0; i < words.length; i++) if (hay.indexOf(String(words[i]).toLowerCase()) >= 0) return true;
+  return false;
+}
+
+// books from one catalog shelf. plan: a CATALOG_SECTIONS-shaped list, or omit it for the stand-in.
+// Returns [{ id, name, books }], empty sections left out.
+export function sectionBooks(books, plan) {
+  const rules = plan || CATALOG_SECTIONS;
+  const buckets = rules.map(function (r) {
+    return { id: r.id, name: r.name, books: [] };
+  });
+  const left = [];
+  (books || []).forEach(function (book) {
+    const hay = sectionHay(book);
+    for (let i = 0; i < rules.length; i++) {
+      if (ruleHits(rules[i], book, hay)) {
+        buckets[i].books.push(book);
+        return;
+      }
+    }
+    left.push(book);
+  });
+  if (left.length) {
+    let sink = -1;
+    for (let i = 0; i < rules.length; i++) if (rules[i].rest) sink = i;
+    if (sink >= 0) buckets[sink].books = buckets[sink].books.concat(left);
+    else buckets.push({ id: "rest", name: "On this shelf", books: left });
+  }
+  return buckets.filter(function (b) {
+    return b.books.length;
+  });
+}
+
+// The Archive's stacks (web/data/books.json), gathered into aisles the same way as the Video Club.
+// A shelf id the plan doesn't name still shows, under "More stacks".
+//   { id, name, icon, blurb, ids: ["manga", ...] }
+export const STACK_PLAN = [
+  { id: "pictures", name: "Comics & manga", icon: "🦸", blurb: "Pictures, panels and the manga shelf.", ids: ["manga", "golden-age", "comics"] },
+  { id: "magazines", name: "The magazine rack", icon: "🗞️", blurb: "Pulps, the fan magazines, games and computers.", ids: ["pulps", "movie-mags", "game-mags", "computer-mags"] },
+  { id: "novels", name: "The novel wall", icon: "📚", blurb: "Classic novels and the children's shelf.", ids: ["classics", "children"] },
+];
+
+// shelves from parseShelves(). Returns [{ id, name, icon, blurb, shelves }].
+export function groupStackShelves(shelves, plan) {
+  const rules = plan || STACK_PLAN;
+  const aisles = rules.map(function (r) {
+    return { id: r.id, name: r.name, icon: r.icon || "📚", blurb: r.blurb || "", shelves: [] };
+  });
+  const byId = {};
+  aisles.forEach(function (a) {
+    byId[a.id] = a;
+  });
+  const shelfAisle = {};
+  rules.forEach(function (r) {
+    (r.ids || []).forEach(function (id) {
+      if (id && !shelfAisle[id]) shelfAisle[id] = r.id;
+    });
+  });
+  const rest = { id: "more", name: "More stacks", icon: "📚", blurb: "Shelves the plan hasn't named yet.", shelves: [] };
+  (shelves || []).forEach(function (sh) {
+    const aisle = sh && byId[shelfAisle[sh.id]];
+    if (aisle) aisle.shelves.push(sh);
+    else rest.shelves.push(sh);
+  });
+  aisles.forEach(function (a, i) {
+    const order = rules[i].ids || [];
+    a.shelves.sort(function (x, y) {
+      const ix = order.indexOf(x.id);
+      const iy = order.indexOf(y.id);
+      return (ix < 0 ? order.length : ix) - (iy < 0 ? order.length : iy);
+    });
+  });
+  const out = aisles.filter(function (a) {
+    return a.shelves.length;
+  });
+  if (rest.shelves.length) out.push(rest);
+  return out;
+}

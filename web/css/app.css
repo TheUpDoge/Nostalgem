@@ -1410,6 +1410,125 @@ body {
 .m-foot {
   margin-top: 0.8rem;
 }
+/* The Video Club and Reading Room open wider, so a shelf can sit in the menu instead of a thin list. */
+.menu.menu-wide {
+  width: 48rem;
+}
+.menu.place-club {
+  background: linear-gradient(180deg, rgba(48, 10, 28, 0.97) 0%, rgba(13, 2, 33, 0.96) 42%);
+  border-left-color: rgba(255, 42, 109, 0.75);
+}
+.menu.place-room {
+  background: linear-gradient(180deg, rgba(54, 34, 18, 0.97) 0%, rgba(16, 9, 5, 0.97) 58%);
+  border-left-color: rgba(212, 168, 96, 0.75);
+}
+.menu.place-room .m-title {
+  color: #ffcf7a;
+  text-shadow: 0 0 0.45em rgba(255, 186, 80, 0.45);
+}
+.m-banner {
+  flex: none;
+  margin: 0 0 0.55rem;
+}
+.place-sign {
+  padding: 0.1rem 0 0.15rem;
+}
+.place-neon {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 1.2rem;
+  letter-spacing: 0.22em;
+  color: #fff;
+  text-shadow: 0 0 0.45rem #ff2a6d, 0 0 0.08rem #ff9f1c;
+}
+.place-sign-room .place-neon {
+  color: #f6edd8;
+  text-shadow: 0 0 0.45rem rgba(255, 196, 110, 0.85);
+  letter-spacing: 0.16em;
+}
+.place-rule {
+  margin-top: 0.2rem;
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  color: var(--yellow);
+}
+.place-sign-room .place-rule {
+  color: #e7c27a;
+}
+.place-kicker {
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.menu.place-room .place-kicker {
+  color: #c4a574;
+}
+/* Tape and book spines. Static: no motion, and the row is aria-hidden (the list under it is the control). */
+.spine-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.28rem;
+  height: 5rem;
+  margin-top: 0.4rem;
+  padding: 0.4rem 0.35rem 0;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.28) 70%);
+  border-bottom: 0.42rem solid #3a2416;
+  box-shadow: inset 0 -0.12rem 0 rgba(255, 220, 160, 0.18);
+}
+.spine-row i {
+  position: relative;
+  display: block;
+  flex: 0 0 1.45rem;
+  height: 92%;
+  background: var(--spine, #6b3a2a);
+  border-radius: 0.12rem 0.12rem 0 0;
+  box-shadow: inset -0.18rem 0 0 rgba(0, 0, 0, 0.28), inset 0.1rem 0 0 rgba(255, 255, 255, 0.22);
+  overflow: hidden;
+}
+.spine-row.books i {
+  flex-basis: 1.65rem;
+  border-radius: 0.08rem 0.16rem 0 0;
+}
+.spine-row i span {
+  position: absolute;
+  top: 0.25rem;
+  right: 0;
+  bottom: 0.15rem;
+  left: 0;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  white-space: nowrap;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.45rem;
+  color: rgba(255, 255, 255, 0.92);
+}
+.spine-row.books i span {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.spine-more {
+  align-self: center;
+  margin-left: 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 1.35rem;
+  font-weight: 400;
+  color: var(--dim);
+}
+.spine-row-empty i {
+  height: 78%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.28));
+  box-shadow: inset 0 0 0 0.06rem rgba(255, 255, 255, 0.08);
+}
 
 /* ---------- dialog ---------- */
 .dialog {
@@ -1992,11 +2111,21 @@ body {
   letter-spacing: 0.18em;
   opacity: 0.9;
 }
+.club-chip {
+  width: 2.1rem;
+  height: 1.6rem;
+  margin-top: 0.45rem;
+  border-radius: 0.25rem;
+  background: linear-gradient(135deg, #f3e7b5 0%, #c6a25a 42%, #f7efc8 58%, #8d6a2e 100%);
+  box-shadow: inset 0 0 0 0.06rem rgba(80, 50, 10, 0.35);
+  position: relative;
+  z-index: 1;
+}
 .club-card-name {
   margin-top: auto;
   font-family: "Brush Script MT", "Segoe Script", "Snell Roundhand", cursive;
-  font-size: 2rem;
-  line-height: 1.1;
+  font-size: 1.75rem;
+  line-height: 1.05;
   text-shadow: 0 0.1rem 0.3rem rgba(0, 0, 0, 0.4);
   position: relative;
   z-index: 1;
@@ -2028,27 +2157,67 @@ body {
   background: #111;
 }
 .club-card-foot {
-  margin-top: 0.4rem;
+  margin-top: 0.35rem;
   font-family: var(--font-display);
-  font-size: 0.55rem;
-  letter-spacing: 0.2em;
-  opacity: 0.85;
+  font-size: 0.52rem;
+  letter-spacing: 0.14em;
+  opacity: 0.9;
   position: relative;
   z-index: 1;
 }
-/* A tape's box: cover art in a VHS sleeve, and the details beside it. */
+.club-card-note {
+  margin-top: 0.15rem;
+  font-family: var(--font-display);
+  font-size: 0.48rem;
+  letter-spacing: 0.12em;
+  opacity: 0.8;
+  position: relative;
+  z-index: 1;
+}
+/* A tape's box: a colored spine, the Archive's picture, and a rewind sticker. */
 .club-box {
   display: flex;
   gap: 1.2rem;
   align-items: flex-start;
 }
+.club-sleeve {
+  display: flex;
+  flex: 0 0 11.2rem;
+  height: 13.4rem;
+  border-radius: 0.3rem;
+  overflow: hidden;
+  background: #120810;
+  box-shadow: 0.35rem 0.5rem 0 rgba(0, 0, 0, 0.38);
+}
+.club-box.out .club-sleeve {
+  box-shadow: 0.35rem 0.5rem 0 rgba(0, 0, 0, 0.38), 0 0 0 0.12rem var(--yellow);
+}
+.club-spine {
+  flex: none;
+  width: 1.55rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--spine, #7a2430);
+  color: #fff;
+  box-shadow: inset -0.22rem 0 0.25rem rgba(0, 0, 0, 0.35);
+}
+.club-spine span {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-family: var(--font-display);
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  max-height: 12rem;
+  overflow: hidden;
+  white-space: nowrap;
+}
 .club-art {
   position: relative;
-  flex: 0 0 9rem;
-  height: 13rem;
-  border-radius: 0.4rem;
+  flex: 1 1 auto;
+  height: 100%;
   background: linear-gradient(180deg, #1a0838, #090114);
-  border: 0.12rem solid var(--line);
   overflow: hidden;
 }
 .club-art img {
@@ -2070,6 +2239,28 @@ body {
   letter-spacing: 0.3em;
   color: #fff;
   background: rgba(0, 0, 0, 0.7);
+}
+.club-sticker {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.35rem;
+  width: 3.3rem;
+  height: 3.3rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0.35rem;
+  background: #f4e04d;
+  color: #1c1404;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 0.48rem;
+  letter-spacing: 0.04em;
+  line-height: 1.15;
+  transform: rotate(8deg);
+  box-shadow: 0 0.15rem 0.3rem rgba(0, 0, 0, 0.45);
 }
 .club-box-text {
   min-width: 0;
@@ -2182,15 +2373,63 @@ body {
   bottom: 0;
   overflow: hidden;
   color: #f3e6d0;
-  background: radial-gradient(ellipse at 50% 30%, rgba(255, 196, 110, 0.22) 0%, rgba(255, 196, 110, 0) 55%),
+  background: radial-gradient(ellipse at 50% 18%, rgba(255, 196, 110, 0.16) 0%, rgba(255, 196, 110, 0) 42%),
     repeating-linear-gradient(92deg, rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 0) 2.2rem, rgba(0, 0, 0, 0.12) 2.3rem, rgba(0, 0, 0, 0) 2.6rem),
     linear-gradient(180deg, #3b2614 0%, #24170c 60%, #120b05 100%);
+}
+.rd-room::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4.5%;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0), #140c06 72%);
+  pointer-events: none;
+  z-index: 3;
+}
+.rd-lamp {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 50%;
+  width: 18rem;
+  height: 9rem;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.rd-shade {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 11rem;
+  height: 2.7rem;
+  transform: translateX(-50%);
+  background: linear-gradient(#f0d7a4, #a56b32);
+  clip-path: polygon(16% 0, 84% 0, 100% 100%, 0 100%);
+}
+.rd-glow {
+  position: absolute;
+  left: 50%;
+  top: 2.1rem;
+  width: 24rem;
+  height: 9rem;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at 50% 0%, rgba(255, 214, 150, 0.4), rgba(255, 196, 110, 0) 72%);
+}
+.paper-night .rd-shade {
+  filter: brightness(0.38);
+}
+.paper-night .rd-glow {
+  opacity: 0.22;
+  background: radial-gradient(ellipse at 50% 0%, rgba(150, 170, 255, 0.4), rgba(0, 0, 0, 0) 72%);
 }
 .rd-room.paper-night {
   background: radial-gradient(ellipse at 50% 30%, rgba(120, 140, 255, 0.12) 0%, rgba(0, 0, 0, 0) 55%), #07060b;
 }
 .rd-stage {
   position: absolute;
+  z-index: 1;
   top: 0;
   left: 0;
   right: 0;
@@ -2247,7 +2486,27 @@ body {
   max-height: 94vh;
   object-fit: contain;
   background: #f4ecd8;
-  box-shadow: 0 1rem 2.6rem rgba(0, 0, 0, 0.65), 0 0 0 0.06rem rgba(0, 0, 0, 0.4);
+  box-shadow: 0.12rem 0 0 #f7f1e4, 0.24rem 0.05rem 0 #e6d9c2, 0.36rem 0.1rem 0 #d4c4a8, 0 1rem 2.6rem rgba(0, 0, 0, 0.65), 0 0 0 0.06rem rgba(0, 0, 0, 0.4);
+}
+.rd-ribbon {
+  position: absolute;
+  top: -0.3rem;
+  right: 14%;
+  width: 0.7rem;
+  height: 16%;
+  background: linear-gradient(#b43344, #7c1c2a);
+  pointer-events: none;
+  z-index: 3;
+}
+.rd-ribbon::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -0.42rem;
+  border-left: 0.35rem solid #7c1c2a;
+  border-right: 0.35rem solid #7c1c2a;
+  border-bottom: 0.42rem solid transparent;
 }
 .mode-width .rd-page {
   height: auto;
@@ -2342,6 +2601,16 @@ body {
   }
 }
 /* Title, page number and hints: shown for a moment after each turn, and with the settings open. */
+.rd-head,
+.rd-folio,
+.rd-hint,
+.rd-close,
+.rd-progress,
+.rd-controls,
+.rd-end,
+.rd-osd {
+  z-index: 4;
+}
 .rd-head,
 .rd-folio,
 .rd-hint,
@@ -2569,13 +2838,40 @@ body {
   gap: 1.2rem;
   align-items: flex-start;
 }
+.bk-volume {
+  display: flex;
+  flex: 0 0 11.4rem;
+  height: 14rem;
+  filter: drop-shadow(0.3rem 0.45rem 0.35rem rgba(0, 0, 0, 0.45));
+}
+.bk-spine {
+  flex: none;
+  width: 1.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--spine, #5c3320);
+  color: #f6edd3;
+  border-radius: 0.2rem 0 0 0.2rem;
+  box-shadow: inset -0.28rem 0 0.35rem rgba(0, 0, 0, 0.35);
+}
+.bk-spine span {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  max-height: 12.2rem;
+  overflow: hidden;
+  white-space: nowrap;
+}
 .bk-cover {
-  flex: 0 0 9rem;
-  height: 13rem;
-  border-radius: 0.3rem 0.6rem 0.6rem 0.3rem;
+  flex: 1 1 auto;
+  height: 100%;
+  border-radius: 0 0.35rem 0.35rem 0;
   overflow: hidden;
   background: linear-gradient(180deg, #3b2614, #1c120a);
-  box-shadow: inset 0.5rem 0 0.6rem -0.4rem rgba(0, 0, 0, 0.6), 0 0.4rem 1rem rgba(0, 0, 0, 0.5);
+  box-shadow: inset -0.4rem 0 0.5rem -0.25rem rgba(0, 0, 0, 0.4), 0.16rem 0 0 #f4efe4, 0.3rem 0.05rem 0 #e4d8c0;
 }
 .bk-cover img {
   width: 100%;
@@ -2626,14 +2922,28 @@ body {
 /* The library pocket card, stamped with the due date. */
 .due-slip {
   flex: none;
-  width: 11rem;
-  padding: 0.5rem 0.7rem 0.4rem;
-  border-radius: 0.25rem;
+  width: 11.4rem;
+  padding: 0.45rem 0.65rem 0.4rem;
+  border-radius: 0.2rem;
   background: #f6edd3;
   color: #3a2a18;
   font-family: "Courier New", var(--font-mono);
-  box-shadow: 0 0.3rem 0.8rem rgba(0, 0, 0, 0.45);
+  box-shadow: 0 0.3rem 0.8rem rgba(0, 0, 0, 0.45), inset 0 0 0 0.08rem #e4d3ae;
   transform: rotate(-2deg);
+}
+.due-brand,
+.due-rule {
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 0.5rem;
+  letter-spacing: 0.08em;
+  color: #6b4a28;
+}
+.due-brand {
+  margin-bottom: 0.25rem;
+}
+.due-rule {
+  margin-top: 0.35rem;
 }
 .due-head {
   text-align: center;
@@ -2664,6 +2974,19 @@ body {
   margin-top: 0.3rem;
   text-align: center;
   font-size: 0.7rem;
+}
+.empty-shelf-sign {
+  font-family: var(--font-display);
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.empty-shelf-note {
+  margin: 0.75rem 0 0;
+  color: var(--ink);
+  font-size: 0.98rem;
+  line-height: 1.45;
 }
 @media (max-aspect-ratio: 1/1) {
   .bk-box,

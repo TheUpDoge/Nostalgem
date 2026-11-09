@@ -2,8 +2,8 @@
 // rewind before you return, overdue tapes go back by themselves.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MAX_TAPES, LOAN_HOURS, TERMS_VERSION, emptyLibrary, cleanLibrary, cardNumber, issueCard, cancelCard, checkOut, loanFor, setPosition, isRewound, rewind, returnTape, overdue, dueText, isFilm, storeShelves, staffPicks, searchStore } from "../web/js/library.js";
-import { SIGNUP_PAGES, cardHtml, tapeBoxHtml, rewindHtml, counter, tapeState } from "../web/js/ui/club.js";
+import { MAX_TAPES, LOAN_HOURS, TERMS_VERSION, emptyLibrary, cleanLibrary, cardNumber, issueCard, cancelCard, checkOut, loanFor, setPosition, isRewound, rewind, returnTape, overdue, dueText, isFilm, storeShelves, staffPicks, searchStore, groupAisles, aisleFilms, SHELF_PLAN } from "../web/js/library.js";
+import { SIGNUP_PAGES, cardHtml, tapeBoxHtml, rewindHtml, counter, tapeState, storefrontHtml, spineRowHtml } from "../web/js/ui/club.js";
 
 const T0 = Date.parse("2026-11-08T20:00:00Z");
 const film = (id, t, d, ch) => ({ key: id + "/" + id + ".mp4", item: { id, f: id + ".mp4", t, d: d || 5400, y: 1950 }, ch: ch || { slug: "noir", name: "Midnight Noir" } });
@@ -127,14 +127,67 @@ test("the sign-up explains the club and the Archive, and says plainly what the c
   assert.doesNotMatch(all, /<script|\son[a-z]+=/i);
 });
 
+test("aisles follow the shelf plan, and a plan never hides a tape", () => {
+  const ch = (slug, name, titles) => ({
+    slug,
+    name,
+    kind: "video",
+    items: titles.map((t, i) => ({ id: slug + i, f: slug + i + ".mp4", t, d: 5000 })),
+  });
+  const shelves = storeShelves([
+    ch("high-noon", "High Noon", ["Rio Bravo"]),
+    ch("midnight-noir", "Noir", ["Detour"]),
+    ch("my-extra", "Home Movies", ["The Picnic"]),
+    ch("trail-tv", "Trail", ["The Ranger"]),
+  ]);
+  const aisles = groupAisles(shelves);
+  const westerns = aisles.find((a) => a.id === "westerns");
+  assert.deepEqual(
+    westerns.shelves.map((s) => s.ch.slug),
+    ["high-noon", "trail-tv"]
+  );
+  assert.equal(westerns.count, 2);
+  assert.equal(aisles.find((a) => a.id === "after-dark").shelves[0].ch.slug, "midnight-noir");
+  assert.equal(aisles[aisles.length - 1].id, "rest");
+  assert.equal(aisleFilms(aisles[aisles.length - 1])[0].item.t, "The Picnic");
+  const titles = aisles.flatMap((a) => aisleFilms(a).map((f) => f.item.t)).sort();
+  assert.deepEqual(titles, ["Detour", "Rio Bravo", "The Picnic", "The Ranger"]);
+  // Nova's plan is this same shape: drop it in and the floor follows, with anything unnamed still on a shelf.
+  const custom = groupAisles(shelves, [{ id: "one", name: "One shelf", icon: "★", blurb: "Just noir.", slugs: ["midnight-noir"] }]);
+  assert.deepEqual(
+    custom.map((a) => a.id),
+    ["one", "rest"]
+  );
+  assert.equal(aisleFilms(custom[0]).length, 1);
+  assert.equal(aisleFilms(custom[1]).length, 3);
+  assert.equal(groupAisles([]).length, 0);
+  assert.ok(SHELF_PLAN.length >= 4);
+  assert.ok(SHELF_PLAN.every((a) => a.id && a.name && a.slugs.length));
+});
+
 test("the card, a tape's box and the rewind screen", () => {
   const lib = member();
   const card = cardHtml(lib.card);
   assert.match(card, /Marty McFly/);
   assert.match(card, /NG \d{4}/);
+  assert.match(card, /NOT AN ARCHIVE\.ORG ACCOUNT/);
+  assert.match(card, /TWO TAPES · 3 DAYS/);
+  assert.match(storefrontHtml(), /TWO TAPES · 3 DAYS · BE KIND, REWIND/);
+  const row = spineRowHtml(
+    [
+      { key: "a/a", item: { t: "<b>Detour</b>" } },
+      { key: "b/b", item: { t: "Rio Bravo" } },
+    ],
+    "What's on the shelf"
+  );
+  assert.match(row, /What&#39;s on the shelf/);
+  assert.match(row, /&lt;b&gt;Detour&lt;\/b&gt;/);
+  assert.doesNotMatch(row, /<script|\son[a-z]+=/i);
   assert.match(cardHtml({ name: "<b>x</b>", number: "NG 1", issued: T0 }), /&lt;b&gt;/);
   const f = film("detour1945", "Detour");
   const box = tapeBoxHtml(f, null, "A hitchhiker's bad luck.", T0, "On the shelf");
+  assert.match(box, /club-sleeve/);
+  assert.match(box, /BE KIND REWIND/);
   assert.match(box, /services\/img\/detour1945/);
   assert.match(box, /Detour/);
   assert.match(box, /On the shelf/);

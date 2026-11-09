@@ -2,12 +2,25 @@
 // print to sign), the library card, a tape's box, and the rewind. Words and markup only; main.js wires
 // them to the menu, the dialog and the player.
 
-import { escapeHtml as esc, fmtDuration } from "../util.js";
+import { escapeHtml as esc, fmtDuration, hash32 } from "../util.js";
 import { MAX_TAPES, LOAN_HOURS, isRewound, dueText } from "../library.js";
 import { thumbUrl, detailsUrl } from "../archive.js";
 
 const DAYS = LOAN_HOURS / 24;
 const TAPES = MAX_TAPES === 2 ? "two" : String(MAX_TAPES);
+const TAPE_RULE = TAPES.toUpperCase() + " TAPES · " + DAYS + " DAYS · BE KIND, REWIND";
+
+// Spine colors for the shelf. A tape keeps its color (hashed from its key), so the row doesn't shift.
+const SPINES = ["#9c2f2f", "#1f4e79", "#2f6b4f", "#6b3fa0", "#a56b12", "#7a3044", "#1d6a75", "#3e4654", "#8a4b2f", "#2c4a34"];
+
+export function spineColor(key) {
+  return SPINES[hash32(String(key || "tape")) % SPINES.length];
+}
+
+function spineLabel(title) {
+  const t = String(title || "").replace(/\s+/g, " ").trim();
+  return t.length > 22 ? t.slice(0, 21) + "…" : t;
+}
 
 function list(items) {
   return (
@@ -76,11 +89,12 @@ function monthYear(ms) {
   return m + " " + d.getFullYear();
 }
 
-// The library card itself.
+// The library card itself: a plastic membership card in the same sunset colors as the tape sleeves.
 export function cardHtml(card) {
   return (
     '<div class="club-card">' +
     '<div class="club-card-top"><span class="club-logo">NOSTAL<b>GEM</b></span><span class="club-kind">VIDEO CLUB · LIBRARY CARD</span></div>' +
+    '<div class="club-chip" aria-hidden="true"></div>' +
     '<div class="club-card-name">' +
     esc(card.name) +
     "</div>" +
@@ -91,11 +105,37 @@ export function cardHtml(card) {
     "</span></div>" +
     barcode(card.number) +
     '<div class="club-card-foot">' +
-    TAPES.toUpperCase() +
-    " TAPES · " +
-    DAYS +
-    " DAYS · BE KIND, REWIND</div>" +
+    TAPE_RULE +
+    "</div>" +
+    '<div class="club-card-note">NOT AN ARCHIVE.ORG ACCOUNT</div>' +
     "</div>"
+  );
+}
+
+// The neon over the door. Loan numbers come from the same constants the checkout uses.
+export function storefrontHtml() {
+  return '<div class="place-sign place-sign-club"><div class="place-neon">VIDEO CLUB</div><div class="place-rule">' + esc(TAPE_RULE) + "</div></div>";
+}
+
+// A short row of tape spines, so a shelf reads as a shelf. films: the store's { key, item }. Decorative:
+// the list under it is what a remote actually moves through.
+export function spineRowHtml(films, kicker) {
+  const list = films || [];
+  const shown = list.slice(0, 14);
+  let spines = "";
+  shown.forEach(function (f) {
+    const title = f && f.item ? f.item.t : "";
+    const key = f && (f.key || (f.item && f.item.id)) || title;
+    spines += '<i style="--spine:' + spineColor(key) + '"><span>' + esc(spineLabel(title)) + "</span></i>";
+  });
+  const more = list.length - shown.length;
+  return (
+    '<div class="place-block">' +
+    (kicker ? '<div class="place-kicker">' + esc(kicker) + "</div>" : "") +
+    '<div class="spine-row tapes" aria-hidden="true">' +
+    spines +
+    (more > 0 ? '<b class="spine-more">+' + more + "</b>" : "") +
+    "</div></div>"
   );
 }
 
@@ -114,11 +154,18 @@ export function tapeBoxHtml(film, loan, desc, now, note) {
     })
     .join(" · ");
   const about = String(desc || "").replace(/\s+/g, " ").trim();
+  const color = spineColor(film.key || it.id);
   return (
-    '<div class="club-box">' +
-    '<div class="club-art"><img alt="" src="' +
+    '<div class="club-box' +
+    (loan ? " out" : "") +
+    '">' +
+    '<div class="club-sleeve" style="--spine:' +
+    color +
+    '"><div class="club-spine"><span>' +
+    esc(spineLabel(it.t)) +
+    '</span></div><div class="club-art"><img alt="" src="' +
     esc(thumbUrl(it.id)) +
-    '" loading="lazy"><span class="club-vhs">VHS</span></div>' +
+    '" loading="lazy"><span class="club-sticker">BE KIND REWIND</span><span class="club-vhs">VHS</span></div></div>' +
     '<div class="club-box-text">' +
     '<div class="club-box-title">' +
     esc(it.t) +

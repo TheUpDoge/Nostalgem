@@ -255,6 +255,127 @@ export function searchStore(shelves, text) {
   return out;
 }
 
+// The Video Club floor, one aisle per channel family. This is a stand-in until Nova's shelf plan
+// lands: replace SHELF_PLAN (same shape) and the floor follows it. A channel slug listed under an
+// aisle goes there, in that order. Anything the plan doesn't name — an added channel, a new slug —
+// still shows, in "The rest of the store", so a plan never hides a tape.
+//   { id, name, icon, blurb, slugs: ["high-noon", ...] }
+export const SHELF_PLAN = [
+  {
+    id: "westerns",
+    name: "Westerns",
+    icon: "🌵",
+    blurb: "Sunup to sundown, and the rails that cross it.",
+    slugs: ["high-noon", "singing-cowboys", "trail-tv", "iron-horse", "bonanza", "lone-ranger", "john-wayne", "hopalong"],
+  },
+  {
+    id: "matinee",
+    name: "Saturday matinee",
+    icon: "💥",
+    blurb: "Serials, silents, slapstick and a sword.",
+    slugs: ["cliffhangers", "swashbucklers", "silent-era", "chaplin", "laugh-track", "melies", "saturday-morning", "popeye"],
+  },
+  {
+    id: "after-dark",
+    name: "After dark",
+    icon: "🕵️",
+    blurb: "Noir, monsters and the drive-in.",
+    slugs: ["midnight-noir", "creature-feature", "twilight-hour", "atomic-drive-in"],
+  },
+  {
+    id: "fantastic",
+    name: "The fantastic",
+    icon: "🪐",
+    blurb: "Rocket rangers, the moon and the wild blue.",
+    slugs: ["space-cadets", "mission-control", "wild-blue"],
+  },
+  {
+    id: "living-room",
+    name: "The living room",
+    icon: "🛋️",
+    blurb: "Sitcoms, game shows, variety and subtítulos.",
+    slugs: ["rerun-city", "game-night", "hit-parade", "subtitulos"],
+  },
+  {
+    id: "back-room",
+    name: "The back room",
+    icon: "🧪",
+    blurb: "Classroom films, travelogues, newsreels and the rest of the odd shelf.",
+    slugs: ["ephemera", "wanderlust", "newsreel", "dial-up", "byte-size", "pixel-dreams", "jukebox", "commercial-break"],
+  },
+];
+
+const REST_AISLE = {
+  id: "rest",
+  name: "The rest of the store",
+  icon: "📼",
+  blurb: "Added channels, and anything the shelf plan hasn't named yet.",
+};
+
+function aisleCount(shelves) {
+  let n = 0;
+  shelves.forEach(function (sh) {
+    n += sh.films.length;
+  });
+  return n;
+}
+
+// Shelves from storeShelves(), gathered into aisles. plan: a SHELF_PLAN-shaped list, or omit it for
+// the stand-in. Empty aisles are left off the floor. Returns [{ id, name, icon, blurb, shelves, count }].
+export function groupAisles(shelves, plan) {
+  const rules = plan || SHELF_PLAN;
+  const aisles = rules.map(function (r) {
+    return { id: r.id, name: r.name, icon: r.icon || "📼", blurb: r.blurb || "", shelves: [] };
+  });
+  const byId = {};
+  aisles.forEach(function (a) {
+    byId[a.id] = a;
+  });
+  const slugAisle = {};
+  rules.forEach(function (r) {
+    (r.slugs || []).forEach(function (slug) {
+      if (slug && !slugAisle[slug]) slugAisle[slug] = r.id;
+    });
+  });
+  const rest = { id: REST_AISLE.id, name: REST_AISLE.name, icon: REST_AISLE.icon, blurb: REST_AISLE.blurb, shelves: [] };
+  (shelves || []).forEach(function (sh) {
+    const slug = sh && sh.ch && sh.ch.slug;
+    const aisle = slug && byId[slugAisle[slug]];
+    if (aisle) aisle.shelves.push(sh);
+    else rest.shelves.push(sh);
+  });
+  aisles.forEach(function (a, i) {
+    const order = rules[i].slugs || [];
+    a.shelves.sort(function (x, y) {
+      const ix = order.indexOf(x.ch.slug);
+      const iy = order.indexOf(y.ch.slug);
+      const ax = ix < 0 ? order.length : ix;
+      const ay = iy < 0 ? order.length : iy;
+      return ax - ay;
+    });
+    a.count = aisleCount(a.shelves);
+  });
+  const out = aisles.filter(function (a) {
+    return a.shelves.length;
+  });
+  if (rest.shelves.length) {
+    rest.count = aisleCount(rest.shelves);
+    out.push(rest);
+  }
+  return out;
+}
+
+// Every film in an aisle, shelves in order, for "browse the whole aisle".
+export function aisleFilms(aisle) {
+  const out = [];
+  ((aisle && aisle.shelves) || []).forEach(function (sh) {
+    sh.films.forEach(function (f) {
+      out.push(f);
+    });
+  });
+  return out;
+}
+
 // ---------- the Reading Room's books ----------
 
 export function bookLoan(lib, id) {
