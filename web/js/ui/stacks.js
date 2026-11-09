@@ -4,7 +4,7 @@
 
 import { escapeHtml as esc, hash32 } from "../util.js";
 import { coverUrl, bookLink } from "../books.js";
-import { dueText, MAX_BOOKS, BOOK_DAYS } from "../library.js";
+import { dueText, MAX_BOOKS, BOOK_DAYS, bookTags } from "../library.js";
 
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const BOOK_N = MAX_BOOKS === 3 ? "THREE" : String(MAX_BOOKS);
@@ -48,17 +48,29 @@ export function bookSpineHtml(books, kicker) {
 }
 
 // An empty catalog shelf (the manga one): the note on why nothing is there, with bare shelf boards.
-export function emptyShelfHtml(name, note) {
+// An empty catalog shelf. headline is the placard (the manga shelf); the note is why.
+export function emptyShelfHtml(name, note, headline) {
   return (
-    '<div class="empty-shelf">' +
-    '<div class="empty-shelf-sign">' +
+    '<div class="empty-shelf manga-placard">' +
+    '<div class="placard-kicker">' +
     esc(name) +
+    "</div>" +
+    '<div class="empty-shelf-sign">' +
+    esc(headline || name) +
     "</div>" +
     '<div class="spine-row books spine-row-empty" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>' +
     '<p class="empty-shelf-note">' +
     esc(note || "Nothing on this shelf yet.") +
     "</p></div>"
   );
+}
+
+function tagHtml(tags) {
+  return (tags || [])
+    .map(function (tag) {
+      return '<div class="xlink">' + esc(tag.tag) + (tag.title ? " · " + esc(tag.title) : "") + "</div>";
+    })
+    .join("");
 }
 
 // "NOV 22 2026", the way a library's date stamp prints it.
@@ -136,6 +148,7 @@ export function bookBoxHtml(entry, book, loan, mark, now, note) {
     (facts.length ? '<div class="bk-meta">' + esc(facts.join(" · ")) + "</div>" : "") +
     (book && book.rtl ? '<div class="bk-rtl">右→左 Reads right to left, like manga</div>' : "") +
     (about ? '<div class="bk-about">' + esc(about.length > 280 ? about.slice(0, 277) + "…" : about) + "</div>" : "") +
+    tagHtml(bookTags(entry.id)) +
     state +
     (qr ? '<div class="link-row"><div class="link-qr" data-url="' + esc(bookLink(entry.id)) + '"></div><span>Scan to open it on archive.org</span></div>' : "") +
     '<div class="bk-link">' +

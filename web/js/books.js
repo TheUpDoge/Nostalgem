@@ -331,63 +331,8 @@ export function parseCatalog(json) {
   });
 }
 
-// Sections inside the public-domain book shelf, so fifty-nine titles aren't one flat list. This is not
-// the channel-family shelf plan (that one is SHELF_PLAN in library.js). First matching rule wins.
-// A rule is { id, name, words: ["alice", ...] } or { id, name, rest: true } for whatever is left.
-// A book no rule claims still appears, under "On this shelf", so a plan never hides one.
-// Swap CATALOG_SECTIONS for a finer list; parseCatalog itself stays the three catalog shelves.
-export const CATALOG_SECTIONS = [
-  { id: "wonder", name: "Nursery & wonder", words: ["alice", "wizard of oz", "winnie", "velveteen", "grimm", "jungle book", "secret garden", "christmas carol", "sleepy hollow"] },
-  { id: "gothic", name: "Gothic & the weird", words: ["dracula", "frankenstein", "jekyll", "dorian gray", "usher", "raven", "cthulhu", "dunwich", "king in yellow", "phantom of the opera", "yellow wallpaper", "turn of the screw", "night land", "moon pool"] },
-  { id: "detection", name: "Detection", words: ["sherlock", "baskerville"] },
-  { id: "voyage", name: "Voyages & adventure", words: ["journey to the centre", "around the world", "huckleberry", "tom sawyer", "monte-cristo", "monte cristo", "call of the wild", "white fang", "lost world", "mysterious island", "twenty thousand", "treasure island", "musketeers", "hunchback", "moby"] },
-  { id: "fantastic", name: "Scientific romance", words: ["time machine", "war of the worlds", "first men in the moon", "food of the gods", "moreau", "invisible man", "scarlet plague", "iron heel"] },
-  { id: "novels", name: "The novel shelf", rest: true },
-];
-
-function sectionHay(book) {
-  return (String(book.t || "") + " " + String(book.by || "")).toLowerCase();
-}
-
-function ruleHits(rule, book, hay) {
-  if (rule.rest) return false;
-  const ids = rule.ids || [];
-  if (book.id && ids.indexOf(book.id) >= 0) return true;
-  const words = rule.words || [];
-  for (let i = 0; i < words.length; i++) if (hay.indexOf(String(words[i]).toLowerCase()) >= 0) return true;
-  return false;
-}
-
-// books from one catalog shelf. plan: a CATALOG_SECTIONS-shaped list, or omit it for the stand-in.
-// Returns [{ id, name, books }], empty sections left out.
-export function sectionBooks(books, plan) {
-  const rules = plan || CATALOG_SECTIONS;
-  const buckets = rules.map(function (r) {
-    return { id: r.id, name: r.name, books: [] };
-  });
-  const left = [];
-  (books || []).forEach(function (book) {
-    const hay = sectionHay(book);
-    for (let i = 0; i < rules.length; i++) {
-      if (ruleHits(rules[i], book, hay)) {
-        buckets[i].books.push(book);
-        return;
-      }
-    }
-    left.push(book);
-  });
-  if (left.length) {
-    let sink = -1;
-    for (let i = 0; i < rules.length; i++) if (rules[i].rest) sink = i;
-    if (sink >= 0) buckets[sink].books = buckets[sink].books.concat(left);
-    else buckets.push({ id: "rest", name: "On this shelf", books: left });
-  }
-  return buckets.filter(function (b) {
-    return b.books.length;
-  });
-}
-
-// The Archive's stacks (web/data/books.json), gathered into aisles the same way as the Video Club.
+// The Archive's stacks (web/data/books.json), gathered into aisles. The club's catalog stays three
+// shelves by kind, in title order (parseCatalog); these are the Archive search shelves beside it.
 // A shelf id the plan doesn't name still shows, under "More stacks".
 //   { id, name, icon, blurb, ids: ["manga", ...] }
 export const STACK_PLAN = [

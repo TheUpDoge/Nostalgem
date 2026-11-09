@@ -3,7 +3,7 @@
 // them to the menu, the dialog and the player.
 
 import { escapeHtml as esc, fmtDuration, hash32 } from "../util.js";
-import { MAX_TAPES, LOAN_HOURS, isRewound, dueText } from "../library.js";
+import { MAX_TAPES, LOAN_HOURS, isRewound, dueText, filmTags } from "../library.js";
 import { thumbUrl, detailsUrl } from "../archive.js";
 
 const DAYS = LOAN_HOURS / 24;
@@ -20,6 +20,14 @@ export function spineColor(key) {
 function spineLabel(title) {
   const t = String(title || "").replace(/\s+/g, " ").trim();
   return t.length > 22 ? t.slice(0, 21) + "…" : t;
+}
+
+function tagHtml(tags) {
+  return (tags || [])
+    .map(function (tag) {
+      return '<div class="xlink">' + esc(tag.tag) + (tag.title ? " · " + esc(tag.title) : "") + "</div>";
+    })
+    .join("");
 }
 
 function list(items) {
@@ -177,6 +185,7 @@ export function tapeBoxHtml(film, loan, desc, now, note) {
     '<div class="club-box-state">' +
     esc(loan ? "📼 You have this tape · " + tapeState(loan, now) + (note ? " · " + note : "") : note || "On the shelf") +
     "</div>" +
+    tagHtml(filmTags(it.id)) +
     '<div class="club-box-link">' +
     esc(detailsUrl(it.id).replace(/^https?:\/\//, "")) +
     "</div>" +

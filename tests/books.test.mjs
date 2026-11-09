@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { shelfQuery, bookSearchUrl, parseBookSearch, authorName, yearOf, bookFromMetadata, isManga, volumeTitle, naturalCompare, pageUrl, pageNumbersUrl, parsePageNumbers, scandataUrl, parseScandata, pickWidth, viewStart, viewPages, nextView, prevView, pageName, pageForNumber, parseShelves, sectionBooks, groupStackShelves } from "../web/js/books.js";
+import { shelfQuery, bookSearchUrl, parseBookSearch, authorName, yearOf, bookFromMetadata, isManga, volumeTitle, naturalCompare, pageUrl, pageNumbersUrl, parsePageNumbers, scandataUrl, parseScandata, pickWidth, viewStart, viewPages, nextView, prevView, pageName, pageForNumber, parseShelves, groupStackShelves } from "../web/js/books.js";
 import { emptyLibrary, issueCard, borrowBook, returnBook, bookLoan, overdueBooks, setMark, markFor, cancelCard, cleanLibrary, checkOut, MAX_BOOKS, BOOK_DAYS } from "../web/js/library.js";
 import { bookBoxHtml, dueSlipHtml, stampDate, readingRoomHtml, emptyShelfHtml, bookSpineHtml } from "../web/js/ui/stacks.js";
 
@@ -255,37 +255,20 @@ test("a catalog entry that isn't right is left off its shelf", async () => {
   assert.deepEqual(parseCatalog(null).map((s) => s.books.length), [0, 0, 0]);
 });
 
-test("public-domain books break into sections, and a section plan never hides a book", async () => {
-  const { parseCatalog, sectionBooks } = await import("../web/js/books.js");
+test("the catalog shelves stay one list per kind, in title order", async () => {
+  const { parseCatalog } = await import("../web/js/books.js");
   const { readFile } = await import("node:fs/promises");
   const json = JSON.parse(await readFile(new URL("../web/data/library-catalog.json", import.meta.url), "utf8"));
   const books = parseCatalog(json)[0].books;
-  const sections = sectionBooks(books);
-  const ids = sections.flatMap((s) => s.books.map((b) => b.id));
-  assert.equal(ids.length, 59);
-  assert.equal(new Set(ids).size, 59);
-  const where = (id) => sections.find((s) => s.books.some((b) => b.id === id)).id;
-  assert.equal(where("AlicesAdventuresInWonderland"), "wonder");
-  assert.equal(where("draculabr00stokuoft"), "gothic");
-  assert.equal(where("adventuresofsher001892doyl"), "detection");
-  assert.equal(where("prideprejudice00aust"), "novels");
-  const custom = sectionBooks(books, [{ id: "all", name: "Everything", rest: true }]);
-  assert.equal(custom.length, 1);
-  assert.equal(custom[0].books.length, 59);
-  const named = sectionBooks(
-    [
-      { id: "a", t: "Alpha" },
-      { id: "b", t: "Beta" },
-    ],
-    [{ id: "a-only", name: "A", ids: ["a"] }]
-  );
-  assert.deepEqual(
-    named.map((s) => [s.id, s.books.map((b) => b.id)]),
-    [
-      ["a-only", ["a"]],
-      ["rest", ["b"]],
-    ]
-  );
+  assert.equal(books.length, 59);
+  const titles = books.map((b) => b.t.toLowerCase().replace(/^(the|a|an)\s+/, ""));
+  const sorted = titles.slice().sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+  assert.deepEqual(titles, sorted);
+  const html = bookBoxHtml({ id: "christmascar00dick", t: "A Christmas carol" }, null, null, null, T0);
+  assert.match(html, /On 111 Pearly Gates/);
+  assert.match(html, /A Christmas Carol/);
+  assert.match(emptyShelfHtml("Public-domain manga", "No verifiably <b>public-domain</b> manga", "No verifiably public-domain manga — here's why"), /No verifiably public-domain manga/);
+  assert.match(emptyShelfHtml("Public-domain manga", "No verifiably <b>public-domain</b> manga", "No verifiably public-domain manga — here's why"), /&lt;b&gt;/);
 });
 
 test("the Archive's stacks follow a shelf plan, and a shelf it doesn't name still shows", () => {

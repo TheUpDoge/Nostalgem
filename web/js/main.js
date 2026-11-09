@@ -14,7 +14,7 @@ import { createGamepad } from "./gamepad.js";
 import { LOOKS, asciiMask, comboCss, lookById, lookCss, lookYtCss, looksSvg, mixable, nextLook } from "./looks.js";
 import { FrameWatch } from "./framewatch.js";
 import { MAX_TAPES, LOAN_HOURS, MAX_BOOKS, BOOK_DAYS, cleanLibrary, issueCard, cancelCard, loanFor, checkOut, setPosition, setSafeCut, isRewound, rewind, returnTape, overdue, storeShelves, staffPicks, searchStore, groupAisles, aisleFilms, bookLoan, borrowBook, returnBook, overdueBooks, setMark, markFor } from "./library.js";
-import { bookSearchUrl, parseBookSearch, bookFromMetadata, pageNumbersUrl, parsePageNumbers, scandataUrl, parseScandata, parseShelves, parseCatalog, sectionBooks, groupStackShelves } from "./books.js";
+import { bookSearchUrl, parseBookSearch, bookFromMetadata, pageNumbersUrl, parsePageNumbers, scandataUrl, parseScandata, parseShelves, parseCatalog, groupStackShelves } from "./books.js";
 import { Reader } from "./ui/reader.js";
 import * as Stacks from "./ui/stacks.js";
 import * as Club from "./ui/club.js";
@@ -885,11 +885,11 @@ function clubPage() {
       const picks = staffPicks(shelves, week, 12);
       list.push({ head: true, label: "The front rack" });
       list.push({
-        label: "🆕 Staff picks",
+        label: "🆕 New this week",
         sub: true,
         value: picks.length + " tapes",
         ok: function () {
-          menu.push(shelfPage("🆕 Staff picks", picks, { kicker: "Staff picks · the same tapes all week" }));
+          menu.push(shelfPage("🆕 New this week", picks, { kicker: "Staff picks · the same tapes all week" }));
         },
       });
       list.push({
@@ -899,7 +899,7 @@ function clubPage() {
           openStoreSearch();
         },
       });
-      list.push({ head: true, label: "Aisles" });
+      list.push({ head: true, label: "Rows" });
       groupAisles(shelves).forEach(function (aisle) {
         list.push({
           label: aisle.icon + " " + aisle.name,
@@ -937,7 +937,7 @@ function aislePage(aisle) {
       const list = [];
       if (aisle.shelves.length > 1) {
         list.push({
-          label: "Browse everything in this aisle",
+          label: "Browse everything on this row",
           sub: true,
           value: films.length + (films.length === 1 ? " tape" : " tapes"),
           ok: function () {
@@ -949,6 +949,7 @@ function aislePage(aisle) {
         list.push({
           label: (sh.ch.icon || "📼") + " " + sh.ch.name,
           sub: true,
+          swatch: sh.ch.color || "",
           value: sh.films.length + (sh.films.length === 1 ? " tape" : " tapes"),
           ok: function () {
             menu.push(shelfPage((sh.ch.icon || "📼") + " " + sh.ch.name, sh.films, { kicker: "What's on the shelf · " + sh.ch.name }));
@@ -1661,33 +1662,27 @@ bookShelves().then(function (list) {
 
 // A shelf of the club's catalog: every book on it was checked to be public domain.
 function catalogShelfPage(sh) {
-  const sections = sh.id === "pd-books" ? sectionBooks(sh.books) : [{ id: sh.id, name: "", books: sh.books }];
   return {
     title: sh.icon + " " + sh.name,
     wide: true,
     place: "room",
     banner: function () {
-      return Stacks.bookSpineHtml(sh.books, "What's on the shelf · checked public domain");
+      return Stacks.bookSpineHtml(sh.books, "What's on the shelf · title order");
     },
-    sub: "Checked public domain · " + sh.books.length + " on the shelf · OK to look at one",
+    sub: "Checked public domain · " + sh.books.length + " on the shelf, title order · OK to look at one",
     items: function () {
-      const list = [];
-      sections.forEach(function (sec) {
-        if (sec.name && sections.length > 1) list.push({ head: true, label: sec.name });
-        sec.books.forEach(function (b) {
-          list.push({
-            label: b.t,
-            swatch: Stacks.clothColor(b.id),
-            value: function () {
-              return (bookLoan(lib, b.id) ? "📚 YOURS · " : "") + (b.y ? String(b.y) : "");
-            },
-            ok: function () {
-              openBookBox(b);
-            },
-          });
-        });
+      return sh.books.map(function (b) {
+        return {
+          label: b.t,
+          swatch: Stacks.clothColor(b.id),
+          value: function () {
+            return (bookLoan(lib, b.id) ? "📚 YOURS · " : "") + (b.y ? String(b.y) : "");
+          },
+          ok: function () {
+            openBookBox(b);
+          },
+        };
       });
-      return list;
     },
   };
 }
@@ -1696,7 +1691,7 @@ function catalogShelfPage(sh) {
 function showCatalogNote(sh) {
   dialog.open({
     title: sh.icon + " " + sh.name + " · checked public domain",
-    html: Stacks.emptyShelfHtml(sh.name, sh.note),
+    html: Stacks.emptyShelfHtml(sh.name, sh.note, sh.id === "pd-manga" ? "No verifiably public-domain manga — here's why" : ""),
     buttons: [
       {
         label: "OK",
