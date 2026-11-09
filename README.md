@@ -278,6 +278,9 @@ real keyboard for **Search the Archive**.
 - The TV keeps its code, so a paired phone reconnects by itself after the TV restarts. **New code** in
   the same dialog disconnects every phone paired before; **Turn off** stops listening.
 - The QR code points at the GitHub Pages copy, so turn on Pages first: Settings ▸ Pages ▸ Source: **GitHub Actions**.
+- Casting from the phone (the phone picks, the TV plays) isn't built yet: [CASTING.md](CASTING.md) is the
+  plan, waiting on a pick. To show the phone's whole screen on the TV today, use the phone's own screen
+  mirroring (Android: Quick Settings ▸ Cast or Screen cast; iPhone: Screen Mirroring).
 
 ## Make it yours
 
