@@ -1,6 +1,7 @@
 // Channel packs: small JSON files that add channels from the Internet Archive.
 // A pack never touches the shipped lineup — its channels load through the same
-// viewer-added path as Menu ▸ Add a channel (numbers 30–49, saved on this TV only).
+// viewer-added path as Menu ▸ Add a channel, saved on this TV only. Pack channels take
+// CH 30–49 or the hundreds, 100–199 (dial.js): every built-in channel stays under 99.
 // Packs point at the Archive and nothing else: a collection search, or Archive item
 // IDs. No YouTube, no other sites, no direct video links.
 // A pack may also carry clean cuts ("skipLists", cuts.js): scenes to cover or skip in its films. A pack
@@ -20,9 +21,10 @@ import {
 import { hash32, mapLimit, mulberry32, shuffle, spreadApart } from "./util.js";
 import { checkSkipLists, SKIP_FORMAT } from "./cuts.js";
 import { readZip, utf8Text } from "./zip.js";
+import { packNumberOk, packRangesText } from "./dial.js";
 
 export const PACK_VERSION = 1;
-export const PACK_MIN_NUMBER = 30;
+export const PACK_MIN_NUMBER = 30; // the viewer-added range, 30–49; packs may also use 100–199 (dial.js)
 export const PACK_MAX_NUMBER = 49;
 const MAX_CHANNELS = 20;
 const MAX_SOURCES = 10;
@@ -189,8 +191,8 @@ export function validatePack(pack) {
     } else if (ch.name.length > NAME_LIMIT) {
       warnings.push(where + ": a name over " + NAME_LIMIT + " characters will be trimmed to " + NAME_LIMIT + ".");
     }
-    if (!isInt(ch.number) || ch.number < PACK_MIN_NUMBER || ch.number > PACK_MAX_NUMBER) {
-      errors.push(where + ": number must be a whole number from " + PACK_MIN_NUMBER + " to " + PACK_MAX_NUMBER + " (the viewer-added range).");
+    if (!packNumberOk(ch.number)) {
+      errors.push(where + ": number must be a whole number from " + packRangesText() + " (the pack ranges; built-in channels stay under 99).");
     } else if (numbers[ch.number]) {
       errors.push(where + ": CH " + ch.number + " is used twice in this pack.");
     } else {

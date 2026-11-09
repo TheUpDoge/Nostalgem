@@ -7,6 +7,8 @@
 //   Reading Room: the club's catalog shelves (checked public domain), and the empty manga shelf's note.
 //   Packs in a .zip: every pack in it on one "Load?" screen (a broken one listed, not loaded), then loaded
 //   together: a channel and clean cuts.
+//   The hundreds: a pack's CH 101 lands at 101 (typed 1 0 1, read "CH 101"), its CH 111 moves past the secret
+//   station to 112, and the guide lists them after the channels under 99.
 //
 // The scenes here are TEST VALUES on a 12-second test video. Real lists come only from a viewing pass of
 // the Archive's own file; the shipped file has none.
@@ -240,6 +242,13 @@ const zip = makeZip([
   { name: "packs/zip-films.json", data: JSON.stringify({ pack: "Zip Films", version: 1, channels: [{ name: "Zip Films", number: 44, sources: [{ items: ["test_zip_film"] }] }] }) },
   { name: "packs/cuts/film-z.json", data: JSON.stringify({ format: "nostalgem-skip-lists/1", lists: [{ item: "test_film_z", skips: [{ start: 1, end: 2, reason: "sexual-content", note: "test" }] }] }), method: 0 },
   { name: "packs/broken.json", data: JSON.stringify({ pack: "Broken", version: 2, channels: [] }) },
+  {
+    name: "packs/late-show.json",
+    data: JSON.stringify({ pack: "Late Show", version: 1, channels: [
+      { name: "Late Show", number: 101, sources: [{ items: ["test_zip_film"] }] },
+      { name: "Late Late Show", number: 111, sources: [{ items: ["test_zip_film"] }] },
+    ] }),
+  },
   { name: "__MACOSX/packs/._zip-films.json", data: "junk" },
   { name: "README.txt", data: "two packs and a broken one" },
 ]);
@@ -255,14 +264,52 @@ check(/\.zip/.test((await chooser.element().getAttribute("accept")) || ""), "…
 await chooser.setFiles({ name: "my-packs.zip", mimeType: "application/zip", buffer: Buffer.from(zip) });
 await page.waitForFunction(() => /Load these packs/.test(document.getElementById("dialog").textContent), null, { timeout: 5000 }).catch(() => {});
 const confirm = await dialogText();
-check(/my-packs\.zip holds 2 packs/.test(confirm) && /Zip Films/.test(confirm) && /CH 44/.test(confirm) && /film-z/.test(confirm) && /Clean cuts for 1 film/.test(confirm), "…every pack in it on one screen: " + confirm.replace(/\s+/g, " ").slice(0, 200));
+check(/my-packs\.zip holds 3 packs/.test(confirm) && /Zip Films/.test(confirm) && /CH 44/.test(confirm) && /film-z/.test(confirm) && /Clean cuts for 1 film/.test(confirm) && /CH 101/.test(confirm), "…every pack in it on one screen: " + confirm.replace(/\s+/g, " ").slice(0, 240));
 check(/Not loaded \(1\)/.test(confirm) && /broken\.json: version/.test(confirm) && !/MACOSX|README/.test(confirm), "…a broken one listed and left out, Mac copies and other files ignored");
-await btn(/Load 2 packs/, 300);
+await btn(/Load 3 packs/, 300);
 await page.waitForFunction(() => window.NP.state().name === "Zip Films", null, { timeout: 15000 }).catch(() => {});
 s = await st();
 check(s.name === "Zip Films" && s.channel === 44, `…loaded: the pack's channel is on the air (CH ${s.channel} ${s.name})`);
 check(/Packs on the air/.test(await page.textContent("#toast")) && /clean cuts for 1 film/.test(await page.textContent("#toast")), "…and says so: " + (await page.textContent("#toast")));
 check(await page.evaluate(() => JSON.parse(localStorage.getItem("nostalgem:skipLists") || "[]").some((l) => l.item === "test_film_z")), "…its clean cuts kept on this TV");
+
+// ---------- the hundreds ----------
+const toastText = await page.textContent("#toast");
+check(/CH 101 Late Show/.test(toastText) && /CH 112 Late Late Show/.test(toastText) && /CH 111 was taken, so it went to CH 112/.test(toastText), "a pack's CH 101 lands at 101; its CH 111 (a secret station's) moves to 112");
+for (let i = 0; i < 6 && (await st()).overlay; i++) await page.keyboard.press("Escape");
+const osd = async () => ((await page.textContent("#osd .osd-num")) + " " + (await page.textContent("#osd .osd-name"))).trim();
+await page.keyboard.press("1");
+await page.keyboard.press("0");
+await page.waitForTimeout(150);
+const waiting = await osd();
+await page.keyboard.press("1");
+await page.waitForFunction(() => window.NP.state().label === "101", null, { timeout: 5000 }).catch(() => {});
+s = await st();
+check(s.label === "101" && s.name === "Late Show" && /^CH 101\b/.test(await osd()), `typing 1 0 1 tunes CH 101, and the TV reads it "CH 101" (waiting: "${waiting}"; then "${await osd()}")`);
+await page.waitForTimeout(400);
+for (const k of ["1", "0", "2"]) await page.keyboard.press(k);
+await page.waitForTimeout(400);
+check(/^CH 102 NO SIGNAL/.test(await osd()), `a miss in the hundreds reads "CH 102 NO SIGNAL", not 10-2 ("${await osd()}")`);
+await page.waitForTimeout(2200);
+for (const k of ["5", "0", "1"]) await page.keyboard.press(k);
+await page.waitForTimeout(600);
+s = await st();
+check(s.label === "50-1" && /^CH 50-1\b/.test(await osd()), `…while 5 0 1 is still sub-channel 50-1 ("${await osd()}")`);
+for (const k of ["1", "0", "1"]) await page.keyboard.press(k);
+await page.waitForFunction(() => window.NP.state().label === "101", null, { timeout: 5000 }).catch(() => {});
+await page.keyboard.press("g");
+await page.waitForFunction(() => window.NP.state().overlay === "guide", null, { timeout: 5000 }).catch(() => {});
+await page.waitForTimeout(400);
+const guideRows = () => page.$$eval("#guide .g-ch .n", (els) => els.map((e) => e.textContent.trim()));
+const rows = await guideRows();
+await page.keyboard.press("ArrowDown"); // one row on: the guide scrolls to CH 112
+await page.waitForTimeout(300);
+const more = await guideRows();
+const at101 = rows.indexOf("101");
+const num = (l) => Number(l.split("-")[0]);
+const inOrder = (list) => list.every((l, i, a) => !i || num(a[i - 1]) <= num(l));
+check(at101 > 0 && rows.slice(0, at101).every((l) => num(l) < 100) && inOrder(rows) && more[more.indexOf("101") + 1] === "112" && inOrder(more), "the guide lists CH 101, then 112, after the channels under 99: " + rows.join(" ") + " → " + more.slice(-3).join(" "));
+await page.keyboard.press("Escape");
 // A file that isn't a zip at all.
 for (let i = 0; i < 6 && (await st()).overlay; i++) await page.keyboard.press("Escape");
 await page.keyboard.press("ArrowRight");

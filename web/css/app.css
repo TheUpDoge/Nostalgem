@@ -1219,6 +1219,7 @@ body {
   white-space: nowrap;
 }
 .g-ch .n {
+  flex: none; /* a long name never squeezes the number (90-1, 101) under itself */
   font-family: var(--font-mono);
   font-size: 1.8rem;
   color: var(--ch);
