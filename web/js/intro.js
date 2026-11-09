@@ -5,8 +5,8 @@
 // the set's mute and the Channel static setting (With hiss / Silent / Off). The snow is a few still
 // frames on a tiny canvas, then it stops: a TV bogs down on a canvas that keeps repainting.
 
-export var TURN_ON_MS = 3400;
-export var TURN_ON_STILL_MS = 800;
+export var TURN_ON_MS = 5000;
+export var TURN_ON_STILL_MS = 1400;
 export var SNOW_CAP_W = 160;
 export var SNOW_CAP_H = 90;
 export var SNOW_MAX_DPR = 1;
@@ -190,8 +190,10 @@ function noise(ctx, master, at, dur, peak, hz) {
   src.stop(at + dur + 0.02);
 }
 
-// Relay thump, a short hiss, a lock click. Scheduled once; stop() cuts it off.
-// Browsers may keep the context suspended until a gesture: then this stays silent, which is fine.
+// Power thump, a hiss as the raster opens, a credit sting, a lock click. Scheduled once.
+// resume() runs from boot, not from a key or a tap, so a normal Chrome tab leaves the
+// context suspended and this stays silent. A capture that passes
+// --autoplay-policy=no-user-gesture-required is the exception, not what a viewer gets.
 export function playTurnOnSound() {
   var AC = typeof window !== "undefined" && (window.AudioContext || window.webkitAudioContext);
   if (!AC) return null;
@@ -211,8 +213,11 @@ export function playTurnOnSound() {
   }
   tone(ctx, master, t, 55, 0.32, "sine", 0.85);
   tone(ctx, master, t, 110, 0.18, "triangle", 0.16);
-  noise(ctx, master, t + 0.85, 0.28, 0.1, 2200);
-  noise(ctx, master, t + 1.5, 0.045, 0.16, 800);
+  noise(ctx, master, t + 0.4, 0.22, 0.1, 2200);
+  tone(ctx, master, t + 2.15, 523, 0.18, "triangle", 0.22);
+  tone(ctx, master, t + 2.15, 784, 0.22, "sine", 0.14);
+  noise(ctx, master, t + 3.15, 0.05, 0.18, 900);
+  tone(ctx, master, t + 3.18, 988, 0.28, "sine", 0.16);
   var stopped = false;
   return {
     stop: function () {

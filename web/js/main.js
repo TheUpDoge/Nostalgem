@@ -4423,9 +4423,9 @@ function paintBootSnow(turnOn) {
       /* no canvas: the bars still play */
     }
   }
-  // Snow is on screen just after the raster opens (~1.1s). Three stills, then the canvas sits.
+  // Three stills as the raster opens, then the canvas sits. Not a loop.
   let i;
-  for (i = 0; i < SNOW_FRAMES.length; i++) turnOn.arm(draw, 1100 + SNOW_FRAMES[i]);
+  for (i = 0; i < SNOW_FRAMES.length; i++) turnOn.arm(draw, 380 + SNOW_FRAMES[i]);
 }
 
 function wait(ms) {
@@ -4480,8 +4480,8 @@ async function boot() {
     return window.matchMedia(q);
   });
   if (!showBootSnow(s.staticFx) || still) bootEl.classList.add("boot-quiet");
-  const status = document.querySelector(".boot-status");
-  // The ident plays over the load. It does not wait, and it does not hold the tuner.
+  const waitEl = document.querySelector(".boot-wait");
+  // The title card plays over the load. It does not wait, and it does not hold the tuner.
   const turnOn = createTurnOn({
     now: function () {
       return typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -4506,9 +4506,9 @@ async function boot() {
   while (!got) {
     got = await loadLineup({ bundled: "data/lineup.json", live: LIVE_LINEUP });
     if (!got) {
-      status.textContent = "NO SIGNAL · RETRYING";
+      if (waitEl) waitEl.textContent = "NO SIGNAL · RETRYING";
       await wait(5000);
-      status.textContent = "TUNING IN…";
+      if (waitEl) waitEl.textContent = "";
     }
   }
   applyLineup(got.lineup, got.source);
@@ -4528,9 +4528,9 @@ async function boot() {
       return c.slug === lastSlug;
     })[0] ||
     app.channels[0];
-  if (status) status.textContent = "CH " + chLabel(start) + "  ·  " + start.name;
 
-  // Tune the moment the lineup is in. The ident is still up; uncovering it is lineupReady's job.
+  // Tune the moment the lineup is in. The title card is still up; uncovering it is lineupReady's job.
+  // The channel's own banner and snow stay the tuning screen. This card does not become that.
   app.state = "on";
   tuneTo(start);
   turnOn.lineupReady();

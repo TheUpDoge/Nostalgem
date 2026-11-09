@@ -67,6 +67,7 @@ test("reduced motion holds a still ident, and for less time", () => {
   assert.equal(prefersStill(() => { throw new Error("no matchMedia"); }), false);
   assert.ok(turnOnDuration(true) < turnOnDuration(false));
   assert.equal(turnOnDuration(false), TURN_ON_MS);
+  assert.equal(TURN_ON_MS, 5000);
 });
 
 test("Back only skips; every other press skips and still happens", () => {
@@ -185,8 +186,17 @@ test("the boot path tunes as soon as the lineup is in, and does not sit on a tim
   assert.match(html, /class="boot-bars"/);
   assert.match(html, /id="boot-snow"[^>]*width="160"[^>]*height="90"/);
   assert.match(html, /ANY KEY OR TAP/);
+  const bootHtml = html.slice(html.indexOf('id="boot"'), html.indexOf("</body>"));
+  assert.match(bootHtml, /aria-label="Nostalgem"/);
+  assert.match(bootHtml, /Created by The UpDoge/);
+  assert.match(bootHtml, /A Blast From The Past/);
+  assert.doesNotMatch(bootHtml, /The he Past/);
+  assert.doesNotMatch(bootHtml, /TUNING IN/);
   const css = readFileSync(new URL("../web/css/app.css", import.meta.url), "utf8");
   const section = css.slice(css.indexOf("/* ---------- boot ----------"), css.indexOf("/* ---------- What's new"));
   assert.doesNotMatch(section, /infinite/);
   assert.match(section, /prefers-reduced-motion/);
+  assert.match(section, /@keyframes boot-type/);
+  assert.match(section, /@keyframes boot-slide/);
+  assert.match(section, /@keyframes boot-converge-y/);
 });
