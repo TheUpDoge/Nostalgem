@@ -4,6 +4,11 @@ A channel pack is a small JSON file that adds channels on your own TV, without t
 the shipped lineup. From the Menu: **Load a channel pack**, then choose a `.json` file (or a
 `.zip` of them) or paste its text. Everything happens on your TV — no upload, no server.
 
+On a TV with no file picker, send it from your phone: the phone remote's **Channels** page has
+**📦 Send a pack to the TV**. The file goes straight to the TV over the remote's own link and
+through the same checks and the same **Load these packs?** screen; the phone shows what the TV
+found, packs left out and why included.
+
 Pack channels land on **CH 30–49** and are saved on that TV only, exactly like channels
 you add by search (Menu ▸ Add a channel). Loading a pack never changes
 [`web/data/lineup.json`](web/data/lineup.json), and re-loading the same pack skips the

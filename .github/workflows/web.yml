@@ -38,6 +38,8 @@ jobs:
         run: npm run test:stations
       - name: Clean cuts (card live, skip on a tape), the Reading Room's catalog shelves, and packs in a .zip
         run: npm run test:cuts
+      - name: The phone's Mouse page (pointer, keys, typing) and packs sent from the phone, in a browser, the TV app and through the relay
+        run: npm run test:mouse
 
   # Publishes web/ to GitHub Pages from main. One-time setup: Settings → Pages → Source: GitHub Actions.
   deploy:
