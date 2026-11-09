@@ -4,6 +4,13 @@
 
 export const CHANGES = [
   {
+    v: "1.14.0",
+    title: "4:3 for old TVs",
+    items: [
+      "Watching on an old CRT TV? Menu ▸ Picture & sound ▸ Screen shape ▸ 4:3 for old CRT TVs puts the whole set in a 4:3 box, black at the sides: nothing cut off, nothing stretched, and 4:3 films fill the screen.",
+    ],
+  },
+  {
     v: "1.11.0",
     title: "The club's catalog, and clean cuts",
     items: [

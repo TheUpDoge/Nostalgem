@@ -50,9 +50,28 @@
   --font-display: "Orbitron", "Arial Black", "Helvetica Neue", Arial, sans-serif;
   --font-mono: "VT323", "Courier New", Courier, monospace;
   --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", Arial, sans-serif;
-  --safe-x: 5vw;
+  --safe-x: calc(5 * var(--vw));
   --safe-y: 5vh;
   --ch: #ff2a6d;
+  /* 1% of the set's width. Widths that follow the screen use var(--vw), never vw: with 4:3 on (below) the
+     set is narrower than the screen. Heights can use vh either way: the set is always the screen's height. */
+  --vw: 1vw;
+}
+
+/* 4:3 for CRT TVs (Menu ▸ Screen shape): the set becomes a 4:3 box in the middle of a wider screen, with
+   black at the sides (pillarboxed), so an old TV shows all of it, nothing cut off and nothing stretched.
+   A screen that's already 4:3 or narrower is left as it is. */
+@media (min-aspect-ratio: 4/3) {
+  html.shape-43 {
+    --vw: calc(100vh * 4 / 300);
+  }
+  html.shape-43 .tv {
+    left: 50%;
+    right: auto;
+    width: calc(100vh * 4 / 3);
+    margin-left: calc(100vh * -2 / 3);
+    box-shadow: 0 0 0 1px #000;
+  }
 }
 
 html {
@@ -1048,7 +1067,7 @@ body {
   font-size: 2.2rem;
   color: var(--yellow);
   text-shadow: 0 0 0.4em rgba(0, 0, 0, 0.9);
-  max-width: 80vw;
+  max-width: calc(80 * var(--vw));
 }
 .eq {
   display: flex;
@@ -1302,7 +1321,7 @@ body {
   right: 0;
   bottom: 0;
   width: 36rem;
-  max-width: 92vw;
+  max-width: calc(92 * var(--vw));
   z-index: 30;
   padding: var(--safe-y) 2.2rem var(--safe-y) 2rem;
   background: var(--panel);
@@ -1426,7 +1445,7 @@ body {
 }
 .d-box {
   width: 52rem;
-  max-width: 92vw;
+  max-width: calc(92 * var(--vw));
   max-height: 90vh;
   overflow: hidden;
   background: linear-gradient(180deg, #241056, #0d0221);
@@ -1571,7 +1590,7 @@ body {
   left: 50%;
   transform: translateX(-50%);
   z-index: 45;
-  max-width: 70vw;
+  max-width: calc(70 * var(--vw));
   padding: 0.6rem 1.3rem;
   border-radius: 2rem;
   background: rgba(13, 2, 33, 0.92);
@@ -1620,8 +1639,8 @@ body {
 }
 .t-rocker {
   position: absolute;
-  right: 2vw;
-  right: max(12px, 2vw);
+  right: calc(2 * var(--vw));
+  right: max(12px, calc(2 * var(--vw)));
   top: 40%;
   transform: translateY(-50%);
   display: flex;
@@ -2195,7 +2214,7 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 3vh 3vw;
+  padding: 3vh calc(3 * var(--vw));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2203,7 +2222,7 @@ body {
 .mode-width .rd-stage {
   display: block;
   overflow-y: auto;
-  padding: 2vh 4vw 10vh;
+  padding: 2vh calc(4 * var(--vw)) 10vh;
   scroll-behavior: smooth;
 }
 .rd-pages {
@@ -2243,7 +2262,7 @@ body {
 }
 .rd-page img {
   display: block;
-  max-width: 94vw;
+  max-width: calc(94 * var(--vw));
   max-height: 94vh;
   object-fit: contain;
   background: #f4ecd8;
@@ -2253,10 +2272,10 @@ body {
   height: auto;
 }
 .two .rd-pages.spread .rd-page img {
-  max-width: 46.5vw;
+  max-width: calc(46.5 * var(--vw));
 }
 .mode-width .rd-page img {
-  width: min(92vw, 1500px);
+  width: min(calc(92 * var(--vw)), 1500px);
   max-width: none;
   max-height: none;
   height: auto;
@@ -2280,8 +2299,8 @@ body {
 }
 /* A page still on its way: blank paper with a note. */
 .rd-page:not(.ok) img {
-  width: min(44vw, 58vh);
-  height: min(64vw, 86vh);
+  width: min(calc(44 * var(--vw)), 58vh);
+  height: min(calc(64 * var(--vw)), 86vh);
   background: repeating-linear-gradient(180deg, rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 0) 1.6rem, rgba(90, 70, 40, 0.12) 1.7rem), #efe4cb;
 }
 .rd-page.bad img {
@@ -2363,7 +2382,7 @@ body {
   display: flex;
   gap: 1rem;
   align-items: baseline;
-  padding: 2.4vh 9vw 4vh 4vw;
+  padding: 2.4vh calc(9 * var(--vw)) 4vh calc(4 * var(--vw));
   background: linear-gradient(180deg, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0));
   pointer-events: none;
 }
@@ -2398,7 +2417,7 @@ body {
 }
 .rd-hint {
   position: absolute;
-  right: 3vw;
+  right: calc(3 * var(--vw));
   bottom: 2.8vh;
   font-family: var(--font-display);
   font-size: 0.7rem;
@@ -2426,7 +2445,7 @@ body {
 .rd-close {
   position: absolute;
   top: 1.6vh;
-  right: 2vw;
+  right: calc(2 * var(--vw));
   width: 3.2rem;
   width: max(52px, 3.2rem);
   height: 3.2rem;
@@ -2459,10 +2478,10 @@ body {
 .rd-controls {
   position: absolute;
   top: 50%;
-  right: 3vw;
+  right: calc(3 * var(--vw));
   transform: translateY(-50%);
   width: 32rem;
-  max-width: 92vw;
+  max-width: calc(92 * var(--vw));
   padding: 1rem;
   border-radius: 1rem;
   background: rgba(24, 14, 6, 0.95);
@@ -2521,7 +2540,7 @@ body {
 }
 .rd-end-box {
   text-align: center;
-  max-width: 80vw;
+  max-width: calc(80 * var(--vw));
 }
 .rd-end-title {
   font-family: "Courier New", var(--font-mono);
