@@ -6,6 +6,7 @@ import { SOUTH_PARK_CHANNEL, SOUTH_PARK_URL } from "../southpark.js";
 import { CITY_WIRE_CHANNEL, CITY_WIRE_URL } from "../citywire.js";
 import { standbyText } from "../problems.js";
 import { bumperForSlot } from "../bumpers.js";
+import { breakKicker, countLabel, familyOf, familyScene, loadingLine } from "../cards.js";
 
 export function $(id) {
   return document.getElementById(id);
@@ -180,9 +181,10 @@ function panel(kicker, title, sub, extra) {
   );
 }
 
-export function showCard(kind, html) {
+// cls: the channel family's look (cards.js cardClass), for the cards that have one.
+export function showCard(kind, html, cls) {
   const c = $("card");
-  c.className = "card card-" + kind;
+  c.className = "card card-" + kind + (cls ? " " + cls : "");
   c.innerHTML = html;
   c.hidden = false;
 }
@@ -192,24 +194,40 @@ export function hideCard() {
   c.innerHTML = "";
 }
 
-// A station break (or a file that ended early): the next program starts when this slot ends.
-// About one break in three (every break on Commercial Break) shows a house bumper instead:
-// a station ID card that still counts down and still says what's up next.
-export function gapCard(ch, slot, clock24, bumpers) {
+// The scenery behind a card: the channel family's (cards.js), or NostalGem's own sunset.
+function sceneFor(ch) {
+  const look = familyOf(ch).look;
+  return look === "retro" ? SCENE : familyScene(look);
+}
+
+// A station break (or a file that ended early): the next program starts when this slot ends, and the card
+// is in the channel family's look and voice (cards.js; the words in data/cards.json, picked from the clock).
+// About one break in three (every break on Commercial Break) shows a house bumper instead: a station ID
+// card that still counts down and still says what's up next.
+export function gapCard(ch, slot, clock24, bumpers, cards) {
   const b = bumperForSlot(bumpers, slot, ch);
   if (b && slot.next) return bumperCard(ch, slot, clock24, b);
   const n = slot.next;
   const startMs = slot.slotEndMs;
   const left = gapSecondsLeft(slot);
+  const time = fmtClock(new Date(startMs), clock24);
+  const breakStart = slot.startMs + (slot.item && slot.item.d > 0 ? slot.item.d * 1000 : 0);
+  const label = countLabel(cards, ch);
   return (
-    SCENE +
+    sceneFor(ch) +
     panel(
-      "UP NEXT ON CH " + chLabel(ch) + " · " + ch.name.toUpperCase(),
+      breakKicker(cards, ch, breakStart, chLabel(ch), time),
       n.t,
-      programMeta(n) + " · " + fmtClock(new Date(startMs), clock24),
-      '<div class="card-count">' + fmtDuration(left) + "</div>"
+      programMeta(n) + " · " + time,
+      (label ? '<div class="card-countlabel">' + esc(label) + "</div>" : "") + '<div class="card-count">' + fmtDuration(left) + "</div>"
     )
   );
+}
+
+// A channel's program is taking a moment to load (player mode "tuning"): a card in the family's look, with
+// one of its lines, until the picture comes. startMs: when it was tuned (the line is picked from it).
+export function loadingCard(ch, cards, startMs) {
+  return sceneFor(ch) + panel("CH " + chLabel(ch) + " · " + ch.name.toUpperCase(), loadingLine(cards, ch, startMs), "", '<div class="card-dots"><i></i><i></i><i></i></div>');
 }
 
 // A house bumper: same sunset scene and panel, same countdown and up-next line
@@ -302,13 +320,17 @@ export const AD_QUIPS = [
   "your show is fashionably late. very fashionably.",
 ];
 
-export function adQuip(i) {
-  const n = AD_QUIPS.length;
-  return AD_QUIPS[(((Math.floor(i) || 0) % n) + n) % n];
+// The i-th quip, from the general ones and the channel family's (cards.js familyAdQuips), in turn.
+export function adQuip(i, extra) {
+  const list = AD_QUIPS.concat(extra || []);
+  const n = list.length;
+  return list[(((Math.floor(i) || 0) % n) + n) % n];
 }
 
-export function adBreakCard(quip) {
+// ch: the channel, for its family's scenery (cards.js), turned right down behind the words.
+export function adBreakCard(quip, ch) {
   return (
+    (ch && familyOf(ch).look !== "retro" ? familyScene(familyOf(ch).look) : "") +
     '<div class="ad-box">' +
     '<div class="ad-quip">' +
     esc(quip || AD_QUIPS[0]) +

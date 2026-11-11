@@ -34,9 +34,10 @@ import { TvLink, makeCode, cleanCode, remoteUrl, prettyCode, qrSvg, loadScript, 
 import { pathsText } from "./relay.js";
 import { loadLineup, builtAt } from "./lineup.js";
 import { loadBumpers } from "./bumpers.js";
+import { DEFAULT_CARDS, loadCards, familyAdQuips, cardClass } from "./cards.js";
 import { pad2, escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder, numberText } from "./util.js";
 
-const VERSION = "1.11.0";
+const VERSION = "1.16.0";
 const NAME = "NostalGem";
 const params = new URLSearchParams(window.location.search);
 const ANDROID = params.get("tv") === "android";
@@ -55,6 +56,7 @@ const STILL_GRACE = 2 * 60 * 1000; // then switch off two minutes later
 const BAD_TTL = 24 * 3600 * 1000; // a file that wouldn't play is skipped for a day
 const PROBLEMS_KEPT = 30; // Menu ▸ Playback problems lists this many
 const CUSTOM_FROM = 30; // channels you add start at CH 30
+const LOAD_CARD_AFTER = 1500; // ms of loading before the channel's own "one moment" card takes over from the snow
 const SWATCHES = ["#ff2a6d", "#05d9e8", "#b967ff", "#fffb96", "#ff9f1c", "#3ddc97", "#f72585", "#4cc9f0"];
 
 const $ = V.$;
@@ -80,6 +82,8 @@ const app = {
   adQuip: "",
   about: {},
   bumpers: [],
+  cards: DEFAULT_CARDS, // the station cards' words, in each channel family's voice (cards.js, data/cards.json)
+  loadCardTimer: 0,
   channels: [],
   idx: -1,
   last: -1,
@@ -594,6 +598,7 @@ function onCut(info) {
 
 function onPlayerState(mode, extra) {
   const ch = current();
+  clearTimeout(app.loadCardTimer);
   tv.classList.toggle("paused", mode === "paused");
   if (mode !== "playing") tv.classList.remove("buffering");
   if (app.stillShownAt && mode !== "playing" && mode !== "tuning") app.stillShownAt = 0;
@@ -602,6 +607,16 @@ function onPlayerState(mode, extra) {
       if (s.staticFx !== "off") fx.hold();
       V.hideCard();
       showRadio(ch);
+      // A slow load (a TV on slow Wi-Fi, a big film): after a moment the channel's own card, in its family's
+      // look, takes over from the snow until the picture comes. Radio has its own panel.
+      if (ch && ch.kind !== "audio") {
+        const tunedAt = Date.now();
+        app.loadCardTimer = setTimeout(function () {
+          if (player.mode !== "tuning" || app.state !== "on" || current() !== ch) return;
+          fx.release();
+          V.showCard("tuning", V.loadingCard(ch, app.cards, tunedAt), cardClass(ch));
+        }, LOAD_CARD_AFTER);
+      }
       break;
     case "playing":
       fx.release();
@@ -613,7 +628,7 @@ function onPlayerState(mode, extra) {
     case "gap":
       fx.release();
       hideRadio();
-      if (player.slot) V.showCard("gap", V.gapCard(ch, player.slot, s.clock24, app.bumpers));
+      if (player.slot) V.showCard("gap", V.gapCard(ch, player.slot, s.clock24, app.bumpers, app.cards), cardClass(ch));
       break;
     case "standby":
       fx.release();
@@ -635,8 +650,8 @@ function onPlayerState(mode, extra) {
     case "adbreak":
       fx.release();
       hideRadio();
-      app.adQuip = V.adQuip(app.adCount++);
-      V.showCard("adbreak", V.adBreakCard(app.adQuip));
+      app.adQuip = V.adQuip(app.adCount++, familyAdQuips(app.cards, ch));
+      V.showCard("adbreak", V.adBreakCard(app.adQuip, ch), cardClass(ch));
       break;
     case "off":
       fx.release();
@@ -3787,10 +3802,10 @@ function openLinkOut(ch) {
 
 function restoreCard() {
   const ch = current();
-  if (player.mode === "gap" && player.slot) V.showCard("gap", V.gapCard(ch, player.slot, s.clock24, app.bumpers));
+  if (player.mode === "gap" && player.slot) V.showCard("gap", V.gapCard(ch, player.slot, s.clock24, app.bumpers, app.cards), cardClass(ch));
   else if (player.mode === "standby") V.showCard("standby", V.standbyCard(app.standby));
   else if (player.mode === "empty") V.showCard("empty", V.emptyCard(ch, app.emptyWhy));
-  else if (player.mode === "adbreak") V.showCard("adbreak", V.adBreakCard(app.adQuip));
+  else if (player.mode === "adbreak") V.showCard("adbreak", V.adBreakCard(app.adQuip, ch), cardClass(ch));
   else if (player.mode === "gesture") V.showCard("gesture", V.gestureCard());
   else if (isLinkChannel(ch)) showLinkCard(ch);
   else V.hideCard();
@@ -4210,6 +4225,7 @@ window.NP = {
       sound: player.soundState(),
       cut: player.cutState(),
       cutCard: !$("cutcard").hidden,
+      card: $("card").hidden ? "" : $("card").className,
     };
   },
 };
@@ -4381,6 +4397,10 @@ async function boot() {
   // file just means plain "up next" cards.
   loadBumpers("data/bumpers.json").then(function (list) {
     app.bumpers = list;
+  });
+  // The station cards' words, in each family's voice. Missing: the plain words.
+  loadCards("data/cards.json").then(function (c) {
+    app.cards = c;
   });
   loadSkipLists();
   const asked = (params.get("ch") || "").replace(/[^0-9]/g, "").replace(/^0+(?=\d)/, "");

@@ -1,6 +1,6 @@
 // Keeps a copy of the set itself (HTML, CSS, JS, fonts, lineup) so it still starts on a flaky
 // connection. Programs stream from archive.org and are never cached.
-const VERSION = "ng-1.11.0";
+const VERSION = "ng-1.16.0";
 const SHELL = [
   "./",
   "index.html",
@@ -28,6 +28,7 @@ const SHELL = [
   "js/about.js",
   "js/packs.js",
   "js/bumpers.js",
+  "js/cards.js",
   "js/gamepad.js",
   "js/arcade.js",
   "js/southpark.js",
@@ -58,6 +59,7 @@ const SHELL = [
   "vendor/qrcode.js",
   "data/lineup.json",
   "data/bumpers.json",
+  "data/cards.json",
   "data/books.json",
   "data/library-catalog.json",
   "data/skip-lists.json",

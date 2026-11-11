@@ -210,7 +210,7 @@ try {
   lineup.channels.push({ number: 99, sub: 3, slug: "yt-test-3", name: "Test Locked", tagline: "Region lock test", icon: "🔒", color: "#b967ff", kind: "video", offset: 0, items: blocked });
   lineup.channels.push({ number: 99, sub: 4, slug: "yt-test-4", name: "Test Refused", tagline: "Embed refusal test", icon: "⛔", color: "#ff2a6d", kind: "video", offset: 0, items: [{ id: "yt:cfgvideo0001", f: "yt", t: "Refused", d: 12 }] });
   // 99-5: YouTube runs an ad before the show.
-  lineup.channels.push({ number: 99, sub: 5, slug: "yt-test-5", name: "Test Ads", tagline: "Pre-roll ad test", icon: "📺", color: "#ffb86b", kind: "video", offset: 0, items: [{ id: "yt:advideo00001", f: "yt", t: "Behind An Ad", d: 12 }] });
+  lineup.channels.push({ number: 99, sub: 5, slug: "yt-test-5", name: "Test Ads", tagline: "Pre-roll ad test, on a monster movie channel", icon: "📺", color: "#ffb86b", kind: "video", offset: 0, items: [{ id: "yt:advideo00001", f: "yt", t: "Behind An Ad", d: 12 }] });
   // 99-10: a two-digit sub-channel, so 9 9 1 has to wait a beat for a possible 0.
   lineup.channels.push({ number: 99, sub: 10, slug: "yt-test-10", name: "Test Ten", tagline: "Two-digit sub-channel test", icon: "🔟", color: "#05d9e8", kind: "video", offset: 0, items: [{ id: "yt:tenvideo0001", f: "yt", t: "Test Ten", d: 12 }] });
   const fakeYouTube = await readFile(join(fixtures, "fake-youtube.js"), "utf8");
@@ -411,6 +411,12 @@ try {
   await page.waitForFunction(() => window.NP.state().mode === "adbreak", null, { timeout: 10000 }).catch(() => {});
   check((await state()).mode === "adbreak" && (await page.isVisible("#card.card-adbreak")), "an ad ahead of a YouTube show gets the ad-break card, not PRESS OK: " + (await page.textContent("#card")).trim().slice(0, 80));
   check(await page.evaluate(() => window.__yt.players[0].muted), "…and the ad is muted");
+  const adLook = await page.evaluate(() => {
+    const c = document.getElementById("card");
+    const sc = c.querySelector(".fscene.fs-horror");
+    return { cls: c.className, scene: !!sc, dim: sc ? Number(getComputedStyle(sc).opacity) : 1, back: getComputedStyle(c).backgroundColor };
+  });
+  check(/fam-horror/.test(adLook.cls) && adLook.scene && adLook.dim < 0.5 && /rgb\(0, 0, 0\)/.test(adLook.back), `…on a monster channel the ad card has the horror scenery, turned down, over black (${adLook.cls}, opacity ${adLook.dim})`);
   const adLoads = (await page.evaluate(() => window.__yt.log)).filter((l) => l.id === "advideo00001").length;
   await key("Enter", 300);
   check((await page.evaluate(() => window.__yt.log)).filter((l) => l.id === "advideo00001").length === adLoads, "OK during the ad doesn't load the video again (which would restart the ad)");
