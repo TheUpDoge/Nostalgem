@@ -3851,9 +3851,11 @@ function handleAction(a) {
   }
   if (player.mode === "gesture") {
     player.userGesture();
-    // The press that lets a blocked picture start still changes the channel. Dropping it
-    // left the phone's channel-up on channel 1 while the boot card had the set waiting.
-    if (a.type !== "up" && a.type !== "down" && a.type !== "chup" && a.type !== "chdown") return;
+    // The press that lets a blocked picture start still does its job when it is a channel
+    // change or it is for a dialog, menu or guide that is already open. Dropping it left
+    // the phone's channel-up on channel 1, and Enter unable to close What's new.
+    const moves = a.type === "up" || a.type === "down" || a.type === "chup" || a.type === "chdown";
+    if (!moves && !overlayOpen()) return;
   }
   if (numpad.isOpen) {
     numpad.handle(a);
