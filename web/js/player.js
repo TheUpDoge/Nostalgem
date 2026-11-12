@@ -138,9 +138,9 @@ export class Player {
     this.video.hidden = next !== this.video;
   }
 
-  emit(name, a, b) {
+  emit(name, a, b, c) {
     const fn = this.hooks[name];
-    if (typeof fn === "function") fn(a, b);
+    if (typeof fn === "function") fn(a, b, c);
   }
 
   setMode(mode, extra) {

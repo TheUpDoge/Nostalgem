@@ -851,7 +851,7 @@ function playSent(m, conn) {
     startSent([ytSent(p.id)], 0, conn, p.at || 0);
     // A video from a playlist: the rest of the list lines up behind it once YouTube says what's on it.
     if (p.list) {
-      playlistIds(p.list, tv, QUEUE_MAX).then(
+      readPlaylist(p.list).then(
         function (ids) {
           const q = app.sent;
           const at = ids.indexOf(p.id);
@@ -873,7 +873,7 @@ function playSent(m, conn) {
   }
   if (p.kind === "ytlist") {
     sentTell(conn, "looking", "Asking YouTube what's on that playlist…");
-    playlistIds(p.list, tv, QUEUE_MAX).then(
+    readPlaylist(p.list).then(
       function (ids) {
         if (token === app.sentToken) startSent(ids.map(ytSent), 0, conn, 0);
       },
@@ -902,6 +902,14 @@ function playSent(m, conn) {
       fail("", "Couldn't reach the Archive (" + err.message + "). Try again in a moment.");
     }
   );
+}
+
+// What's on a YouTube playlist, asked twice if the first time gets no answer (it usually comes in under a
+// second, but the first one asked has been seen to go unanswered).
+function readPlaylist(list) {
+  return playlistIds(list, tv, QUEUE_MAX, 8000).then(null, function () {
+    return playlistIds(list, tv, QUEUE_MAX, 8000);
+  });
 }
 
 // A YouTube video as a program: its title and length aren't known until its player has them.

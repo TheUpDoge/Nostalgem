@@ -111,7 +111,11 @@ async function setup(ctx, code, extra) {
   await ctx.addInitScript(
     (a) => {
       window.NostalGemRelayBrokers = a.brokers || [];
-      window.__ytLists = { PLtestlist0000000001: ["listvideo001", "listvideo002", "badlistvid03", "listvideo004"] };
+      window.__ytLists = {
+        PLtestlist0000000001: ["listvideo001", "listvideo002", "badlistvid03", "listvideo004"],
+        // Every one refused, as on an address YouTube turns away.
+        PLallrefused00000001: ["badlistvid11", "badlistvid12", "badlistvid13", "badlistvid14", "badlistvid15", "badlistvid16", "badlistvid17", "badlistvid18", "badlistvid19"],
+      };
       localStorage.setItem("nostalgem:seenVersion", JSON.stringify("999.0.0"));
       localStorage.setItem("nostalgem:settings", JSON.stringify({ phone: true, staticFx: "silent" }));
       localStorage.setItem("nostalgem:phoneCode", JSON.stringify(a.code));
@@ -371,8 +375,17 @@ const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gestur
   check(s.sent && s.sent.n === 4 && s.sent.i === 1 && s.program === "Title of listvideo002", `a video's link with its playlist plays the video, with the rest lined up (${s.sent ? s.sent.i + 1 : "?"} of ${s.sent ? s.sent.n : "?"})`);
   await tv.evaluate(() => window.NP.back());
   await tvLive();
+  // A playlist where one after another is refused: it gives up, the channel comes back (not "nothing
+  // plays on this channel"), and the phone hears why.
+  await sendFromBox("https://www.youtube.com/playlist?list=PLallrefused00000001");
+  await says(/✖/, 15000);
+  await tv.waitForFunction(() => !window.NP.state().sent && (window.NP.state().mode === "playing" || window.NP.state().mode === "gap"), null, { timeout: 12000 }).catch(() => {});
+  s = await st();
+  p = await phone();
+  check(!s.sent && !s.shifted && s.mode !== "empty" && s.program === live.program, `a playlist where one after another won't play gives up and the channel comes back (${s.mode}: ${s.program})`);
+  check(p.bad && /doesn't let it play here/.test(p.msg), "…and the phone hears why: " + p.msg);
   await sendFromBox("https://www.youtube.com/playlist?list=PLnosuchlist00000001");
-  await says(/wouldn't hand over that playlist/, 15000);
+  await says(/wouldn't hand over that playlist/, 20000);
   check(/wouldn't hand over that playlist/.test((await phone()).msg) && !(await st()).sent, "a playlist YouTube won't list is refused, in words");
 
   // The phone's own Archive search: what it found, adult left out, and a tap plays one.
@@ -410,7 +423,7 @@ const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gestur
   await tv.waitForFunction(() => window.NP.state().overlay === "menu", null, { timeout: 8000 }).catch(() => {});
   await ph.evaluate(() => window.NGRemote.send({ t: "key", type: "ok" }));
   await tv.waitForFunction(() => window.NP.state().shifted && window.NP.state().mode === "playing" && !window.NP.state().sent, null, { timeout: 12000 }).catch(() => {});
-  await ph.waitForFunction(() => window.NGRemote.state().tv.demand && !document.getElementById("seekBar").hidden, null, { timeout: 6000 }).catch(() => {});
+  await ph.waitForFunction(() => window.NGRemote.state().tv.demand && !window.NGRemote.state().tv.sent && !document.getElementById("seekBar").hidden, null, { timeout: 6000 }).catch(() => {});
   p = await phone();
   s = await st();
   check(s.shifted && !s.sent && p.badge === "ON DEMAND" && p.seek && p.seekRow && !p.prev && !p.nextBtn, `a show watched from the start (${s.program}) gets the phone's bar too (${p.badge})`);

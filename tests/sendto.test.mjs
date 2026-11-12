@@ -254,6 +254,16 @@ test("the player: something sent plays as made, learns its length, lines up the 
   assert.match(v.src, /b\.mp4$/);
 });
 
+test("the player tells the app when it has given up after one failure after another", () => {
+  // Six in a row that won't play: the app is told to stop (the third word), not to line up yet another.
+  const v = fakeVideo();
+  const heard = [];
+  const p = new Player(v, { bad: (item, info, stop) => heard.push([item.id, info.kind, stop]) });
+  p.emit("bad", { id: "x" }, { kind: "item" }, true);
+  p.emit("bad", { id: "y" }, { kind: "item" });
+  assert.deepEqual(heard, [["x", "item", true], ["y", "item", undefined]]);
+});
+
 test("the banner and the listing cope with a length that isn't known yet", () => {
   assert.equal(programMeta({ t: "YouTube video", d: 0 }), "");
   assert.equal(programMeta({ t: "A Film", d: 3600, y: 1950 }), "1950 · 1 hr ");
