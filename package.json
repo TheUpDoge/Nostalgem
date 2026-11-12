@@ -18,6 +18,7 @@
     "test:tvlimits": "node tests/tvlimits.browser.mjs",
     "perf": "node tests/perf.mjs",
     "test:cards": "node tests/cards.browser.mjs",
+    "test:sendto": "node tests/sendto.browser.mjs",
     "lineup": "node tools/build-lineup.mjs"
   },
   "devDependencies": {

@@ -4,6 +4,15 @@
 
 export const CHANGES = [
   {
+    v: "1.17.0",
+    title: "Send to TV",
+    items: [
+      "Send a video from your phone to the TV. On the phone remote's Search page, paste a YouTube or archive.org link and tap ▶ Play on TV. It plays right away, with your picture filter and subtitles. BACK goes back to the channel.",
+      "While it plays, the phone has a bar to drag through it, ⏪ and ⏩, and ⏮ ⏭ for an Archive item in parts or a YouTube playlist, which play one after the other.",
+      "🌐 Search the Archive on the phone lists films and recordings: tap one to play it on the TV. On Android, the installed remote is in the Share menu, so a video shared from YouTube lands in the box.",
+    ],
+  },
+  {
     v: "1.16.0",
     title: "Cards with character",
     items: [

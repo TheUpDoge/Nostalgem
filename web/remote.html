@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
     <title>NostalGem Remote</title>
-    <meta name="description" content="Use your phone as the remote for NostalGem: buttons, a trackpad and keyboard for the TV, a channel list, and a keyboard for searching the Internet Archive." />
+    <meta name="description" content="Use your phone as the remote for NostalGem: buttons, a trackpad and keyboard for the TV, a channel list, a keyboard for searching the Internet Archive, and Send to TV for a YouTube or archive.org link." />
     <meta name="theme-color" content="#0d0221" />
     <meta name="color-scheme" content="dark" />
     <link rel="manifest" href="remote.webmanifest" />
@@ -50,7 +50,15 @@
           </div>
           <div class="now-title"></div>
           <div class="now-bar"><i></i></div>
+          <!-- On demand (a sent link, a tape, "watch from the start"): the bar becomes one to drag -->
+          <input id="seekBar" class="seek-bar" type="range" min="0" max="100" step="1" value="0" aria-label="Where in the program" hidden />
           <div class="now-times"><span class="now-at"></span><span class="now-left"></span></div>
+          <div id="seekRow" class="row four seek-row" hidden>
+            <button type="button" id="prevBtn" data-queue="-1" class="chip" aria-label="Previous part">⏮</button>
+            <button type="button" data-seek="-15" class="chip" aria-label="Back 15 seconds">⏪ 15</button>
+            <button type="button" data-seek="30" class="chip" aria-label="Forward 30 seconds">30 ⏩</button>
+            <button type="button" id="nextBtn" data-queue="1" class="chip" aria-label="Next part">⏭</button>
+          </div>
           <div class="now-next"></div>
         </article>
 
@@ -146,19 +154,32 @@
         <ul id="chList" class="ch-list"></ul>
       </section>
 
-      <!-- Search -->
+      <!-- Send to TV, and Search -->
       <section id="search" class="view" hidden>
+        <h2>📲 Send to TV</h2>
+        <p class="hint">Paste a YouTube or archive.org link and the TV plays it right away. BACK goes back to the channel.</p>
+        <form id="sendForm" class="search-form" autocomplete="off" novalidate>
+          <input id="sendInput" type="text" inputmode="url" enterkeyhint="send" autocapitalize="off" spellcheck="false" placeholder="youtu.be/… or archive.org/details/…" aria-label="A link to play on the TV" />
+          <div class="row two">
+            <button type="button" id="pasteBtn" class="big alt">📋 Paste</button>
+            <button type="submit" id="sendBtn" class="big">▶ Play on TV</button>
+          </div>
+        </form>
+        <p id="sendMsg" class="msg" role="status"></p>
+
         <h2>Search</h2>
-        <p class="hint">Find a show on the TV's channels and watch it from the start, or have the TV build a whole new channel of it from the Internet Archive.</p>
+        <p class="hint">Find a show on the TV's channels and watch it from the start, look one up on the Internet Archive and play it now, or have the TV build a whole new channel.</p>
         <form id="searchForm" class="search-form" autocomplete="off">
           <input id="searchInput" type="search" enterkeyhint="go" spellcheck="false" placeholder="e.g. junji ito, lone ranger" aria-label="Search words" />
           <button type="submit" class="big" data-kind="find">🔎 Find a show</button>
+          <button type="submit" class="big alt" data-kind="archive">🌐 Search the Archive</button>
           <div class="row two">
             <button type="submit" class="big alt" data-kind="video">📡 New TV channel</button>
             <button type="submit" class="big alt" data-kind="audio">📻 New radio channel</button>
           </div>
         </form>
         <p id="searchMsg" class="msg" role="status"></p>
+        <ul id="foundList" class="ch-list found-list" hidden></ul>
         <div id="ideas" class="ideas"></div>
       </section>
       <p style="text-align:center;margin:18px 0 6px;font-size:14px"><a href="about.html" style="color:#05d9e8">📜 Disclaimer &amp; ♥ donate to the Internet Archive</a></p>

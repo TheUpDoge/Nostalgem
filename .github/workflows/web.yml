@@ -46,6 +46,8 @@ jobs:
         run: npm run test:tvlimits
       - name: Station cards in the channel family's look (a western's break, a horror channel's, and the card while a channel loads)
         run: npm run test:cards
+      - name: Send to TV (a link from the phone plays on demand; the seek bar, parts, playlists, Share, the relay)
+        run: npm run test:sendto
 
   # Publishes web/ to GitHub Pages from main. One-time setup: Settings → Pages → Source: GitHub Actions.
   deploy:

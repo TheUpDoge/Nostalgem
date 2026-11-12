@@ -5,6 +5,8 @@ name: Live Archive check
 #   borrows and shows real pages.
 #   Secret stations: every film on 069, 666 and 111 plays, 111's with CORS for the church sound, and in the
 #   app 111's sound goes to church and 666 plays slow and low.
+#   Send to TV: a real film sent from the phone plays and the phone's bar moves through it; YouTube's real
+#   player gives a video's title and a playlist's videos (reported only: YouTube may turn a runner away).
 # "local" tests this checkout's web/ folder; a URL tests a published copy.
 
 on:
@@ -31,6 +33,9 @@ jobs:
       - name: Secret stations (films, church sound, slow and low)
         if: always()
         run: node tests/live-stations.mjs "${{ github.event.inputs.site }}"
+      - name: Send to TV (a real film from the phone and its bar, then YouTube's real player, reported)
+        if: always()
+        run: node tests/live-sendto.mjs "${{ github.event.inputs.site }}"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

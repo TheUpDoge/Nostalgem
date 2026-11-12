@@ -2,13 +2,18 @@
   "id": "remote.html",
   "name": "NostalGem Remote",
   "short_name": "NG Remote",
-  "description": "Your phone as the remote for NostalGem: buttons, a channel list and a keyboard for searching.",
+  "description": "Your phone as the remote for NostalGem: buttons, a channel list, a keyboard for searching, and Send to TV.",
   "start_url": "remote.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0d0221",
   "theme_color": "#0d0221",
+  "share_target": {
+    "action": "remote.html",
+    "method": "GET",
+    "params": { "title": "title", "text": "text", "url": "url" }
+  },
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },

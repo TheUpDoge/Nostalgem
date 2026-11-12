@@ -203,6 +203,18 @@ b {
 .hint {
   font-size: 14px;
 }
+/* Something that didn't work (a link the TV can't play). */
+.msg.bad {
+  color: #ff8fa3;
+}
+#sendMsg {
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.3;
+  min-height: 20px;
+  margin-bottom: 18px;
+  overflow-wrap: anywhere;
+}
 /* What the handshake got to, small, for a screenshot when the link won't come up. */
 .why {
   font-family: var(--body);
@@ -377,6 +389,57 @@ b {
 }
 .offline .now {
   opacity: 0.55;
+}
+.now-badge.on-demand,
+.now-badge.from-phone {
+  background: #0a7d8a;
+}
+/* On demand: the progress bar is one to drag. */
+.seek-bar {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 28px;
+  margin: -6px 0 -8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  touch-action: none;
+}
+.seek-bar::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--cyan), var(--violet), var(--pink));
+}
+.seek-bar::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--cyan), var(--violet), var(--pink));
+}
+.seek-bar::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  margin-top: -8px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: var(--pink);
+  box-shadow: 0 0 10px rgba(255, 42, 109, 0.7);
+}
+.seek-bar::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: var(--pink);
+}
+.seek-row {
+  margin: 8px 0 6px;
+}
+.seek-row .chip {
+  padding: 9px 4px;
 }
 
 /* ---------- buttons ---------- */
@@ -631,6 +694,17 @@ button:disabled {
   font-size: 12.5px;
   color: var(--faint);
   margin-top: 2px;
+}
+
+/* What the Archive search found: tap one to play it on the TV. The line above it scrolls to just under the header. */
+#searchMsg {
+  scroll-margin-top: 64px;
+}
+.found-list {
+  margin-bottom: 14px;
+}
+.found-list button {
+  grid-template-columns: 34px 1fr;
 }
 
 /* ---------- search ---------- */

@@ -38,9 +38,11 @@ import { pathsText } from "./relay.js";
 import { loadLineup, builtAt } from "./lineup.js";
 import { loadBumpers } from "./bumpers.js";
 import { DEFAULT_CARDS, loadCards, familyAdQuips, cardClass } from "./cards.js";
+import { parseSent, archivePlan, whyNot, QUEUE_MAX } from "./sendto.js";
+import { playlistIds } from "./youtube.js";
 import { escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder, numberText } from "./util.js";
 
-const VERSION = "1.16.0";
+const VERSION = "1.17.0";
 const NAME = "NostalGem";
 const params = new URLSearchParams(window.location.search);
 const ANDROID = params.get("tv") === "android";
@@ -124,6 +126,9 @@ const app = {
   lineupCheckedAt: 0,
   calling: "",
   callingWhy: "",
+  sentPlain: false, // a station's own look is set aside while something sent is on
+  sent: null, // Send to TV: what a phone sent, while it plays { items, i, conn }
+  sentToken: 0, // the latest link sent (an answer about an earlier one is dropped)
 };
 const s = app.s;
 // 4:3 for an old TV, before anything is drawn (see applyShape).
@@ -241,6 +246,12 @@ const player = new Player($("screen"), {
   program: onProgram,
   bad: onBad,
   problem: onProblem,
+  // Send to TV: something sent in parts (or a playlist) plays one after the other.
+  demandEnded: sentNext,
+  // A sent YouTube video's title and length arrive once it plays.
+  learned: function () {
+    if (!banner.hidden) renderBanner();
+  },
   captions: function (info) {
     if (info.error) V.toast("Subtitles aren't available for this program");
   },
@@ -676,6 +687,7 @@ function onProgram(slot) {
 // A program that won't play is skipped on this TV for a day. stop: the player gave up on this channel
 // for now (program after program wouldn't play here), so don't retune.
 function onBad(item, info, stop) {
+  if (sentBad(item, stop)) return;
   app.bad[programKey(item)] = Date.now() + BAD_TTL;
   save("bad", app.bad);
   app.badSet = null;
@@ -796,6 +808,250 @@ function watchFromStart(ch, item) {
   if (player.playFromStart(item)) {
     showBanner(6000);
     V.toast("▶ From the start: " + item.t + ". Menu ▸ Back to live returns to the schedule.", 4500);
+  }
+}
+
+// ---------- Send to TV: a link from a phone, played on demand ----------
+// A paired phone sends a link (sendto.js: a YouTube video or playlist, an archive.org item) and the TV plays
+// it right away, off the schedule, on the channel it was on: the way a tape or "watch from the start" does.
+// An item in parts, or a playlist, plays one after the other. BACK (or changing channel, or LIVE) goes back
+// to the schedule. The phone that sent it hears how it went: { t: "sent", state, text, i, n }.
+function sentTell(conn, state, text, more) {
+  const msg = Object.assign({ t: "sent", state: state, text: text || "" }, more || {});
+  // The phone that sent it; or, if that link has gone (the relay gave way to a direct one), whoever's there.
+  if (conn && conn.open) link.sendTo(conn, msg);
+  else link.send(msg);
+}
+
+function sentItem() {
+  return app.sent ? app.sent.items[app.sent.i] : null;
+}
+
+// A station's own look (666's red ASCII, 111's stained glass) steps aside while something sent is on, and
+// comes back after: a sent film plays as made, with the viewer's own filter.
+function sentLook(on) {
+  if (!!app.sentPlain === !!on) return;
+  app.sentPlain = !!on;
+  if (app.stationLook) applyLook();
+}
+
+// What was sent is over, however it ended.
+function sentOver() {
+  app.sent = null;
+  sentLook(false);
+}
+
+// Is what was sent still the thing on screen?
+function sentOn() {
+  const sl = player.slot;
+  return !!(app.sent && sl && sl.onDemand && sl.item === sentItem() && player.mode !== "off" && player.mode !== "gap" && player.mode !== "empty" && player.mode !== "standby");
+}
+
+function playSent(m, conn) {
+  const p = parseSent(m.url);
+  if (!p) return;
+  phoneWake();
+  closeOverlays();
+  if (app.introTimer) hideIntro(false);
+  const token = ++app.sentToken;
+  const fail = function (why, text) {
+    if (token !== app.sentToken) return;
+    const words = text || whyNot(why);
+    sentTell(conn, why === "collection" || why === "search" ? "collection" : "failed", words);
+    V.toast("📲 " + words, 6000);
+  };
+  if (p.kind === "search") {
+    fail("search");
+    return;
+  }
+  if (p.kind === "youtube") {
+    startSent([ytSent(p.id)], 0, conn, p.at || 0);
+    // A video from a playlist: the rest of the list lines up behind it once YouTube says what's on it.
+    if (p.list) {
+      readPlaylist(p.list).then(
+        function (ids) {
+          const q = app.sent;
+          const at = ids.indexOf(p.id);
+          if (token !== app.sentToken || !q || q.items.length !== 1 || at < 0 || ids.length < 2) return;
+          const first = q.items[0];
+          q.items = ids.map(function (id, k) {
+            return k === at ? first : ytSent(id);
+          });
+          q.i = at;
+          sentUpNext();
+          sentTell(conn, "playing", first.t, { i: q.i, n: q.items.length });
+        },
+        function () {
+          /* the video plays by itself */
+        }
+      );
+    }
+    return;
+  }
+  if (p.kind === "ytlist") {
+    sentTell(conn, "looking", "Asking YouTube what's on that playlist…");
+    readPlaylist(p.list).then(
+      function (ids) {
+        if (token === app.sentToken) startSent(ids.map(ytSent), 0, conn, 0);
+      },
+      function () {
+        fail("playlist");
+      }
+    );
+    return;
+  }
+  sentTell(conn, "looking", "Looking it up on the Archive…");
+  browserFetchJson(metadataUrl(p.id)).then(
+    function (meta) {
+      if (token !== app.sentToken) return;
+      const plan = archivePlan(meta, p.file);
+      if (plan.why) {
+        fail(plan.why);
+        return;
+      }
+      if (plan.about) app.about[p.id] = plan.about;
+      const items = plan.programs.map(function (it) {
+        return Object.assign({}, it, { sent: plan.kind });
+      });
+      startSent(items, plan.start, conn, p.at || 0);
+    },
+    function (err) {
+      fail("", "Couldn't reach the Archive (" + err.message + "). Try again in a moment.");
+    }
+  );
+}
+
+// What's on a YouTube playlist, asked twice if the first time gets no answer (it usually comes in under a
+// second, but the first one asked has been seen to go unanswered).
+function readPlaylist(list) {
+  return playlistIds(list, tv, QUEUE_MAX, 8000).then(null, function () {
+    return playlistIds(list, tv, QUEUE_MAX, 8000);
+  });
+}
+
+// A YouTube video as a program: its title and length aren't known until its player has them.
+function ytSent(id) {
+  return { id: "yt:" + id, f: "yt", t: "YouTube video", d: 0, untitled: true, sent: "video" };
+}
+
+function startSent(items, i, conn, at) {
+  // It plays over a channel with a schedule to come back to: this one, or the first there is.
+  let ch = current();
+  if (!ch || isLinkChannel(ch)) {
+    ch = visibleChannels().filter(function (c) {
+      return !isLinkChannel(c);
+    })[0];
+  }
+  if (!ch || !items.length) {
+    sentTell(conn, "failed", whyNot(ch ? "" : "nochannel"));
+    return;
+  }
+  if (ch !== current() || player.mode === "off") tuneTo(ch, { quiet: true });
+  if (app.tape) ejectTape(); // the tape comes out, keeping its place
+  app.sent = { items: items, i: i, conn: conn };
+  sentLook(true);
+  if (!playSentAt(i, at)) {
+    sentOver();
+    sentTell(conn, "failed", whyNot(""));
+  }
+}
+
+function playSentAt(i, at) {
+  const q = app.sent;
+  const item = q && q.items[i];
+  if (!item || !player.playFromStart(item, at || 0, { rate: 1, anyLength: true })) return false;
+  q.i = i;
+  sentUpNext();
+  showBanner(6000);
+  const ch = current();
+  const part = q.items.length > 1 ? " (" + (i + 1) + " of " + q.items.length + ")" : "";
+  V.toast("📲 From your phone: " + sentTitle(item) + part + " · BACK returns to CH " + chLabel(ch), 5000);
+  sentTell(q.conn, "playing", sentTitle(item), { i: i, n: q.items.length });
+  q.told = item.t;
+  return true;
+}
+
+function sentTitle(item) {
+  return item.t + (item.e ? " · " + item.e : "");
+}
+
+// The banner's "up next" while a queue plays: the next part.
+function sentUpNext() {
+  const q = app.sent;
+  if (q && player.slot && player.slot.item === q.items[q.i]) player.slot.next = q.items[q.i + 1] || null;
+}
+
+// The player finished one: the next in line, if there is one (true: something else is playing now).
+function sentNext(item) {
+  const q = app.sent;
+  if (!q || q.items[q.i] !== item || q.i + 1 >= q.items.length) return false;
+  return playSentAt(q.i + 1, 0);
+}
+
+// One that was sent won't play here. It isn't the channel's program to drop for a day: the next in line
+// plays, or the phone hears why and the channel comes back. True: it was one of ours.
+function sentBad(item, stop) {
+  const q = app.sent;
+  if (!q || item !== sentItem()) return false;
+  const why = q.problem || "It wouldn't play on the TV.";
+  q.problem = "";
+  if (!stop && q.i + 1 < q.items.length && playSentAt(q.i + 1, 0)) return true;
+  sentOver();
+  sentTell(q.conn, "failed", why);
+  const ch = current();
+  if (ch && !stop) player.tune(timelineFor(ch), true);
+  // stop: one after another wouldn't play, and the player is about to say the channel has nothing. It
+  // was never the channel's doing: tune it in again once the player has finished giving up.
+  else if (ch) {
+    setTimeout(function () {
+      if (!app.sent && player.mode === "empty" && current() === ch) player.tune(timelineFor(ch));
+    }, 0);
+  }
+  return true;
+}
+
+// ⏮ ⏭ from the phone: another part of what was sent.
+function sentStep(go) {
+  const q = app.sent;
+  if (!q || !sentOn()) return;
+  const i = q.i + (go < 0 ? -1 : 1);
+  if (i < 0 || i >= q.items.length) {
+    V.toast(go < 0 ? "That's the first one" : "That's the last one", 2500);
+    return;
+  }
+  playSentAt(i, 0);
+}
+
+// The phone's seek bar and its ⏪ ⏩: on demand only (a sent link, a tape, "watch from the start").
+function sentSeek(m) {
+  const to = m.by != null ? player.seekBy(m.by) : player.seekTo(m.to);
+  if (to < 0) return;
+  showBanner(3500);
+}
+
+// BACK, with something sent on screen: back to the channel.
+function stopSent() {
+  const ch = current();
+  sentTell(app.sent.conn, "ended", "");
+  sentOver();
+  player.goLive();
+  V.toast("Back to CH " + chLabel(ch) + " " + ch.name, 3000);
+}
+
+// Twice a second: what was sent is over once the screen has moved on (a channel change, LIVE, the last part
+// ended, or it wouldn't play); its title, once YouTube's player has it, goes to the phone that sent it.
+function sentTick() {
+  const q = app.sent;
+  if (!q) return;
+  if (!sentOn()) {
+    sentOver();
+    sentTell(q.conn, q.problem ? "failed" : "ended", q.problem || "");
+    return;
+  }
+  const item = q.items[q.i];
+  if (q.told !== item.t) {
+    q.told = item.t;
+    sentTell(q.conn, "playing", sentTitle(item), { i: q.i, n: q.items.length });
   }
 }
 
@@ -1888,6 +2144,8 @@ function keptProblems(list) {
 }
 function onProblem(item, info) {
   const ch = current();
+  // Something a phone sent wouldn't play: the phone hears why (onBad, or sentTick when it's the service).
+  if (app.sent && item && item === sentItem()) app.sent.problem = info.text || "It wouldn't play on the TV.";
   app.problems.unshift({ at: Date.now(), ch: ch ? chLabel(ch) + " " + ch.name : "", t: item ? item.t : "", text: info.text, kind: info.kind });
   if (app.problems.length > PROBLEMS_KEPT) app.problems.length = PROBLEMS_KEPT;
   save("problems", app.problems);
@@ -1940,11 +2198,13 @@ function showProblems() {
 }
 
 function showRadio(ch) {
-  if (!ch || ch.kind !== "audio" || app.state !== "on") {
+  const item = player.slot ? player.slot.item : null;
+  // Something sent from a phone is radio or a picture by what it is, whatever the channel under it.
+  const audio = item && item.sent ? item.sent === "audio" : !!ch && ch.kind === "audio";
+  if (!ch || !audio || app.state !== "on") {
     hideRadio();
     return;
   }
-  const item = player.slot ? player.slot.item : null;
   const key = ch.slug + "|" + (item ? programKey(item) : "");
   if (radio.getAttribute("data-key") !== key) {
     radio.innerHTML = V.radioHtml(ch, item);
@@ -2044,7 +2304,8 @@ function saveLists() {
 // ---------- look ----------
 // The filter on screen: the viewer's, or the station's own while it's on (666's red ASCII, 111's stained glass).
 function lookId() {
-  return app.stationLook || s.look;
+  // A station's own look is for its own programs: something sent from a phone gets the viewer's.
+  return (app.sentPlain ? "" : app.stationLook) || s.look;
 }
 // The filter and mix on screen now, as one key ("vhs", "pop-red+pop-blue"): what Filter quality's
 // automatic light versions remember.
@@ -3538,7 +3799,7 @@ function phoneSnapshot() {
         pos = Math.round(at);
       } else start = Math.round((Date.now() - at * 1000) / 2000) * 2000;
     }
-    now = { t: it.t, y: it.y || 0, d: it.d, start: start, pos: pos };
+    now = { t: it.t + (it.sent && it.e ? " · " + it.e : ""), y: it.y || 0, d: it.d, start: start, pos: pos };
   }
   let dlg = null;
   if (dialog.isOpen && dialog.spec && !app.pairOpen) {
@@ -3550,12 +3811,15 @@ function phoneSnapshot() {
     mode: player.mode,
     paused: paused,
     shifted: player.shifted,
+    // On demand (a sent link, a tape, "watch from the start"): the phone may move through it.
+    demand: !!(sl && sl.onDemand && (player.mode === "playing" || paused)),
+    sent: app.sent && sentOn() ? { i: app.sent.i, n: app.sent.items.length } : null,
     muted: player.muted,
     cc: ccValue(),
     fav: ch ? app.favs.has(ch.slug) : false,
     ch: ch ? { slug: ch.slug, number: ch.number, label: chLabel(ch), name: ch.name, icon: ch.icon || "", color: ch.color || "", kind: ch.kind || "video", tagline: ch.tagline || "" } : null,
     now: now,
-    next: sl && sl.next ? sl.next.t : "",
+    next: sl && sl.next ? (sl.next.sent && sl.next.e ? sl.next.e : sl.next.t) : "",
     overlay: dialog.isOpen ? "dialog" : menu.isOpen ? "menu" : guide.isOpen ? "guide" : "",
     dialog: dlg,
     away: app.away || "",
@@ -3594,9 +3858,24 @@ function phoneWake() {
   }
 }
 
+// A link-out station's site is on top of the page (the TV app's overlay): what the phone asks for next is
+// for NostalGem itself, so the site closes first.
+function phoneHome() {
+  if (!app.away) return;
+  sendApp({ t: "close" });
+  cameHome();
+}
+
 function phoneMessage(m, conn) {
   if (app.state === "boot") return;
-  if (m.t === "key") {
+  if (m.t === "play") {
+    phoneHome();
+    playSent(m, conn);
+  } else if (m.t === "seek") {
+    if (!app.away) sentSeek(m);
+  } else if (m.t === "queue") {
+    if (!app.away) sentStep(m.go);
+  } else if (m.t === "key") {
     if (app.away && awayAction(m)) return;
     if (m.type === "back") back();
     else handleAction({ type: m.type, digit: m.digit });
@@ -3786,7 +4065,7 @@ function openPairing() {
     title: "Phone remote",
     html:
       '<div class="pair"><div class="pair-qr"></div><div class="pair-info">' +
-      "Point your phone's camera at the code to use it as the remote: buttons, a channel list and a keyboard for searching." +
+      "Point your phone's camera at the code to use it as the remote: buttons, a channel list, a keyboard for searching, and Send to TV for a YouTube or archive.org link." +
       '<div class="pair-or">or open <b>' +
       esc(shown) +
       "</b> and enter</div>" +
@@ -4157,6 +4436,11 @@ function back() {
     V.osdHide();
     return true;
   }
+  // Something sent from a phone is on: BACK is back to the channel.
+  if (app.sent && sentOn()) {
+    stopSent();
+    return true;
+  }
   if (!banner.hidden) {
     hideBanner();
     return true;
@@ -4412,6 +4696,10 @@ window.NP = {
       pointer: pagePointer.state(),
       away: app.away,
       card: $("card").hidden ? "" : $("card").className,
+      sent: app.sent ? { i: app.sent.i, n: app.sent.items.length, on: sentOn(), titles: app.sent.items.map(sentTitle) } : null,
+      at: player.position() ? Math.round(player.position().at * 10) / 10 : 0,
+      length: player.slot ? player.slot.item.d : 0,
+      radio: !radio.hidden,
     };
   },
 };
@@ -4424,6 +4712,7 @@ function tick() {
   ambience.setActive(app.state === "on" && !app.suspended && !player.muted);
   watchFrames();
   clubTick(now);
+  sentTick();
   syncTouch();
   if (app.pairOpen && app.ticks % 4 === 0) pairStatus(); // relay servers coming and going
   if (app.bannerUntil) {
