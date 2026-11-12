@@ -33,6 +33,7 @@ export const FAMILIES = [
   { id: "hardchrome", look: "hardchrome", name: "Hard Chrome" },
   { id: "polygon", look: "polygon", name: "Polygon Hour" },
   { id: "glowcircuit", look: "glowcircuit", name: "Glow Circuit" },
+  { id: "crystalsignal", look: "crystalsignal", name: "Crystal Signal" },
 ];
 const FAMILY = {};
 FAMILIES.forEach(function (f) {
@@ -80,6 +81,7 @@ const KEYWORDS = [
   ["hardchrome", /\bhard chrome\b/i],
   ["polygon", /\bpolygon hour\b/i],
   ["glowcircuit", /\bglow circuit\b/i],
+  ["crystalsignal", /\bcrystal signal\b/i],
 ];
 
 // Extra looks are not on the dial. To try one on a real channel, map that channel's slug

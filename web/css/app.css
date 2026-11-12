@@ -2034,6 +2034,79 @@ body {
 }
 /* ---- /theme: glowcircuit ---- */
 
+/* ---- theme: crystalsignal ----
+   Crystal Signal: the house gem on a glitter sunset, chrome type, magenta and cyan rim light.
+   Static. A motif of the logo, not a copy of the picture. */
+.fs-crystalsignal {
+  background: radial-gradient(1.1px 1.1px at 8% 14%, #fff, transparent), radial-gradient(1.6px 1.6px at 16% 24%, #ffd6ff, transparent), radial-gradient(1px 1px at 28% 10%, #ffe0a8, transparent),
+    radial-gradient(1.4px 1.4px at 74% 12%, #fff, transparent), radial-gradient(1.2px 1.2px at 86% 22%, #7af0ff, transparent), radial-gradient(1px 1px at 92% 40%, #ff7ad9, transparent),
+    radial-gradient(1.3px 1.3px at 6% 42%, #fff, transparent), radial-gradient(1px 1px at 64% 16%, #fff, transparent), radial-gradient(1.5px 1.5px at 40% 8%, #ffd0f0, transparent),
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, #14041c 0%, #4a1248 24%, #c43a78 40%, #ff7a45 50%, #ffc46a 57%, #5a2068 66%, #0c0414 100%);
+  box-shadow: inset 0 0 0 1.1vh #050505, inset 10vh 0 14vh rgba(255, 42, 180, 0.28), inset -10vh 0 14vh rgba(5, 217, 232, 0.24), inset 0 0 16vh rgba(0, 0, 0, 0.45);
+}
+.fs-crystalsignal .l1 {
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(ellipse at 0% 55%, rgba(255, 42, 180, 0.5), transparent 46%), radial-gradient(ellipse at 100% 48%, rgba(5, 217, 232, 0.42), transparent 46%),
+    linear-gradient(#ffd7a8, #ffd7a8) center 57% / 100% 0.35vh no-repeat;
+}
+.fs-crystalsignal .l2 {
+  left: 50%;
+  top: 5%;
+  width: 34vh;
+  height: 40vh;
+  margin-left: -17vh;
+  background: radial-gradient(circle at 46% 32%, rgba(255, 255, 255, 0.95), transparent 18%), linear-gradient(118deg, transparent 47%, rgba(255, 255, 255, 0.8) 49.2%, transparent 51.5%),
+    linear-gradient(62deg, transparent 46%, rgba(255, 255, 255, 0.45) 48.5%, transparent 51%),
+    conic-gradient(from 210deg at 50% 36%, #fff 0deg, #f0c8ff 28deg, #b44cff 70deg, #ff4ec8 112deg, #fff6ff 148deg, #7af0ff 188deg, #4a18a8 236deg, #ff8ad4 292deg, #fff 332deg, #e4c4ff 360deg);
+  clip-path: polygon(50% 0%, 72% 16%, 100% 36%, 78% 46%, 50% 100%, 22% 46%, 0% 36%, 28% 16%);
+  filter: drop-shadow(0 0 1.4vh rgba(255, 42, 212, 0.85)) drop-shadow(0 0 2.4vh rgba(5, 217, 232, 0.45));
+}
+.fs-crystalsignal .l3 {
+  left: 50%;
+  top: 46%;
+  width: 28vh;
+  height: 10vh;
+  margin-left: -14vh;
+  background: linear-gradient(180deg, rgba(255, 180, 255, 0.45), transparent);
+  clip-path: polygon(8% 0%, 92% 0%, 50% 100%);
+  opacity: 0.55;
+}
+.fam-crystalsignal {
+  --fam: #ff7ad9;
+}
+.fam-crystalsignal .card-panel {
+  background: rgba(10, 2, 18, 0.82);
+  border: 0.14rem solid #ff4ec8;
+  border-radius: 0.4rem;
+  box-shadow: 0 0 0 0.12rem rgba(5, 217, 232, 0.7), 0 0 2.4rem rgba(255, 42, 180, 0.4);
+}
+.fam-crystalsignal .card-kicker {
+  color: #7af0ff;
+  letter-spacing: 0.28em;
+  text-shadow: 0 0 0.45em rgba(5, 217, 232, 0.8);
+}
+.fam-crystalsignal .card-title {
+  background: linear-gradient(180deg, #ffffff 0%, #c6f6ff 32%, #b9a6ff 46%, #ff7ad9 54%, #ffffff 72%, #e8fbff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 0.16em rgba(255, 42, 212, 0.75));
+}
+.fam-crystalsignal .card-sub,
+.fam-crystalsignal .card-countlabel {
+  color: #f0c6e4;
+}
+.fam-crystalsignal .card-count,
+.fam-crystalsignal .card-dots {
+  color: #ff7ad9;
+  text-shadow: 0 0 0.35em rgba(255, 42, 212, 0.85);
+}
+/* ---- /theme: crystalsignal ---- */
+
 .ad-box {
   max-width: 52rem;
   text-align: left;

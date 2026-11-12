@@ -33,6 +33,7 @@ const SAMPLES = {
   hardchrome: { title: "Static Mercy", y: 2019, d: 5400, number: 92 },
   polygon: { title: "Room Twelve", y: 1992, d: 4680, number: 93 },
   glowcircuit: { title: "First Light", y: 1982, d: 5100, number: 94 },
+  crystalsignal: { title: "Cut Glass", y: 1984, d: 5040, number: 95 },
 };
 
 const SCREENS = ["loading", "ad", "upnext"];

@@ -127,6 +127,12 @@
       "loading": ["POWERING THE FLOOR…", "THE LINES ARE FINDING THEIR CORNERS", "HOLD STILL. THE GLOW IS WARMING.", "BLACK FIRST. THEN THE LIGHT.", "TRACING A PATH TO THE PICTURE"],
       "ad": ["an ad crossed the line. sound cut.", "a bright square that isn't on the circuit. muted.", "sponsor on the floor. it doesn't get a line.", "loud, orange, and selling something. volume's at zero."],
       "count": "ONLINE IN"
+    },
+    "crystalsignal": {
+      "kickers": ["NEXT ON THE CRYSTAL", "A CLEAR PICTURE AT {time}", "UP NEXT ON {name}", "THE FACETS LINE UP AT {time}", "SIGNAL LOCKED · UP NEXT"],
+      "loading": ["CATCHING THE LIGHT…", "THE GEM IS WARMING UP", "STATIC, THEN A SUNSET", "ONE FACET AT A TIME", "HOLD STILL. THE PICTURE IS CUTTING IN."],
+      "ad": ["an ad. sparkly, and muted.", "a commercial in the static. we turned the static down.", "something's selling shine. your show is behind it.", "we parked the ad in the snow. sound's off."],
+      "count": "SIGNAL IN"
     }
   }
 }
