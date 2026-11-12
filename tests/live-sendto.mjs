@@ -154,8 +154,35 @@ if (paired) {
 
   // ---------- 3. YouTube, its real player (reported, never failed) ----------
   console.log("YouTube, live (reported only):");
+  // What the TV goes through and what the phone is told, for the record.
+  await ph.evaluate(() => {
+    window.__said = [];
+    new MutationObserver(() => {
+      const t = document.getElementById("sendMsg").textContent;
+      if (t && window.__said[window.__said.length - 1] !== t) window.__said.push(t);
+    }).observe(document.getElementById("sendMsg"), { childList: true, characterData: true, subtree: true });
+  });
+  const said = () => ph.evaluate(() => window.__said.splice(0).join(" → ") || "(nothing)");
+  const timeline = async (ms, done) => {
+    const seen = [];
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) {
+      const x = await st();
+      const line = x.mode + (x.sent ? " " + (x.sent.i + 1) + "/" + x.sent.n : "") + ' "' + x.program + '"';
+      if (seen[seen.length - 1] !== line) seen.push(line);
+      if (done(x)) break;
+      await tv.waitForTimeout(400);
+    }
+    return seen.join(" → ");
+  };
+  // A press on the TV's own remote first, as a viewer would have made: a browser tab may then start sound.
+  await tv.bringToFront();
+  await tv.keyboard.press("i");
+  await tv.keyboard.press("i");
+
   await sendFromBox("https://youtu.be/" + ytId);
-  await tv.waitForFunction(() => window.NP.state().mode === "playing" && window.NP.state().sent && window.NP.state().length > 0, null, { timeout: 60000 }).catch(() => {});
+  note("the TV: " + (await timeline(45000, (x) => x.mode === "playing" && x.sent && x.length > 0)));
+  note("the phone was told: " + (await said()));
   s = await st();
   if (s.mode === "playing" && s.sent) {
     note(`a video from the lineup (${ytId}) plays: "${s.program}", ${s.length}s long (the lineup calls it "${ytItem.t}", ${ytItem.d}s)`);
@@ -164,8 +191,8 @@ if (paired) {
     await tv.waitForFunction(() => window.NP.state().at >= 298, null, { timeout: 20000 }).catch(() => {});
     note(`a seek to 5:00 from the phone: now at ${(await st()).at}s`);
   } else {
-    note(`the video did not play here: mode ${s.mode}, sent ${JSON.stringify(s.sent)}; the phone says: ${await sendMsg()}`);
-    note("problems on the TV: " + (await tv.evaluate(() => localStorage.getItem("nostalgem:problems") || "none")).slice(0, 400));
+    note(`the video did not play here (mode ${s.mode})`);
+    note("problems on the TV: " + (await tv.evaluate(() => localStorage.getItem("nostalgem:problems") || "none")).slice(0, 300));
   }
   await tv.screenshot({ path: "live-sendto-youtube.png" });
   await tv.evaluate(() => window.NP.back());
@@ -180,15 +207,101 @@ if (paired) {
   } catch (e) {
     note("couldn't look up the video's channel: " + e.message);
   }
+
+  // YouTube's player by itself, outside the app: what it says about a video and about a playlist from this
+  // address. box: how the player sits on the page (the app reads a playlist in one nobody sees).
+  const HIDDEN = "position:absolute;left:0;top:0;width:2px;height:2px;overflow:hidden;opacity:0;pointer-events:none";
+  const SHOWN = "position:absolute;left:0;top:0;width:320px;height:180px;z-index:99";
+  const ytSays = (opts) =>
+    tv.evaluate(
+      (a) =>
+        new Promise((done) => {
+          const log = [];
+          const t0 = performance.now();
+          const say = (x) => log.push(Math.round(performance.now() - t0) + "ms " + x);
+          const count = (p) => {
+            try {
+              const l = p.getPlaylist();
+              return Array.isArray(l) ? l.length : String(l);
+            } catch (e) {
+              return "threw";
+            }
+          };
+          const run = () => {
+            const box = document.createElement("div");
+            box.style.cssText = a.css;
+            const mount = document.createElement("div");
+            box.appendChild(mount);
+            document.body.appendChild(box);
+            const loc = window.location;
+            const vars = Object.assign({ playsinline: 1, controls: 0, origin: loc.protocol + "//" + loc.host, widget_referrer: loc.href.replace(/#.*$/, "") }, a.vars);
+            const o = { width: "320", height: "180", playerVars: vars, events: {} };
+            if (a.host) o.host = a.host;
+            if (a.videoId) o.videoId = a.videoId;
+            let p = null;
+            o.events.onReady = () => {
+              say("ready, list " + count(p));
+              if (a.cue) {
+                try {
+                  p.cuePlaylist(a.cue);
+                  say("cuePlaylist asked");
+                } catch (e) {
+                  say("cuePlaylist threw " + e.message);
+                }
+              }
+            };
+            o.events.onStateChange = (e) => say("state " + e.data + ", list " + count(p));
+            o.events.onError = (e) => say("error " + e.data);
+            p = new window.YT.Player(mount, o);
+            setTimeout(() => {
+              say("in the end: list " + count(p));
+              try {
+                const d = p.getVideoData();
+                say("video " + (d && d.video_id) + " “" + (d && d.title) + "”");
+              } catch (e) {
+                say("getVideoData threw");
+              }
+              try {
+                p.destroy();
+              } catch (e) {
+                /* fine */
+              }
+              box.remove();
+              done(log.join("; "));
+            }, a.ms);
+          };
+          if (window.YT && window.YT.Player) run();
+          else {
+            const prev = window.onYouTubeIframeAPIReady;
+            window.onYouTubeIframeAPIReady = () => {
+              if (typeof prev === "function") prev();
+              run();
+            };
+            const sc = document.createElement("script");
+            sc.src = "https://www.youtube.com/iframe_api";
+            sc.onerror = () => done("YouTube's player script didn't load");
+            document.head.appendChild(sc);
+          }
+        }),
+      opts
+    );
+  const NOCOOKIE = "https://www.youtube-nocookie.com";
+  note("YouTube's player alone, the video: " + (await ytSays({ css: SHOWN, host: NOCOOKIE, videoId: ytId, vars: { autoplay: 1 }, ms: 12000 })));
   if (!list) note("no playlist to try: the video's page didn't name its channel (a consent page, or a changed layout)");
   else {
+    const asList = { listType: "playlist", list: list, autoplay: 0 };
+    note(`YouTube's player alone, the playlist ${list}, unseen (as the app asks): ` + (await ytSays({ css: HIDDEN, host: NOCOOKIE, vars: asList, cue: { listType: "playlist", list: list }, ms: 12000 })));
+    note("…the same, in plain sight: " + (await ytSays({ css: SHOWN, host: NOCOOKIE, vars: asList, cue: { listType: "playlist", list: list }, ms: 12000 })));
+    note("…in plain sight, from youtube.com rather than youtube-nocookie.com: " + (await ytSays({ css: SHOWN, vars: asList, cue: { listType: "playlist", list: list }, ms: 12000 })));
+    note("…in plain sight, the list in the player's settings only (no cuePlaylist): " + (await ytSays({ css: SHOWN, host: NOCOOKIE, vars: asList, ms: 12000 })));
     const ids = await tv.evaluate((l) => import("./js/youtube.js").then((m) => m.playlistIds(l, document.getElementById("tv"), 60, 20000)).then((x) => x, (e) => "failed: " + e.message), list);
-    note(`the player's own list of ${list}: ${Array.isArray(ids) ? ids.length + " videos, first " + ids.slice(0, 3).join(", ") : ids}`);
+    note(`the app's own reading of it: ${Array.isArray(ids) ? ids.length + " videos, first " + ids.slice(0, 3).join(", ") : ids}`);
+    await said();
     await sendFromBox("https://www.youtube.com/playlist?list=" + list);
-    await tv.waitForFunction(() => window.NP.state().sent && window.NP.state().sent.n > 1 && window.NP.state().mode === "playing", null, { timeout: 60000 }).catch(() => {});
+    note("sent as a playlist, the TV: " + (await timeline(60000, (x) => x.sent && x.sent.n > 1 && x.mode === "playing")));
+    note("the phone was told: " + (await said()));
     s = await st();
-    if (s.sent && s.sent.n > 1) note(`sent as a playlist: ${s.sent.n} videos lined up, playing "${s.program}" (${s.mode})`);
-    else note(`sent as a playlist, it did not line up: mode ${s.mode}, sent ${JSON.stringify(s.sent)}; the phone says: ${await sendMsg()}`);
+    note(s.sent && s.sent.n > 1 ? `${s.sent.n} videos lined up, on "${s.program}" (${s.mode})` : `it did not line up (mode ${s.mode})`);
     await tv.screenshot({ path: "live-sendto-playlist.png" });
   }
 }
