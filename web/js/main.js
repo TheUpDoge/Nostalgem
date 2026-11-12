@@ -143,7 +143,11 @@ function loadSkipLists() {
       return r.ok ? r.json() : null;
     })
     .then(function (json) {
-      if (json) skipLists.shipped = checkSkipLists(json).lists;
+      if (!json) return;
+      skipLists.shipped = checkSkipLists(json).lists;
+      // The boot tunes as soon as the lineup is in, which can be before this file
+      // comes back. Apply the list to whatever is already playing.
+      if (player.refreshCuts) player.refreshCuts();
     })
     .catch(function () {
       /* none, then */
