@@ -218,10 +218,77 @@ function crystalScene() {
   return (
     '<div class="fscene fs-crystalsignal" aria-hidden="true">' +
     '<i class="rays"><b></b></i>' +
-    '<i class="gem"><b class="stone"></b><b class="core"></b><i class="shine"></i><i class="sheath"><i class="sweep"></i></i></i>' +
+    '<i class="gem"><i class="body">' +
+    cutRound() +
+    cutPrincess() +
+    cutEmerald() +
+    cutMarquise() +
+    '<i class="tint ice"></i><i class="tint pink"></i><i class="tint violet"></i><i class="tint cyan"></i>' +
+    '</i><i class="shine"></i><i class="sheath"><i class="sweep"></i></i></i>' +
     '<i class="reflect"></i>' +
     sparks +
     "</div>"
+  );
+}
+
+// Prebuilt facet pictures. The loading card crossfades them; nothing is rebuilt per frame.
+function cutRound() {
+  return (
+    '<i class="cut round"><svg viewBox="0 0 200 210" aria-hidden="true">' +
+    '<polygon points="24,108 64,108 100,186" fill="#e7f6ff"/>' +
+    '<polygon points="64,108 100,108 100,186" fill="#ffffff"/>' +
+    '<polygon points="100,108 136,108 100,186" fill="#f3e8ff"/>' +
+    '<polygon points="136,108 176,108 100,186" fill="#d7f4ff"/>' +
+    '<polygon points="18,100 24,110 176,110 182,100 176,92 24,92" fill="#ffffff"/>' +
+    '<polygon points="24,92 68,92 62,66" fill="#ffffff"/>' +
+    '<polygon points="68,92 100,92 92,60 74,66" fill="#f5fbff"/>' +
+    '<polygon points="100,92 132,92 126,66 108,60" fill="#efe6ff"/>' +
+    '<polygon points="132,92 176,92 138,66" fill="#e5f8ff"/>' +
+    '<polygon points="24,92 62,66 36,86" fill="#fff"/>' +
+    '<polygon points="176,92 164,86 138,66" fill="#dff4ff"/>' +
+    '<polygon points="70,66 88,56 112,56 130,66 130,80 112,90 88,90 70,80" fill="#ffffff"/>' +
+    '<polygon points="88,56 100,50 112,56 104,66 96,66" fill="#f7fdff"/>' +
+    '<polygon points="94,60 106,60 100,70" fill="#fff"/>' +
+    "</svg></i>"
+  );
+}
+function cutPrincess() {
+  return (
+    '<i class="cut princess"><svg viewBox="0 0 200 210" aria-hidden="true">' +
+    '<polygon points="40,44 160,44 160,148 40,148" fill="#f4f9ff"/>' +
+    '<polygon points="40,44 100,96 40,148" fill="#ffffff"/>' +
+    '<polygon points="160,44 100,96 160,148" fill="#e7fbff"/>' +
+    '<polygon points="40,44 160,44 100,96" fill="#f7f3ff"/>' +
+    '<polygon points="40,148 160,148 100,96" fill="#ffe8f6"/>' +
+    '<polygon points="40,148 100,176 160,148" fill="#efe6ff"/>' +
+    '<polygon points="78,62 122,62 100,84" fill="#fff"/>' +
+    "</svg></i>"
+  );
+}
+function cutEmerald() {
+  return (
+    '<i class="cut emerald"><svg viewBox="0 0 200 210" aria-hidden="true">' +
+    '<polygon points="46,58 154,58 170,74 170,126 154,142 46,142 30,126 30,74" fill="#f3f9ff"/>' +
+    '<polygon points="58,72 142,72 154,86 154,116 142,130 58,130 46,116 46,86" fill="#ffffff"/>' +
+    '<polygon points="72,86 128,86 136,96 136,112 128,122 72,122 64,112 64,96" fill="#e7f8ff"/>' +
+    '<polygon points="30,126 46,142 100,192" fill="#efe4ff"/>' +
+    '<polygon points="170,126 154,142 100,192" fill="#d8f4ff"/>' +
+    '<polygon points="46,142 154,142 100,192" fill="#ffffff"/>' +
+    '<polygon points="90,96 110,96 100,108" fill="#fff"/>' +
+    "</svg></i>"
+  );
+}
+function cutMarquise() {
+  return (
+    '<i class="cut marquise"><svg viewBox="0 0 200 210" aria-hidden="true">' +
+    '<polygon points="16,108 100,58 184,108 100,168" fill="#f7fbff"/>' +
+    '<polygon points="16,108 100,58 100,108" fill="#ffffff"/>' +
+    '<polygon points="100,58 184,108 100,108" fill="#efe6ff"/>' +
+    '<polygon points="16,108 100,168 100,108" fill="#e5f8ff"/>' +
+    '<polygon points="184,108 100,168 100,108" fill="#ffffff"/>' +
+    '<polygon points="40,108 100,78 160,108 100,148" fill="#fff" opacity="0.7"/>' +
+    '<polygon points="92,96 108,96 100,112" fill="#fff"/>' +
+    "</svg></i>"
   );
 }
 

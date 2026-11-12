@@ -59,6 +59,9 @@ test("Crystal Signal's motion is a fixed set of compositor layers, and the three
   const scene = familyScene("crystalsignal");
   const sparks = (scene.match(/class="sp/g) || []).length;
   assert.ok(sparks >= 12 && sparks <= 20, "sparkles: " + sparks);
+  for (const cut of ["round", "princess", "emerald", "marquise"]) assert.match(scene, new RegExp('class="cut ' + cut + '"'));
+  assert.match(block, /\.card-tuning\.fam-crystalsignal \.cut/);
+  assert.match(block, /\.cut\.round \{\s*opacity: 1/);
   assert.match(scene, /class="rays"/);
   assert.match(scene, /class="gem"/);
   const ch = { slug: "u-preview", name: "Crystal Signal", number: 95, kind: "video", tagline: "Crystal Signal" };
