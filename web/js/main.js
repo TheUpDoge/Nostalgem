@@ -3854,7 +3854,9 @@ function handleAction(a) {
     player.userGesture();
     // The press that lets a blocked picture start still changes the channel. Dropping it
     // left the phone's channel-up on channel 1 while the boot card had the set waiting.
-    if (a.type !== "up" && a.type !== "down" && a.type !== "chup" && a.type !== "chdown") return;
+    // OK on an open dialog (What's new) has to land too, or that page never closes.
+    var channelPress = a.type === "up" || a.type === "down" || a.type === "chup" || a.type === "chdown";
+    if (!channelPress && !(dialog.isOpen && a.type === "ok")) return;
   }
   if (numpad.isOpen) {
     numpad.handle(a);
