@@ -1711,6 +1711,123 @@ body {
 .fam-radio {
   --fam: #e9c46a;
 }
+
+/* ---- theme: neonrain ----
+   Neon Rain: a rain-soaked neon megacity. Static paint only. No film title, logo, or lines. */
+.fs-neonrain {
+  background: linear-gradient(180deg, rgba(255, 43, 214, 0.16), rgba(0, 0, 0, 0) 26%), linear-gradient(180deg, #05060f 0%, #0c1830 36%, #1a1030 56%, #07060c 70%, #030208 100%);
+}
+.fs-neonrain .l1 {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 62%;
+  background-color: #07060f;
+  background-image: radial-gradient(circle, rgba(255, 214, 140, 0.92) 0.22vh, transparent 0.38vh), radial-gradient(circle, rgba(130, 230, 255, 0.75) 0.16vh, transparent 0.3vh);
+  background-size: 2.5vh 3.1vh, 3.4vh 4.1vh;
+  background-position: 0 0, 1.2vh 1.6vh;
+  clip-path: polygon(
+    0% 100%,
+    2% 100%,
+    2% 58%,
+    7% 58%,
+    7% 100%,
+    10% 100%,
+    10% 34%,
+    13.2% 34%,
+    13.2% 18%,
+    14.4% 18%,
+    14.4% 34%,
+    18% 34%,
+    18% 100%,
+    22% 100%,
+    22% 46%,
+    29% 46%,
+    29% 100%,
+    33% 100%,
+    33% 28%,
+    39% 28%,
+    39% 16%,
+    40.3% 16%,
+    40.3% 28%,
+    45% 28%,
+    45% 100%,
+    49% 100%,
+    49% 42%,
+    56% 42%,
+    56% 100%,
+    60% 100%,
+    60% 30%,
+    67% 30%,
+    67% 100%,
+    71% 100%,
+    71% 48%,
+    78% 48%,
+    78% 100%,
+    82% 100%,
+    82% 26%,
+    83.3% 26%,
+    83.3% 14%,
+    84.5% 14%,
+    84.5% 26%,
+    89% 26%,
+    89% 100%,
+    93% 100%,
+    93% 52%,
+    99% 52%,
+    99% 100%
+  );
+}
+.fs-neonrain .l2 {
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(#ff2bd6, #ff2bd6) 7% 28% / 12vh 0.55vh no-repeat, linear-gradient(rgba(255, 43, 214, 0.4), rgba(255, 43, 214, 0.4)) 7% 28% / 13vh 1.7vh no-repeat,
+    linear-gradient(#7ee0ff, #7ee0ff) 7% 32% / 8vh 0.4vh no-repeat, linear-gradient(rgba(126, 224, 255, 0.35), rgba(126, 224, 255, 0.35)) 7% 32% / 9vh 1.3vh no-repeat,
+    linear-gradient(#ffb703, #ffb703) 63% 24% / 10vh 0.55vh no-repeat, linear-gradient(rgba(255, 183, 3, 0.4), rgba(255, 183, 3, 0.4)) 63% 24% / 11vh 1.6vh no-repeat,
+    linear-gradient(#ff2bd6, #ff2bd6) 63% 28% / 6vh 0.4vh no-repeat, linear-gradient(#7ee0ff, #7ee0ff) 80% 36% / 0.4vh 18vh no-repeat,
+    linear-gradient(rgba(126, 224, 255, 0.35), rgba(126, 224, 255, 0.35)) 80% 36% / 1.3vh 18vh no-repeat, linear-gradient(#ff2bd6, #ff2bd6) 27% 20% / 0.4vh 16vh no-repeat,
+    linear-gradient(rgba(255, 43, 214, 0.35), rgba(255, 43, 214, 0.35)) 27% 20% / 1.2vh 16vh no-repeat,
+    linear-gradient(90deg, transparent, rgba(255, 43, 214, 0.4), rgba(126, 224, 255, 0.22), transparent) center 63% / 100% 12vh no-repeat;
+}
+.fs-neonrain .l3 {
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, transparent 66%, rgba(255, 43, 214, 0.16) 78%, rgba(126, 224, 255, 0.1) 86%, rgba(0, 0, 0, 0.78) 100%),
+    repeating-linear-gradient(104deg, transparent 0 2.5vh, rgba(190, 226, 255, 0.2) 2.5vh 2.65vh);
+}
+.fam-neonrain {
+  --fam: #7ee0ff;
+}
+.fam-neonrain .card-panel {
+  background: rgba(6, 8, 16, 0.84);
+  border: 0.14rem solid #ff2bd6;
+  border-radius: 0.35rem;
+  box-shadow: 0 0 0 0.12rem rgba(126, 224, 255, 0.75), 0 0 2.6rem rgba(255, 43, 214, 0.4);
+}
+.fam-neonrain .card-kicker {
+  color: #7ee0ff;
+  letter-spacing: 0.32em;
+  text-shadow: 0 0 0.5em rgba(126, 224, 255, 0.85);
+}
+.fam-neonrain .card-title {
+  color: #f3fbff;
+  text-shadow: 0 0 0.45em rgba(255, 43, 214, 0.8);
+}
+.fam-neonrain .card-sub,
+.fam-neonrain .card-countlabel {
+  color: #cbb8d6;
+}
+.fam-neonrain .card-count,
+.fam-neonrain .card-dots {
+  color: #ff4ad8;
+  text-shadow: 0 0 0.35em rgba(255, 43, 214, 0.85);
+}
+/* ---- /theme: neonrain ---- */
+
 .ad-box {
   max-width: 52rem;
   text-align: left;

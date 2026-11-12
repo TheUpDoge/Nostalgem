@@ -103,6 +103,12 @@
       "loading": ["TUNING IN…", "ADJUSTING THE ANTENNA…", "ONE MOMENT PLEASE", "WARMING UP THE TUBE", "FINDING THE PICTURE"],
       "ad": [],
       "count": ""
+    },
+    "neonrain": {
+      "kickers": ["NEXT, UNDER THE NEON", "THE LIGHTS CHANGE AT {time}", "COMING IN OUT OF THE RAIN", "UP NEXT ON {name}", "A PICTURE AT {time} · BRING A COAT"],
+      "loading": ["THE RAIN HAS NOT LET UP", "WIPING THE LENS…", "WAITING ON A CAB. IT KEEPS CIRCLING.", "NEON'S ON. THE REEL IS ALMOST.", "ONE MOMENT. THE STREET IS LOUD."],
+      "ad": ["an ad, bright as a billboard. we turned it down.", "something's selling the future. muted, like the rain.", "a sign walked in off the street. it won't stay.", "the commercial is all glow and no sound. your show's next."],
+      "count": "ARRIVING IN"
     }
   }
 }

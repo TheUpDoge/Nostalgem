@@ -28,6 +28,8 @@ export const FAMILIES = [
   { id: "desk", look: "desk", name: "Talk & news" },
   { id: "radio", look: "radio", name: "Radio" },
   { id: "retro", look: "retro", name: "NostalGem" },
+  // Extra looks. Not on the dial: nothing in BY_SLUG points here.
+  { id: "neonrain", look: "neonrain", name: "Neon Rain" },
 ];
 const FAMILY = {};
 FAMILIES.forEach(function (f) {
@@ -70,11 +72,20 @@ const KEYWORDS = [
   ["gameshow", /game show|quiz|panel show|contestant|jeopardy|password/i],
   ["desk", /\bnews\b|newscast|podcast|interview|talk show|documentary|documentar|noticias|\blive\b/i],
   ["reel", /newsreel|educational|classroom|industrial|ephemera|prelinger|travelogue|aviation|railroad|trains?\b|history|archive|vintage ads|commercial/i],
+  // Extra looks. Only the name, and only if nothing above matched, so the shipped lineup stays put.
+  ["neonrain", /\bneon rain\b/i],
 ];
 
-// A channel's family: by slug, then by its words, then radio for audio and NostalGem's own for the rest.
+// Extra looks are not on the dial. To try one on a real channel, map that channel's slug
+// to the family id. This ships empty; the shipped lineup keeps the families in BY_SLUG.
+//   "high-noon": "neonrain"
+export const EXTRA_SLUGS = {};
+
+// A channel's family: an EXTRA_SLUGS override, then by slug, then by its words,
+// then radio for audio and NostalGem's own for the rest.
 export function familyOf(ch) {
   if (!ch) return FAMILY.retro;
+  if (EXTRA_SLUGS[ch.slug] && FAMILY[EXTRA_SLUGS[ch.slug]]) return FAMILY[EXTRA_SLUGS[ch.slug]];
   const byName = BY_SLUG[ch.slug];
   if (byName) return FAMILY[byName];
   const text = [ch.name, ch.tagline, ch.slug].join(" ");
