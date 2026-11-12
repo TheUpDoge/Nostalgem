@@ -121,6 +121,12 @@
       "loading": ["DRAWING THE FLOOR…", "COUNTING POLYGONS. THERE AREN'T MANY.", "THE HEADSET IS WARMING UP", "PLEASE KEEP YOUR ARMS IN THE WIREFRAME", "THE MOUNTAINS ARE STILL TRIANGLES"],
       "ad": ["an ad at twelve polygons. muted.", "a sponsor wandered into the room. speaker's off.", "this commercial is not part of the simulation.", "a word from our sponsor. the word is quiet."],
       "count": "RENDER IN"
+    },
+    "glowcircuit": {
+      "kickers": ["NEXT ON THE LIGHT LINES", "THE FLOOR LIGHTS AT {time}", "UP NEXT · STAY ON THE LINE", "A NEW RUN ON {name}", "CROSSING AT {time}"],
+      "loading": ["POWERING THE FLOOR…", "THE LINES ARE FINDING THEIR CORNERS", "HOLD STILL. THE GLOW IS WARMING.", "BLACK FIRST. THEN THE LIGHT.", "TRACING A PATH TO THE PICTURE"],
+      "ad": ["an ad crossed the line. sound cut.", "a bright square that isn't on the circuit. muted.", "sponsor on the floor. it doesn't get a line.", "loud, orange, and selling something. volume's at zero."],
+      "count": "ONLINE IN"
     }
   }
 }

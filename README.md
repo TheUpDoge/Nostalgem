@@ -88,6 +88,11 @@ YouTube's player) and rebuilt daily:
   [`web/data/cards.json`](web/data/cards.json), for anyone to edit. The YouTube sponsor card keeps its
   late-night deadpan and works as before, with the channel family's scenery turned right down behind it
   and a line in the channel's voice now and then.
+- **Four more card looks, not on the dial.** Neon Rain (rain and neon towers), Hard Chrome (yellow and
+  cyan HUD), Polygon Hour (a purple wireframe room), and Glow Circuit (a black room ruled in cyan and
+  orange). A viewer-added channel with that name gets the card. To put one on a real channel, map its
+  slug in `EXTRA_SLUGS` in `web/js/cards.js` — that map ships empty, so the lineup is unchanged. Preview
+  them from `theme-preview.html` (`npm start`, then open `/theme-preview.html`).
 - **House bumpers.** About one station break in three (every break on Commercial Break) shows a station
   ID card instead of the plain up-next card — short original bumpers from `web/data/bumpers.json`,
   picked from the clock so every TV in the same break sees the same one.
