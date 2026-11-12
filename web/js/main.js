@@ -648,7 +648,7 @@ function pokeLoadHold() {
     lastTime: loadTime,
   });
   if (typeof snap.currentTime === "number") loadTime = snap.currentTime;
-  const d = loadCardDecision(Date.now(), loadShown, loadReadyAt, ready, LOAD_CARD_AFTER);
+  const d = loadCardDecision(performance.now(), loadShown, loadReadyAt, ready, LOAD_CARD_AFTER);
   loadReadyAt = d.readyAt;
   if (d.hide) fadeLoadCard();
   else loadTimer = setTimeout(pokeLoadHold, Math.max(40, d.wait || 200));
@@ -691,7 +691,8 @@ function onPlayerState(mode, extra) {
           V.showCard("tuning", V.loadingCard(ch, app.cards, tunedAt), cardClass(ch));
           // The ident plays once, with the light sweep. Muted, or a blocked audio context: silence.
           if (familyOf(ch).id === "crystalsignal") crystalChime({ muted: player.muted, volume: player.v && typeof player.v.volume === "number" ? player.v.volume : 1 });
-          loadShown = Date.now();
+          // performance.now(), not the wall clock: the schedule tests pin Date, and that must not freeze the card.
+          loadShown = performance.now();
           loadReadyAt = 0;
           loadTime = null;
           armLoadFrame();
