@@ -30,6 +30,7 @@ export const FAMILIES = [
   { id: "retro", look: "retro", name: "NostalGem" },
   // Extra looks. Not on the dial: nothing in BY_SLUG points here.
   { id: "neonrain", look: "neonrain", name: "Neon Rain" },
+  { id: "hardchrome", look: "hardchrome", name: "Hard Chrome" },
 ];
 const FAMILY = {};
 FAMILIES.forEach(function (f) {
@@ -74,6 +75,7 @@ const KEYWORDS = [
   ["reel", /newsreel|educational|classroom|industrial|ephemera|prelinger|travelogue|aviation|railroad|trains?\b|history|archive|vintage ads|commercial/i],
   // Extra looks. Only the name, and only if nothing above matched, so the shipped lineup stays put.
   ["neonrain", /\bneon rain\b/i],
+  ["hardchrome", /\bhard chrome\b/i],
 ];
 
 // Extra looks are not on the dial. To try one on a real channel, map that channel's slug

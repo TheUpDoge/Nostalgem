@@ -109,6 +109,12 @@
       "loading": ["THE RAIN HAS NOT LET UP", "WIPING THE LENS…", "WAITING ON A CAB. IT KEEPS CIRCLING.", "NEON'S ON. THE REEL IS ALMOST.", "ONE MOMENT. THE STREET IS LOUD."],
       "ad": ["an ad, bright as a billboard. we turned it down.", "something's selling the future. muted, like the rain.", "a sign walked in off the street. it won't stay.", "the commercial is all glow and no sound. your show's next."],
       "count": "ARRIVING IN"
+    },
+    "hardchrome": {
+      "kickers": ["INCOMING · UP NEXT", "NEXT PACKET AT {time}", "HOLD THE LINE ON {name}", "UP NEXT · DON'T BLINK", "FEED RESUMES AT {time}"],
+      "loading": ["HANDSHAKE…", "BUFFERING THE LOUD PART", "SIGNAL'S DIRTY. CLEANING IT UP.", "YELLOW BARS. THAT MEANS WAIT.", "ONE SEC. SOMETHING GLITCHED."],
+      "ad": ["an ad kicked the door in. we cut its mic.", "popup with a jingle. muted.", "sponsor detected. threat level: annoying.", "this square is selling you something. sound's off."],
+      "count": "SYNC IN"
     }
   }
 }
