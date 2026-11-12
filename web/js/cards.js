@@ -194,9 +194,41 @@ export function familyAdQuips(cards, ch) {
   return words(cards, ch).ad || [];
 }
 
+// Crystal Signal's scenery: one blurred ray disc, a gem, and 16 sparkles. The motion is CSS
+// (transform and opacity only) and stops when the card is hidden. See css/app.css.
+function crystalScene() {
+  // Eight glints on the stone, eight that drift in the field around it.
+  const spots = [
+    [46, 14, 0], [54, 16, 0.4], [42, 20, 0.8], [58, 22, 1.1], [50, 11, 1.5], [48, 26, 0.2], [57, 19, 1.8], [43, 17, 0.6],
+    [14, 28, 0.3], [24, 16, 1.2], [76, 14, 0.7], [86, 26, 1.6], [18, 44, 0.9], [82, 40, 0.1], [32, 12, 1.4], [70, 34, 0.5],
+  ];
+  let sparks = "";
+  for (let i = 0; i < spots.length; i++) {
+    sparks +=
+      '<i class="sp' +
+      (i < 8 ? " on" : "") +
+      '" style="--x:' +
+      spots[i][0] +
+      "%;--y:" +
+      spots[i][1] +
+      "%;--d:" +
+      spots[i][2] +
+      's"></i>';
+  }
+  return (
+    '<div class="fscene fs-crystalsignal" aria-hidden="true">' +
+    '<i class="rays"><b></b></i>' +
+    '<i class="gem"><b class="stone"></b><b class="core"></b><i class="shine"></i><i class="sheath"><i class="sweep"></i></i></i>' +
+    '<i class="reflect"></i>' +
+    sparks +
+    "</div>"
+  );
+}
+
 // The scenery behind a card, for a look: layers css/app.css paints (fs-<look> .l1 .l2 .l3). retro has the
-// sunset scene views.js already draws, so it gets nothing here.
+// sunset scene views.js already draws, so it gets nothing here. Crystal Signal draws its own pieces.
 export function familyScene(look) {
   if (!look || look === "retro") return "";
+  if (look === "crystalsignal") return crystalScene();
   return '<div class="fscene fs-' + look + '" aria-hidden="true"><i class="l1"></i><i class="l2"></i><i class="l3"></i></div>';
 }

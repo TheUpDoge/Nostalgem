@@ -2035,75 +2035,320 @@ body {
 /* ---- /theme: glowcircuit ---- */
 
 /* ---- theme: crystalsignal ----
-   Crystal Signal: the house gem on a glitter sunset, chrome type, magenta and cyan rim light.
-   Static. A motif of the logo, not a copy of the picture. */
+   Crystal Signal: a broadcast ident. The gem sits in the upper field; the caption is a lower third,
+   so the stone's point never crosses the type. Motion is transform and opacity on a fixed set of
+   layers (one ray disc, the gem, a shine, two sweeps, 16 sparkles). It runs only while the card is
+   shown. prefers-reduced-motion keeps a still frame: rays, facets and glints, no sweep bar.
+   Cost while a card is up: those layers, one static 6px blur on the ray texture, one static
+   drop-shadow on the stone. Hidden card: animations are removed. No drawing surface, no script loop. */
 .fs-crystalsignal {
-  background: radial-gradient(1.1px 1.1px at 8% 14%, #fff, transparent), radial-gradient(1.6px 1.6px at 16% 24%, #ffd6ff, transparent), radial-gradient(1px 1px at 28% 10%, #ffe0a8, transparent),
-    radial-gradient(1.4px 1.4px at 74% 12%, #fff, transparent), radial-gradient(1.2px 1.2px at 86% 22%, #7af0ff, transparent), radial-gradient(1px 1px at 92% 40%, #ff7ad9, transparent),
-    radial-gradient(1.3px 1.3px at 6% 42%, #fff, transparent), radial-gradient(1px 1px at 64% 16%, #fff, transparent), radial-gradient(1.5px 1.5px at 40% 8%, #ffd0f0, transparent),
-    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 4px),
-    linear-gradient(180deg, #14041c 0%, #4a1248 24%, #c43a78 40%, #ff7a45 50%, #ffc46a 57%, #5a2068 66%, #0c0414 100%);
-  box-shadow: inset 0 0 0 1.1vh #050505, inset 10vh 0 14vh rgba(255, 42, 180, 0.28), inset -10vh 0 14vh rgba(5, 217, 232, 0.24), inset 0 0 16vh rgba(0, 0, 0, 0.45);
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.015) 0 1px, transparent 1px 3px), repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.03) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at 0% 50%, rgba(255, 42, 180, 0.38), transparent 42%), radial-gradient(ellipse at 100% 46%, rgba(5, 217, 232, 0.32), transparent 42%),
+    linear-gradient(180deg, #100318 0%, #2a0a3a 14%, #5c1848 28%, #a8326c 40%, #e85a48 50%, #ff9a4a 57%, #ffd27a 63%, #6a2870 72%, #1a0824 86%, #07010e 100%);
+  box-shadow: inset 0 0 0 1.15vh #070707, inset 0 0 18vh rgba(0, 0, 0, 0.35);
 }
-.fs-crystalsignal .l1 {
+.fs-crystalsignal b,
+.fs-crystalsignal .shine,
+.fs-crystalsignal .sheath,
+.fs-crystalsignal .sweep {
+  position: absolute;
+  display: block;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: radial-gradient(ellipse at 0% 55%, rgba(255, 42, 180, 0.5), transparent 46%), radial-gradient(ellipse at 100% 48%, rgba(5, 217, 232, 0.42), transparent 46%),
-    linear-gradient(#ffd7a8, #ffd7a8) center 57% / 100% 0.35vh no-repeat;
 }
-.fs-crystalsignal .l2 {
+.fs-crystalsignal .rays {
   left: 50%;
-  top: 5%;
-  width: 34vh;
-  height: 40vh;
-  margin-left: -17vh;
-  background: radial-gradient(circle at 46% 32%, rgba(255, 255, 255, 0.95), transparent 18%), linear-gradient(118deg, transparent 47%, rgba(255, 255, 255, 0.8) 49.2%, transparent 51.5%),
-    linear-gradient(62deg, transparent 46%, rgba(255, 255, 255, 0.45) 48.5%, transparent 51%),
-    conic-gradient(from 210deg at 50% 36%, #fff 0deg, #f0c8ff 28deg, #b44cff 70deg, #ff4ec8 112deg, #fff6ff 148deg, #7af0ff 188deg, #4a18a8 236deg, #ff8ad4 292deg, #fff 332deg, #e4c4ff 360deg);
-  clip-path: polygon(50% 0%, 72% 16%, 100% 36%, 78% 46%, 50% 100%, 22% 46%, 0% 36%, 28% 16%);
-  filter: drop-shadow(0 0 1.4vh rgba(255, 42, 212, 0.85)) drop-shadow(0 0 2.4vh rgba(5, 217, 232, 0.45));
-}
-.fs-crystalsignal .l3 {
-  left: 50%;
-  top: 46%;
-  width: 28vh;
-  height: 10vh;
-  margin-left: -14vh;
-  background: linear-gradient(180deg, rgba(255, 180, 255, 0.45), transparent);
-  clip-path: polygon(8% 0%, 92% 0%, 50% 100%);
+  top: 26vh;
+  width: 78vh;
+  height: 78vh;
+  margin: -39vh 0 0 -39vh;
+  mix-blend-mode: screen;
   opacity: 0.55;
+  animation: cs-spin 36s linear infinite;
+  will-change: transform;
+}
+.fs-crystalsignal .rays b {
+  background: repeating-conic-gradient(from 0deg, rgba(255, 255, 255, 0) 0deg 7deg, rgba(255, 214, 250, 0.55) 9deg 11deg, rgba(255, 255, 255, 0) 13deg 24deg);
+  -webkit-mask: radial-gradient(circle, rgba(0, 0, 0, 0.15) 0 8%, #000 18%, transparent 62%);
+  mask: radial-gradient(circle, rgba(0, 0, 0, 0.15) 0 8%, #000 18%, transparent 62%);
+  filter: blur(6px);
+}
+@supports (mix-blend-mode: plus-lighter) {
+  .fs-crystalsignal .rays {
+    mix-blend-mode: plus-lighter;
+  }
+}
+.fs-crystalsignal .gem {
+  left: 50%;
+  top: 6.5vh;
+  width: 32vh;
+  height: 34vh;
+  margin-left: -16vh;
+  animation: cs-tilt 9s ease-in-out infinite alternate;
+  will-change: transform;
+}
+.fs-crystalsignal .stone {
+  background: linear-gradient(90deg, transparent 49.2%, rgba(255, 255, 255, 0.9) 49.7% 50.3%, transparent 50.8%),
+    linear-gradient(180deg, transparent 32%, rgba(255, 255, 255, 0.75) 32.4% 33.1%, transparent 33.6%),
+    linear-gradient(24deg, transparent 47%, rgba(255, 255, 255, 0.55) 47.4% 48%, transparent 48.5%),
+    linear-gradient(-24deg, transparent 47%, rgba(255, 255, 255, 0.55) 47.4% 48%, transparent 48.5%),
+    linear-gradient(70deg, transparent 38%, rgba(255, 255, 255, 0.4) 38.4% 39%, transparent 39.5%),
+    linear-gradient(-70deg, transparent 38%, rgba(255, 255, 255, 0.4) 38.4% 39%, transparent 39.5%),
+    radial-gradient(ellipse at 50% 20%, rgba(255, 255, 255, 0.95) 0 7%, transparent 16%),
+    conic-gradient(from 205deg at 50% 33%, #ffffff 0deg, #f6d6ff 22deg, #c48bff 48deg, #ff5ec4 88deg, #fff8ff 118deg, #8ef6ff 158deg, #5a28c8 210deg, #ff8ed4 255deg, #ffffff 300deg, #edd0ff 360deg);
+  clip-path: polygon(50% 0%, 64% 7%, 82% 18%, 100% 33%, 86% 41%, 64% 47%, 50% 100%, 36% 47%, 14% 41%, 0% 33%, 18% 18%, 36% 7%);
+  filter: drop-shadow(0 0 1.1vh rgba(255, 42, 212, 0.8)) drop-shadow(0 0 2vh rgba(5, 217, 232, 0.4));
+}
+.fs-crystalsignal .core {
+  background: radial-gradient(circle at 48% 30%, rgba(255, 255, 255, 0.85), transparent 22%),
+    conic-gradient(from 30deg at 50% 34%, rgba(255, 255, 255, 0.15), rgba(180, 255, 255, 0.55), rgba(255, 140, 220, 0.2), rgba(255, 255, 255, 0.7), rgba(120, 80, 255, 0.25), rgba(255, 255, 255, 0.15));
+  clip-path: polygon(50% 8%, 78% 30%, 50% 78%, 22% 30%);
+  mix-blend-mode: screen;
+  opacity: 0.72;
+}
+.fs-crystalsignal .shine {
+  background: linear-gradient(115deg, transparent 42%, rgba(255, 255, 255, 0.85) 48%, transparent 54%);
+  clip-path: polygon(50% 0%, 64% 7%, 82% 18%, 100% 33%, 86% 41%, 64% 47%, 50% 100%, 36% 47%, 14% 41%, 0% 33%, 18% 18%, 36% 7%);
+  mix-blend-mode: screen;
+  opacity: 0.55;
+  animation: cs-shimmer 3.4s ease-in-out infinite;
+}
+.fs-crystalsignal .sheath {
+  overflow: hidden;
+  clip-path: polygon(50% 0%, 64% 7%, 82% 18%, 100% 33%, 86% 41%, 64% 47%, 50% 100%, 36% 47%, 14% 41%, 0% 33%, 18% 18%, 36% 7%);
+}
+.fs-crystalsignal .sweep {
+  width: 28%;
+  right: auto;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.92), transparent);
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: cs-sweep 2.6s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+.fs-crystalsignal .reflect {
+  left: 50%;
+  top: 41vh;
+  width: 22vh;
+  height: 5vh;
+  margin-left: -11vh;
+  background: linear-gradient(180deg, rgba(255, 190, 245, 0.45), transparent);
+  clip-path: polygon(18% 0%, 82% 0%, 50% 100%);
+  opacity: 0.4;
+}
+.fs-crystalsignal .sp {
+  width: 1.5vh;
+  height: 1.5vh;
+  left: var(--x);
+  top: var(--y);
+  margin: -0.75vh 0 0 -0.75vh;
+  background: linear-gradient(#fff, #fff) center / 100% 0.16vh no-repeat, linear-gradient(#fff, #fff) center / 0.16vh 100% no-repeat;
+  opacity: 0.85;
+  animation: cs-tw 2.2s ease-in-out infinite;
+  animation-delay: var(--d);
+  will-change: transform, opacity;
+}
+.fs-crystalsignal .sp.on {
+  width: 1.15vh;
+  height: 1.15vh;
+  margin: -0.57vh 0 0 -0.57vh;
+}
+.fs-crystalsignal .sp:not(.on) {
+  animation-name: cs-drift;
+  animation-duration: 5.5s;
+}
+.card.fam-crystalsignal {
+  justify-content: flex-end;
+  padding-bottom: 6.5vh;
 }
 .fam-crystalsignal {
   --fam: #ff7ad9;
 }
 .fam-crystalsignal .card-panel {
-  background: rgba(10, 2, 18, 0.82);
-  border: 0.14rem solid #ff4ec8;
-  border-radius: 0.4rem;
-  box-shadow: 0 0 0 0.12rem rgba(5, 217, 232, 0.7), 0 0 2.4rem rgba(255, 42, 180, 0.4);
+  margin-top: 0;
+  background: rgba(8, 2, 16, 0.84);
+  border: 0.12rem solid #ff4ec8;
+  border-radius: 0.45rem;
+  box-shadow: 0 0 0 0.1rem rgba(5, 217, 232, 0.65), 0 0 2.2rem rgba(255, 42, 180, 0.35);
+  padding: 1.15rem 2.2rem 1.25rem;
 }
 .fam-crystalsignal .card-kicker {
   color: #7af0ff;
-  letter-spacing: 0.28em;
-  text-shadow: 0 0 0.45em rgba(5, 217, 232, 0.8);
+  letter-spacing: 0.32em;
+  font-size: 0.78rem;
+  text-shadow: 0 0 0.45em rgba(5, 217, 232, 0.75);
 }
 .fam-crystalsignal .card-title {
-  background: linear-gradient(180deg, #ffffff 0%, #c6f6ff 32%, #b9a6ff 46%, #ff7ad9 54%, #ffffff 72%, #e8fbff 100%);
+  position: relative;
+  overflow: hidden;
+  display: block;
+  margin: 0.35rem 0 0.3rem;
+  font-size: 2.35rem;
+  letter-spacing: 0.03em;
+  background: linear-gradient(180deg, #ffffff 0%, #d9fbff 28%, #c4b4ff 46%, #ff7ad9 56%, #ffffff 74%, #f4fdff 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  filter: drop-shadow(0 0 0.16em rgba(255, 42, 212, 0.75));
+  filter: drop-shadow(0 0 0.14em rgba(255, 42, 212, 0.7));
+}
+.fam-crystalsignal .card-title::after {
+  content: "";
+  position: absolute;
+  top: -20%;
+  left: 0;
+  width: 36%;
+  height: 140%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent);
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: cs-titlesweep 2.6s ease-in-out 0.16s infinite;
+  will-change: transform, opacity;
 }
 .fam-crystalsignal .card-sub,
 .fam-crystalsignal .card-countlabel {
   color: #f0c6e4;
 }
+.fam-crystalsignal .card-sub {
+  font-size: 1.05rem;
+  letter-spacing: 0.03em;
+}
+.fam-crystalsignal .card-countlabel {
+  margin-top: 0.55rem;
+  letter-spacing: 0.34em;
+  font-size: 0.72rem;
+}
 .fam-crystalsignal .card-count,
 .fam-crystalsignal .card-dots {
   color: #ff7ad9;
-  text-shadow: 0 0 0.35em rgba(255, 42, 212, 0.85);
+  text-shadow: 0 0 0.35em rgba(255, 42, 212, 0.8);
+}
+.fam-crystalsignal .card-count {
+  margin-top: 0.1rem;
+  font-size: 2.5rem;
+}
+.card-adbreak.fam-crystalsignal {
+  justify-content: flex-end;
+}
+.card-adbreak.fam-crystalsignal .fscene {
+  opacity: 0.92;
+}
+.card-adbreak.fam-crystalsignal .ad-box {
+  margin-bottom: 2vh;
+  max-width: 40rem;
+  text-align: center;
+  background: rgba(8, 2, 16, 0.62);
+  border: 0.1rem solid rgba(255, 78, 200, 0.65);
+  border-radius: 0.4rem;
+  padding: 1.15rem 1.6rem 1.2rem;
+  box-shadow: 0 0 0 0.08rem rgba(5, 217, 232, 0.4);
+}
+.card[hidden] .fs-crystalsignal,
+.card[hidden] .fs-crystalsignal i,
+.card[hidden] .fs-crystalsignal b,
+.card[hidden].fam-crystalsignal .card-title::after {
+  animation: none;
+}
+@keyframes cs-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes cs-tilt {
+  from {
+    transform: rotate(-6deg);
+  }
+  to {
+    transform: rotate(6deg);
+  }
+}
+@keyframes cs-shimmer {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.95;
+  }
+}
+@keyframes cs-sweep {
+  0% {
+    transform: translate3d(-170%, 0, 0) rotate(20deg);
+    opacity: 0;
+  }
+  14% {
+    opacity: 0.95;
+  }
+  38% {
+    transform: translate3d(280%, 0, 0) rotate(20deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translate3d(280%, 0, 0) rotate(20deg);
+    opacity: 0;
+  }
+}
+@keyframes cs-titlesweep {
+  0% {
+    transform: translate3d(-180%, 0, 0);
+    opacity: 0;
+  }
+  16% {
+    opacity: 0.55;
+  }
+  40% {
+    transform: translate3d(320%, 0, 0);
+    opacity: 0;
+  }
+  100% {
+    transform: translate3d(320%, 0, 0);
+    opacity: 0;
+  }
+}
+@keyframes cs-tw {
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: scale(0.45);
+  }
+  46% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes cs-drift {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 1.5vh, 0) scale(0.4);
+  }
+  30% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -7vh, 0) scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fs-crystalsignal .rays,
+  .fs-crystalsignal .gem,
+  .fs-crystalsignal .shine,
+  .fs-crystalsignal .sweep,
+  .fs-crystalsignal .sp,
+  .fam-crystalsignal .card-title::after {
+    animation: none;
+  }
+  .fs-crystalsignal .rays {
+    transform: rotate(18deg);
+  }
+  .fs-crystalsignal .shine {
+    opacity: 0.6;
+  }
+  .fs-crystalsignal .sp {
+    opacity: 0.8;
+    transform: none;
+  }
 }
 /* ---- /theme: crystalsignal ---- */
 

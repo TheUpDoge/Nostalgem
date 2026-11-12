@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { EXTRA_SLUGS, FAMILIES, familyOf, parseCards, countLabel } from "../web/js/cards.js";
+import { EXTRA_SLUGS, FAMILIES, familyOf, familyScene, parseCards, countLabel } from "../web/js/cards.js";
 import { loadingCard, gapCard, adBreakCard } from "../web/js/ui/views.js";
 import { SECRET_STATIONS } from "../web/js/secrets.js";
 import { LINK_CHANNELS } from "../web/js/linkout.js";
@@ -39,12 +39,28 @@ test("Crystal Signal's words match the other cards: a few lines, lowercase ads, 
   assert.equal(countLabel(cards, { slug: "u-preview", name: "Crystal Signal", kind: "video" }), "SIGNAL IN");
 });
 
-test("Crystal Signal's paint is static, and the three cards use it", () => {
+test("Crystal Signal's motion is a fixed set of compositor layers, and the three cards use it", () => {
   const block = css.slice(css.indexOf("/* ---- theme: crystalsignal ----"), css.indexOf("/* ---- /theme: crystalsignal ----"));
   assert.ok(block.includes(".fs-crystalsignal") && block.includes(".fam-crystalsignal") && block.includes("--fam:"), "scene, panel, ad color");
   assert.ok(block.includes("clip-path") && block.includes("background-clip: text"), "a faceted gem and chrome type");
-  assert.doesNotMatch(block, /animation\s*:/, "no always-on animation");
-  assert.doesNotMatch(block, /canvas|@keyframes/, "no canvas and no new loop");
+  assert.doesNotMatch(block, /canvas|requestAnimationFrame/, "no canvas and no script loop");
+  assert.match(block, /prefers-reduced-motion:\s*reduce/);
+  assert.match(block, /\.card\[hidden\][\s\S]*animation:\s*none/);
+  const frames = block.match(/@keyframes\s+cs-[\w-]+\s*\{[\s\S]*?\n\}/g) || [];
+  assert.ok(frames.length >= 4, "the ident's keyframes");
+  for (const frame of frames) {
+    const props = frame.match(/^\s*([a-z-]+)\s*:/gm) || [];
+    for (const prop of props) {
+      const name = prop.replace(":", "").trim();
+      if (name === "from" || name === "to") continue;
+      assert.ok(name === "transform" || name === "opacity", "keyframe property " + name);
+    }
+  }
+  const scene = familyScene("crystalsignal");
+  const sparks = (scene.match(/class="sp/g) || []).length;
+  assert.ok(sparks >= 12 && sparks <= 20, "sparkles: " + sparks);
+  assert.match(scene, /class="rays"/);
+  assert.match(scene, /class="gem"/);
   const ch = { slug: "u-preview", name: "Crystal Signal", number: 95, kind: "video", tagline: "Crystal Signal" };
   const load = loadingCard(ch, cards, 1700000000000);
   assert.match(load, /class="fscene fs-crystalsignal"/);
