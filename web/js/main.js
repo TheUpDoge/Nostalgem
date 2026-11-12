@@ -34,7 +34,8 @@ import { TvLink, makeCode, cleanCode, remoteUrl, prettyCode, qrSvg, loadScript, 
 import { pathsText } from "./relay.js";
 import { loadLineup, builtAt } from "./lineup.js";
 import { loadBumpers } from "./bumpers.js";
-import { DEFAULT_CARDS, loadCards, familyAdQuips, cardClass } from "./cards.js";
+import { DEFAULT_CARDS, loadCards, familyAdQuips, familyOf, cardClass } from "./cards.js";
+import { crystalChime, stopCrystalChime } from "./crystal-chime.js";
 import { pad2, escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder, numberText } from "./util.js";
 
 const VERSION = "1.16.0";
@@ -598,6 +599,7 @@ function onCut(info) {
 
 function onPlayerState(mode, extra) {
   const ch = current();
+  stopCrystalChime();
   clearTimeout(app.loadCardTimer);
   tv.classList.toggle("paused", mode === "paused");
   if (mode !== "playing") tv.classList.remove("buffering");
@@ -615,6 +617,8 @@ function onPlayerState(mode, extra) {
           if (player.mode !== "tuning" || app.state !== "on" || current() !== ch) return;
           fx.release();
           V.showCard("tuning", V.loadingCard(ch, app.cards, tunedAt), cardClass(ch));
+          // The ident plays once, with the light sweep. Muted, or a blocked audio context: silence.
+          if (familyOf(ch).id === "crystalsignal") crystalChime({ muted: player.muted, volume: player.v && typeof player.v.volume === "number" ? player.v.volume : 1 });
         }, LOAD_CARD_AFTER);
       }
       break;
@@ -3936,6 +3940,7 @@ function rootAction(a) {
       break;
     case "mute":
       player.setMuted(!player.muted);
+      if (player.muted) stopCrystalChime();
       V.toast(player.muted ? "Sound off" : "Sound on");
       break;
     case "help":

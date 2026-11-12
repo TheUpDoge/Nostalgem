@@ -29,6 +29,7 @@ const SHELL = [
   "js/packs.js",
   "js/bumpers.js",
   "js/cards.js",
+  "js/crystal-chime.js",
   "js/gamepad.js",
   "js/arcade.js",
   "js/southpark.js",

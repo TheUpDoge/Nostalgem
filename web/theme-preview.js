@@ -7,6 +7,7 @@
 
 import { FAMILIES, cardClass, loadCards } from "./js/cards.js";
 import { loadingCard, gapCard, adBreakCard } from "./js/ui/views.js";
+import { crystalChime } from "./js/crystal-chime.js";
 
 const SHIPPED = {
   western: 1,
@@ -101,6 +102,8 @@ loadCards("data/cards.json").then(function (cards) {
     card.innerHTML = render(f, which, cards);
     stage.appendChild(card);
     root.appendChild(stage);
+    // The loading ident's chime, once. A blocked audio context stays silent.
+    if (only === "crystalsignal" && which === "loading") crystalChime({ muted: false, volume: 0.85 });
     if (!shot) {
       const nav = document.createElement("div");
       nav.className = "nav";
