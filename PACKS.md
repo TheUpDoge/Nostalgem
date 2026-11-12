@@ -4,8 +4,10 @@ A channel pack is a small JSON file that adds channels on your own TV, without t
 the shipped lineup. From the Menu: **Load a channel pack**, then choose a `.json` file (or a
 `.zip` of them) or paste its text. Everything happens on your TV — no upload, no server.
 
-Pack channels land on **CH 30–49** and are saved on that TV only, exactly like channels
-you add by search (Menu ▸ Add a channel). Loading a pack never changes
+Pack channels land on **CH 30–49** or in the hundreds, **CH 100–199**, and are saved on that
+TV only, exactly like channels you add by search (Menu ▸ Add a channel). Every built-in channel
+stays under 99 (built-ins 1–29, viewer-added 30–49, YouTube sub-channels 50–90), so the
+hundreds are for packs. Loading a pack never changes
 [`web/data/lineup.json`](web/data/lineup.json), and re-loading the same pack skips the
 channels that are already on the TV.
 
@@ -48,9 +50,13 @@ work, then delete the channel from Menu ▸ Channel lineup if you don't want it.
 ### Channel fields
 
 - `name` — shown on the dial. Required. Over 24 characters it is trimmed (with a warning).
-- `number` — the channel number, a whole number from **30 to 49** (the viewer-added range).
+- `number` — the channel number, a whole number from **30 to 49** or **100 to 199**.
   Required, and each number may appear once per pack. If the number is already taken on the
-  TV, the channel takes the next free number in 30–49 instead.
+  TV, the channel takes the next free number after it in the same range (then the other range)
+  instead, and the TV says so. Taken includes what typing a number reaches: **111** is a secret
+  station, and **152** and **172** are how CH 15-2 and CH 17-2 are typed, so a pack asking for one
+  of those moves along too. A three-digit channel reads as itself on the TV: typing 1 0 1 shows
+  **CH 101**.
 - `kind` — `"video"` (MP4) or `"audio"` (MP3, shown as radio). Default `"video"`.
 - `tagline`, `icon`, `color` — as in `web/data/channels.json`. `color` should look like `#ff9f1c`.
 - `minMinutes`, `maxMinutes` — programs shorter or longer than these are left out.
@@ -83,7 +89,7 @@ Each channel lists at least one source. A source is either a search or an item l
 
 Packs point at the Internet Archive and nothing else. The loader rejects a pack that has:
 
-- a number outside 30–49, a duplicate number, or a missing name;
+- a number outside 30–49 and 100–199, a duplicate number, or a missing name;
 - a source that is a link (`http://…`, `https://…`), a YouTube or other video-site address,
   or a `url` / `youtube` / `playlist` field;
 - an item ID with spaces, slashes or anything that isn't an Archive identifier.

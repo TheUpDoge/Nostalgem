@@ -4,6 +4,16 @@
 
 export const CHANGES = [
   {
+    v: "1.12.0",
+    title: "Packs in the hundreds",
+    items: [
+      "Channel packs can use the hundreds now, CH 100–199, as well as 30–49. Type 1 0 1 for CH 101: it reads CH 101 while it tunes.",
+      "A pack asking for a number that's taken moves to the next free one, past the secret stations and the numbers sub-channels use.",
+      "A one-digit channel's sub-channel can be typed the way the guide writes it: 0 3 2 for 03-2.",
+      "The TV guide no longer squeezes a long channel name over its number.",
+    ],
+  },
+  {
     v: "1.11.0",
     title: "The club's catalog, and clean cuts",
     items: [

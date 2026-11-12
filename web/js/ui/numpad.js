@@ -1,6 +1,7 @@
 // An on-screen number pad for remotes without number buttons (TCL's Google TV remote has none): the arrows
-// move around a 3×4 keypad, OK presses a key. Typed digits work the same as on a remote with numbers:
-// 1–2 digits for a channel, one or two more for a sub-channel (5 0 1 is CH 50-1, 1 5 2 is CH 15-2).
+// move around a 3×4 keypad, OK presses a key. Typed digits work the same as on a remote with numbers
+// (dial.js): 1–3 digits for a channel, one or two more for a sub-channel (5 0 1 is CH 50-1, 1 5 2 is
+// CH 15-2, 1 0 1 is CH 101).
 
 import { escapeHtml as esc } from "../util.js";
 
@@ -19,7 +20,7 @@ export function padMove(focus, dir) {
   return focus;
 }
 
-// "15" → "15-", "152" → "15-2", "5010" → "50-10"; "" → "– –".
+// Without the dial to ask (opts.label): "15" → "15", "152" → "15-2", "5010" → "50-10"; "" → "– –".
 export function padLabel(typed) {
   if (!typed) return "– –";
   if (typed.length === 1) return typed;
@@ -29,7 +30,8 @@ export function padLabel(typed) {
 
 export class Numpad {
   // el: the #numpad element. opts.describe(typed) → { text, done }: what that number tunes to, and whether
-  // no longer number could follow (focus then jumps to GO). opts.go(typed) tunes; opts.onClose().
+  // no longer number could follow (focus then jumps to GO). opts.label(typed): the number as the TV reads
+  // it ("101", "15-2"). opts.go(typed) tunes; opts.onClose().
   constructor(el, opts) {
     this.el = el;
     this.opts = opts || {};
@@ -108,7 +110,7 @@ export class Numpad {
       '<div class="np-box" role="dialog" aria-label="Number pad">' +
       '<div class="np-title">CHANNEL NUMBER</div>' +
       '<div class="np-num">' +
-      esc(padLabel(this.typed)) +
+      esc(this.typed.length > 2 && this.opts.label ? this.opts.label(this.typed) : padLabel(this.typed)) +
       "</div>" +
       '<div class="np-name">' +
       esc(d ? d.text : "Type a number, then GO") +

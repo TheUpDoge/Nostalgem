@@ -75,7 +75,7 @@ test("validatePack: numbers stay in the viewer-added range", () => {
   for (const bad of [12, 29, 50, 99, 30.5, "30", null]) {
     const v = validatePack(pack([channel({ number: bad })]));
     assert.equal(v.ok, false, "number " + JSON.stringify(bad) + " should fail");
-    assert.match(v.errors.join(" "), /30.*49/);
+    assert.match(v.errors.join(" "), /30 to 49, or 100 to 199/);
   }
   assert.equal(validatePack(pack([channel({ number: 30 }), channel({ number: 49 })])).ok, true);
 });

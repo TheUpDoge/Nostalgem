@@ -8,7 +8,8 @@ import { actionFor, isTypingTarget, registerTvKeys } from "./remote.js";
 import { load, save } from "./store.js";
 import { archiveLinkQuery, buildChannel, browserFetchJson, metadataUrl } from "./archive.js";
 import { archiveAboutHtml } from "./about.js";
-import { asPack, buildItemsChannel, packChannelDef, packFilesFromZip, packSkipLists, parsePack, validatePack, PACK_MIN_NUMBER, PACK_MAX_NUMBER } from "./packs.js";
+import { asPack, buildItemsChannel, packChannelDef, packFilesFromZip, packSkipLists, parsePack, validatePack } from "./packs.js";
+import { channelForDigits, moreToType, packNumberFor, typedLabel } from "./dial.js";
 import { LINK_CHANNELS, isLinkChannel, isGuideVisible, linkCardName, linkUrl, openLinkChannel } from "./linkout.js";
 import { createGamepad } from "./gamepad.js";
 import { LOOKS, asciiMask, comboCss, lookById, lookCss, lookYtCss, looksSvg, mixable, nextLook } from "./looks.js";
@@ -34,9 +35,9 @@ import { TvLink, makeCode, cleanCode, remoteUrl, prettyCode, qrSvg, loadScript, 
 import { pathsText } from "./relay.js";
 import { loadLineup, builtAt } from "./lineup.js";
 import { loadBumpers } from "./bumpers.js";
-import { pad2, escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder, numberText } from "./util.js";
+import { escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder, numberText } from "./util.js";
 
-const VERSION = "1.11.0";
+const VERSION = "1.12.0";
 const NAME = "NostalGem";
 const params = new URLSearchParams(window.location.search);
 const ANDROID = params.get("tv") === "android";
@@ -154,16 +155,16 @@ function filmList(item) {
 }
 const numpad = new Numpad($("numpad"), {
   describe: function (typed) {
-    const exact = channelForDigits(typed, false);
-    const longer = app.channels.some(function (c) {
-      const k = chKey(c);
-      return k.length > typed.length && k.indexOf(typed) === 0;
-    });
-    const ch = channelForDigits(typed, true);
+    const exact = channelForDigits(app.channels, typed, false);
+    const longer = moreToType(app.channels, typed);
+    const ch = channelForDigits(app.channels, typed, true);
     return {
       text: ch ? "CH " + chLabel(ch) + " · " + ch.name : longer ? "Keep typing…" : "No channel " + typed,
       done: !!exact && !longer,
     };
+  },
+  label: function (typed) {
+    return typedLabel(app.channels, typed, false);
   },
   go: function (typed) {
     app.digits = typed;
@@ -494,48 +495,29 @@ function surf(dir) {
   }, 380);
 }
 
-// Number entry. Channels are 1–2 digits; a sub-channel adds one more, so 5 0 1 is CH 50-1. The TV tunes
-// as soon as no longer number could follow, otherwise after a short pause. 5 0 alone, on a channel that
-// only has sub-channels, goes to the first of them.
-// Numbers are typed like a cable box: 5 0 waits a beat for a sub-channel, 5 0 1 tunes 50-1, and where
-// there's a 60-10, 6 0 1 waits a beat for the 0.
-function typedLabel(typed) {
-  if (typed.length === 1) return typed + "-";
-  if (typed.length === 2) return pad2(Number(typed)) + "-";
-  return typed.slice(0, 2) + "-" + typed.slice(2);
-}
+// Number entry (dial.js). Channels are 1–3 digits; a sub-channel adds one or two more after its channel's
+// two, so 5 0 1 is CH 50-1 and 0 3 2 is CH 3-2. The TV tunes as soon as no longer number could follow,
+// otherwise after a short pause. 5 0 alone, on a channel that only has sub-channels, goes to the first of
+// them. Numbers are typed like a cable box: 5 0 waits a beat for a sub-channel, 5 0 1 tunes 50-1, 1 0 waits
+// a beat where there's a CH 101, and where there's a 60-10, 6 0 1 waits a beat for the 0.
 function digit(n) {
   app.digits = (app.digits + String(n)).slice(-4);
   const typed = app.digits;
   clearTimeout(app.digitTimer);
-  const exact = channelForDigits(typed, false);
-  const longer = app.channels.some(function (c) {
-    const k = chKey(c);
-    return k.length > typed.length && k.indexOf(typed) === 0;
-  });
+  const exact = channelForDigits(app.channels, typed, false);
+  const longer = moreToType(app.channels, typed);
   // A leading zero ("069", "01") waits for the rest of the number.
   const zero = typed.charAt(0) === "0" && typed.length < 3;
-  if (longer || zero) V.osd("CH " + typedLabel(typed), "", 2500);
+  if (longer || zero) V.osd("CH " + typedLabel(app.channels, typed, false), "", 2500);
   if (!zero && ((exact && !longer) || typed.length >= 4 || (!exact && !longer))) commitDigits();
   else app.digitTimer = setTimeout(commitDigits, 1600);
-}
-
-function channelForDigits(typed, firstSub) {
-  const exact = app.channels.filter(function (c) {
-    return chKey(c) === typed;
-  })[0];
-  if (exact || !firstSub) return exact;
-  const num = Number(typed);
-  return app.channels.filter(function (c) {
-    return c.number === num;
-  })[0];
 }
 
 // A channel number typed into a search box (a remote with no number buttons) tunes that channel instead of
 // building a channel out of an Archive search for "777". Returns true when it did.
 function tuneTypedNumber(text) {
   const digits = numberText(text);
-  const ch = digits ? channelForDigits(digits, true) : null;
+  const ch = digits ? channelForDigits(app.channels, digits, true) : null;
   if (!ch) return false;
   closeOverlays();
   tuneTo(ch);
@@ -547,12 +529,12 @@ function commitDigits() {
   const typed = app.digits;
   app.digits = "";
   if (!typed) return;
-  const ch = channelForDigits(typed, true);
+  const ch = channelForDigits(app.channels, typed, true);
   if (ch) {
     closeOverlays();
     tuneTo(ch);
   } else {
-    V.osd("CH " + (typed.length > 2 ? typedLabel(typed) : pad2(Number(typed))), "NO SIGNAL", 2000);
+    V.osd("CH " + typedLabel(app.channels, typed, true), "NO SIGNAL", 2000);
     staticBurst(500);
   }
 }
@@ -2859,16 +2841,6 @@ function fetchChannelPrograms(def, onProgress) {
   return buildChannel(def, channelCtx(onProgress));
 }
 
-// First free number in the viewer-added range (30–49); past that, the first free number anywhere.
-function nextPackNumber() {
-  const used = {};
-  app.channels.forEach(function (c) {
-    used[c.number] = 1;
-  });
-  for (let n = PACK_MIN_NUMBER; n <= PACK_MAX_NUMBER; n++) if (!used[n]) return n;
-  return nextNumber();
-}
-
 // A built channel (def + build result) onto the dial. opts.number pins the number
 // (a pack channel); without it, the next free number is used. Returns { ch, renumbered }
 // or { skipped } when a channel with that slug is already on this TV. Does not save:
@@ -2891,17 +2863,11 @@ function addBuiltChannel(def, res, opts) {
   let renumbered = false;
   if (o.number == null) {
     number = nextNumber();
-  } else if (
-    o.number >= PACK_MIN_NUMBER &&
-    o.number <= PACK_MAX_NUMBER &&
-    !app.channels.some(function (c) {
-      return c.number === o.number;
-    })
-  ) {
-    number = o.number;
   } else {
-    number = nextPackNumber();
-    renumbered = true;
+    // The number the pack asked for, or the next free one (dial.js): 30–49, then the hundreds.
+    number = packNumberFor(app.channels, o.number);
+    if (number == null) number = nextNumber();
+    renumbered = number !== o.number;
   }
   const ch = {
     slug: slug,
@@ -3071,7 +3037,7 @@ function showPackHelp() {
     html:
       "A channel pack is a small JSON file that adds channels from the <b>Internet Archive</b> — " +
       "a collection search, or Archive item IDs. Nothing else: no YouTube, no other sites, no direct video links.<br><br>" +
-      "Pack channels land on <b>CH 30–49</b> and are saved on this TV only, like channels you add by search. " +
+      "Pack channels land on <b>CH 30–49</b> or in the hundreds, <b>CH 100–199</b>, and are saved on this TV only, like channels you add by search. " +
       "Loading a pack never changes the shipped lineup.<br><br>" +
       "The format is in <b>PACKS.md</b>, with an example pack in <b>packs/example-pack.json</b>. " +
       "Several packs can come together in one <b>.zip</b>: every .json file in it is loaded. " +
@@ -3149,7 +3115,7 @@ function openPackPaste() {
     title: "Paste pack JSON",
     html:
       "Paste the pack file's text. Packs only point at the Internet Archive — a collection search or " +
-      "Archive item IDs — and their channels land on CH 30–49 on this TV.",
+      "Archive item IDs — and their channels land on CH 30–49 or 100–199 on this TV.",
     textarea: { placeholder: '{"pack": "Example pack", "version": 1, "channels": [...]}', rows: 8 },
     buttons: [
       {
@@ -4386,9 +4352,7 @@ async function boot() {
   const asked = (params.get("ch") || "").replace(/[^0-9]/g, "").replace(/^0+(?=\d)/, "");
   const lastSlug = load("last", "");
   const start =
-    app.channels.filter(function (c) {
-      return asked && chKey(c) === asked;
-    })[0] ||
+    (asked && channelForDigits(app.channels, asked, false)) ||
     app.channels.filter(function (c) {
       return c.slug === lastSlug;
     })[0] ||

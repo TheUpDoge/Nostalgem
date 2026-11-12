@@ -64,9 +64,10 @@ export function pad2(n) {
 export function chLabel(ch) {
   return pad2(ch.number) + (ch.sub ? "-" + ch.sub : "");
 }
-// What you type on the remote to reach it: "7", "501".
+// What you type on the remote to reach it: "7", "101", "501", and "032" for CH 3-2 (as the guide writes
+// it, 03-2; dial.js also takes the short way, 3 2, when no CH 32 is on the dial).
 export function chKey(ch) {
-  return String(ch.number) + (ch.sub ? String(ch.sub) : "");
+  return ch.sub ? pad2(ch.number) + String(ch.sub) : String(ch.number);
 }
 export function chOrder(a, b) {
   return a.number - b.number || (a.sub || 0) - (b.sub || 0);
@@ -136,7 +137,8 @@ export function numberText(text) {
   let m = /^(\d{1,4})$/.exec(t);
   if (m) return m[1];
   m = /^(\d{1,3})\s*[-.\s]\s*(\d{1,2})$/.exec(t);
-  return m ? m[1] + m[2] : "";
+  // "3-2" is CH 3-2, typed 0 3 2 (dial.js): a one-digit channel's sub-channel keeps its 0.
+  return m ? (m[1].length === 1 ? "0" : "") + m[1] + m[2] : "";
 }
 
 export function slugify(s) {
