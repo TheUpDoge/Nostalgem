@@ -32,12 +32,14 @@ import { Dialog } from "./ui/dialog.js";
 import { Numpad } from "./ui/numpad.js";
 import * as V from "./ui/views.js";
 import { TvLink, makeCode, cleanCode, remoteUrl, prettyCode, qrSvg, loadScript, isIPv4, PAGES_BASE } from "./link.js";
+import { PagePointer, appMessage } from "./pointer.js";
+import { utf8Text } from "./zip.js";
 import { pathsText } from "./relay.js";
 import { loadLineup, builtAt } from "./lineup.js";
 import { loadBumpers } from "./bumpers.js";
 import { escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder, numberText } from "./util.js";
 
-const VERSION = "1.12.0";
+const VERSION = "1.13.0";
 const NAME = "NostalGem";
 const params = new URLSearchParams(window.location.search);
 const ANDROID = params.get("tv") === "android";
@@ -76,6 +78,9 @@ function pruneBad(bad) {
 
 const app = {
   lineup: null,
+  away: "", // a link-out station's site the TV app has over NostalGem (its name)
+  ptrAt: 0, // when the phone's pointer last moved
+
   adCount: Math.floor(Math.random() * 1000), // which ad-break quip comes next
   boxToken: 0, // the book box showing now (its details arrive later)
   adQuip: "",
@@ -3041,7 +3046,7 @@ function showPackHelp() {
       "Loading a pack never changes the shipped lineup.<br><br>" +
       "The format is in <b>PACKS.md</b>, with an example pack in <b>packs/example-pack.json</b>. " +
       "Several packs can come together in one <b>.zip</b>: every .json file in it is loaded. " +
-      "On a TV with no file picker, use Paste pack JSON instead. " +
+      "On a TV with no file picker, send it from the phone remote (its Channels page: Send a pack to the TV), or use Paste pack JSON. " +
       "Channels you load are your choice on your own TV.",
     buttons: [
       {
@@ -3054,7 +3059,8 @@ function showPackHelp() {
   });
 }
 
-function showPackErrors(label, errors) {
+function showPackErrors(label, errors, report) {
+  if (report) report({ state: "failed", bad: errors.slice(0, 12) });
   dialog.open({
     title: "That pack won't load",
     html:
@@ -3134,23 +3140,24 @@ function openPackPaste() {
   });
 }
 
-function handlePackText(text, label) {
+// report(what): the phone that sent the file hears how it went (see packFromPhone); null when it was chosen here.
+function handlePackText(text, label, report) {
   const parsed = parsePack(text);
-  if (!parsed.ok) return showPackErrors(label, parsed.errors);
+  if (!parsed.ok) return showPackErrors(label, parsed.errors, report);
   const pack = asPack(parsed.pack, label);
   const v = validatePack(pack);
-  if (!v.ok) return showPackErrors(label, v.errors);
-  confirmPacks([{ pack: pack, warnings: v.warnings }], [], label);
+  if (!v.ok) return showPackErrors(label, v.errors, report);
+  confirmPacks([{ pack: pack, warnings: v.warnings }], [], label, report);
 }
 
 // A .zip of packs: every .json file in it, each a pack or a skip-list file. The ones that check out can be
 // loaded together; the others are listed with what's wrong.
-function handlePackZip(buf, label) {
+function handlePackZip(buf, label, report) {
   let files;
   try {
     files = packFilesFromZip(buf);
   } catch (e) {
-    return showPackErrors(label, [e.message]);
+    return showPackErrors(label, [e.message], report);
   }
   const good = [];
   const bad = [];
@@ -3162,8 +3169,8 @@ function handlePackZip(buf, label) {
     if (!v.ok) return bad.push(f.name + ": " + v.errors[0] + (v.errors.length > 1 ? " (and " + (v.errors.length - 1) + " more)" : ""));
     good.push({ pack: pack, warnings: v.warnings });
   });
-  if (!good.length) return showPackErrors(label, bad.length ? bad : ["There are no packs (.json files) in this zip."]);
-  confirmPacks(good, bad, label);
+  if (!good.length) return showPackErrors(label, bad.length ? bad : ["There are no packs (.json files) in this zip."], report);
+  confirmPacks(good, bad, label, report);
 }
 
 // What a pack would add, for the "Load?" dialog.
@@ -3197,7 +3204,7 @@ function packSummaryHtml(pack) {
 }
 
 // good: [{ pack, warnings }] that check out; bad: lines about the files that didn't (from a zip).
-function confirmPacks(good, bad, label) {
+function confirmPacks(good, bad, label, report) {
   let html = good.length > 1 ? "<b>" + esc(label) + "</b> holds " + good.length + " packs.<br><br>" : "";
   html += good
     .map(function (g) {
@@ -3223,18 +3230,25 @@ function confirmPacks(good, bad, label) {
       (bad.length > 8 ? "<br>…and " + (bad.length - 8) + " more." : "");
   }
   html += "<br><br>Channels you load are saved on this TV only. They never change the shipped lineup.";
+  let answered = false;
   dialog.open({
     title: good.length > 1 ? "Load these packs?" : "Load this pack?",
     html: html,
+    onClose: function () {
+      if (!answered && report) report({ state: "cancelled" });
+      answered = true;
+    },
     buttons: [
       {
         label: good.length > 1 ? "Load " + good.length + " packs" : "Load pack",
         action: function (d) {
+          answered = true;
           d.close();
           loadPacks(
             good.map(function (g) {
               return g.pack;
-            })
+            }),
+            report
           );
         },
       },
@@ -3246,6 +3260,18 @@ function confirmPacks(good, bad, label) {
       },
     ],
   });
+  if (report) {
+    report({
+      state: "asked",
+      title: good.length > 1 ? "Load these packs?" : "Load this pack?",
+      ok: good.map(function (g) {
+        const chs = g.pack.channels || [];
+        const cuts = packSkipLists(g.pack).length;
+        return g.pack.pack + (chs.length ? " — " + chs.map(function (c) { return "CH " + c.number + " " + c.name; }).join(", ") : "") + (cuts ? (chs.length ? "; " : " — ") + "clean cuts for " + cuts + " film" + (cuts === 1 ? "" : "s") : "");
+      }),
+      bad: bad.slice(0, 12),
+    });
+  }
 }
 
 // Clean cuts a pack brought: kept on this TV, replacing older lists for the same film.
@@ -3268,7 +3294,7 @@ function keepSkipLists(lists) {
 
 // Load packs, one channel after another (a zip can hold several; a number one pack took moves the next
 // one's channel along).
-function loadPacks(packs) {
+function loadPacks(packs, report) {
   let cancelled = false;
   const done = [];
   const notes = [];
@@ -3284,10 +3310,12 @@ function loadPacks(packs) {
     });
   });
   const name = packs.length > 1 ? packs.length + " packs" : packs[0].pack;
+  if (report) report({ state: "loading", title: "Loading " + name });
   dialog.open({
     title: "Loading " + name,
     html: "Asking the Internet Archive for programs. This takes a few seconds per channel.",
     onClose: function () {
+      if (!cancelled && report) report({ state: "cancelled" });
       cancelled = true;
     },
     buttons: [
@@ -3305,6 +3333,15 @@ function loadPacks(packs) {
     saveCustom();
     cancelled = true; // done: closing the dialog now is not a cancel
     dialog.close();
+    if (report) {
+      report({
+        state: "loaded",
+        channels: done.map(function (c) {
+          return "CH " + chLabel(c) + " " + c.name;
+        }),
+        notes: notes.slice(0, 12),
+      });
+    }
     if (!done.length) {
       dialog.open({
         title: notes.length && !queue.length ? (packs.length > 1 ? "Packs loaded" : "Pack loaded") : packs.length > 1 ? "Packs loaded — nothing new" : "Pack loaded — nothing new",
@@ -3461,6 +3498,8 @@ function phoneSnapshot() {
     next: sl && sl.next ? sl.next.t : "",
     overlay: dialog.isOpen ? "dialog" : menu.isOpen ? "menu" : guide.isOpen ? "guide" : "",
     dialog: dlg,
+    away: app.away || "",
+    pointer: appCan("pointer") ? "app" : "page",
   };
 }
 
@@ -3495,11 +3534,16 @@ function phoneWake() {
   }
 }
 
-function phoneMessage(m) {
+function phoneMessage(m, conn) {
   if (app.state === "boot") return;
   if (m.t === "key") {
+    if (app.away && awayAction(m)) return;
     if (m.type === "back") back();
     else handleAction({ type: m.type, digit: m.digit });
+  } else if (POINTER_MESSAGES.indexOf(m.t) >= 0) {
+    pointerMessage(m);
+  } else if (m.t === "file") {
+    packFromPhone(m, conn);
   } else if (m.t === "tune") {
     const ch = app.channels.filter(function (c) {
       return c.slug === m.slug;
@@ -3517,6 +3561,120 @@ function phoneMessage(m) {
     closeOverlays();
     if (!tuneTypedNumber(m.text)) showFound(m.text);
   }
+}
+
+// ---------- the phone's Mouse page (pointer.js) ----------
+// In the TV app (newer versions say "pointer"), the app draws the pointer over whatever is on screen and
+// presses there for real, the YouTube player and 777's arcade included; this page passes the phone's
+// messages on. Anywhere else, the page draws its own pointer and works its own screen.
+const POINTER_MESSAGES = ["ptr", "click", "press", "scroll", "kbd", "text"];
+const pagePointer = new PagePointer($("pointer"), {
+  say: function (text) {
+    V.toast(text, 5000);
+  },
+  // Two fingers over the guide or a menu move a row at a time, like ▲▼.
+  steps: function (n) {
+    if (!navOpen() || reader.isOpen) return false;
+    for (let i = 0; i < Math.abs(n); i++) handleAction({ type: n > 0 ? "down" : "up" });
+    return true;
+  },
+});
+function appCan(what) {
+  return ANDROID && native.can.indexOf(what) >= 0;
+}
+function sendApp(m) {
+  const bridge = window.NostalGemTV;
+  if (!bridge || typeof bridge.postMessage !== "function") return false;
+  try {
+    bridge.postMessage(appMessage(m));
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+function pointerMessage(m) {
+  // The pointer's own mouse and touch events aren't a hand on the screen: no touch buttons for them.
+  app.ptrAt = Date.now();
+  if (m.t !== "ptr" && m.t !== "scroll") phoneWake();
+  if (appCan("pointer") && sendApp(m)) return;
+  if (m.t === "ptr") pagePointer.move(m.dx, m.dy);
+  else if (m.t === "click") pagePointer.click();
+  else if (m.t === "press") pagePointer.press(m.down);
+  else if (m.t === "scroll") pagePointer.scroll(m.dx, m.dy);
+  else if (m.t === "kbd") pagePointer.key(m.key, m.down);
+  else if (m.t === "text") pagePointer.text(m.s);
+}
+
+// ---------- a link-out station's site, over the TV (the TV app's second screen) ----------
+// A newer TV app (it says "overlay") opens 777's arcade and friends over NostalGem instead of in its place,
+// so this page keeps running underneath: the phone stays linked, and its pointer and keys reach the site.
+// The program stops while the site is up and comes back when the app says it's closed.
+function goAway(ch) {
+  app.away = ch.name;
+  suspend();
+  if (!sendApp({ t: "open", url: linkUrl(ch) })) cameHome();
+}
+function cameHome() {
+  if (!app.away) return;
+  app.away = "";
+  resume();
+}
+// The phone's buttons while a site is up: the arrows and OK go to the site (as the TV remote's do); BACK
+// steps back through it and then home; anything else comes home first and then happens here.
+const AWAY_KEYS = { up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight", ok: "Enter" };
+function awayAction(m) {
+  if (AWAY_KEYS[m.type]) {
+    app.ptrAt = Date.now();
+    return sendApp({ t: "kbd", key: AWAY_KEYS[m.type], down: null });
+  }
+  if (m.type === "back") return sendApp({ t: "back" });
+  if (m.type === "mute") return sendApp({ t: "mute" });
+  sendApp({ t: "close" });
+  cameHome();
+  return false;
+}
+
+// ---------- a channel pack sent from the phone ----------
+// The phone sends the file in pieces (link.js); once it's all here, it goes through the same loader as a
+// file chosen on the TV — checked, then "Load these packs?" — and the phone hears what the TV made of it.
+const incoming = {}; // id -> { name, size, n, parts, got, at }
+function packFromPhone(m, conn) {
+  const now = Date.now();
+  Object.keys(incoming).forEach(function (id) {
+    if (now - incoming[id].at > 60000) delete incoming[id];
+  });
+  let f = incoming[m.id];
+  if (!f) {
+    if (Object.keys(incoming).length >= 3) return;
+    f = incoming[m.id] = { name: m.name, size: m.size, n: m.n, parts: [], got: 0, at: now };
+  }
+  if (f.n !== m.n || f.size !== m.size) return;
+  f.at = now;
+  if (f.parts[m.i] == null) {
+    f.parts[m.i] = m.data;
+    f.got++;
+  }
+  link.sendTo(conn, { t: "fileack", id: m.id, i: m.i });
+  if (f.got < f.n) return;
+  delete incoming[m.id];
+  const report = function (what) {
+    link.sendTo(conn, Object.assign({ t: "packs", id: m.id, name: f.name }, what));
+  };
+  let bytes = null;
+  try {
+    const bin = atob(f.parts.join(""));
+    bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  } catch (e) {
+    bytes = null;
+  }
+  if (!bytes || bytes.length !== f.size) return report({ state: "failed", bad: ["The file didn't arrive whole. Send it again."] });
+  phoneWake();
+  closeOverlays();
+  V.toast("📱 A channel pack from the phone: " + f.name, 3000);
+  const zip = /\.zip$/i.test(f.name) || (bytes[0] === 0x50 && bytes[1] === 0x4b);
+  if (zip) handlePackZip(bytes, f.name, report);
+  else handlePackText(utf8Text(bytes), f.name, report);
 }
 
 function pairStatus() {
@@ -3721,7 +3879,7 @@ function canOpenHere() {
 
 // A link-out station's card, with a QR code so a phone can open the site too.
 function showLinkCard(ch) {
-  V.showCard(linkCardName(ch), V.linkCard(ch, ANDROID, canOpenHere()));
+  V.showCard(linkCardName(ch), V.linkCard(ch, ANDROID, canOpenHere(), appCan("pointer")));
   loadScript("vendor/qrcode.js")
     .then(function () {
       const box = document.querySelector(".link-qr");
@@ -3736,6 +3894,13 @@ function showLinkCard(ch) {
 // OK on a link-out station: a new tab in a browser; in the TV app, the site right on the TV (BACK on the
 // remote comes back); in an older TV app that can't, the phone.
 function openLinkOut(ch) {
+  if (appCan("overlay")) {
+    V.toast("Opening " + ch.name + "… BACK on the remote comes back here", 4000);
+    setTimeout(function () {
+      if (current() === ch) goAway(ch);
+    }, 700);
+    return;
+  }
   if (canOpenHere()) {
     V.toast("Opening " + ch.name + "… BACK on the remote comes back here", 4000);
     const url = linkUrl(ch);
@@ -3948,6 +4113,10 @@ function back() {
 document.addEventListener("keydown", function (e) {
   const a = actionFor(e);
   if (!a) return;
+  if (e.isTrusted) {
+    cameHome(); // a real key here: NostalGem is what's on screen
+    pagePointer.hide(); // a hand on the remote: the phone's pointer gets out of the way
+  }
   if (isTypingTarget(e.target)) {
     // A text field keeps its own keys; the app takes Escape, Enter and ▲▼.
     const esc = a.type === "back" && e.key !== "Backspace" && e.keyCode !== 8;
@@ -3971,6 +4140,7 @@ function fromInput(source, a) {
 // ---------- mouse and touch ----------
 let pointerTimer = 0;
 function pointerActivity() {
+  if (Date.now() - (app.ptrAt || 0) < 1500) return; // the phone's pointer, not a hand on the screen
   touch.hidden = false;
   tv.classList.add("touch-on");
   tv.classList.remove("hide-cursor");
@@ -4090,6 +4260,7 @@ function suspend() {
   player.off();
 }
 function resume() {
+  if (app.away) return; // a link-out station's site is on top; the app says when it's gone
   ambience.wake();
   askApp();
   if (!app.suspended) return;
@@ -4131,6 +4302,7 @@ document.addEventListener("visibilitychange", function () {
 window.NP = {
   version: VERSION,
   remote: function (type, d) {
+    cameHome(); // the app only hands this page keys when NostalGem is what's on screen
     if (type === "back") return back();
     handleAction({ type: type, digit: d });
     return true;
@@ -4176,6 +4348,8 @@ window.NP = {
       sound: player.soundState(),
       cut: player.cutState(),
       cutCard: !$("cutcard").hidden,
+      pointer: pagePointer.state(),
+      away: app.away,
     };
   },
 };
@@ -4305,6 +4479,9 @@ function askApp() {
       return;
     }
     if (!m || typeof m !== "object") return;
+    // A link-out station's site was closed (BACK, or held Select): back to the program.
+    if (m.t === "home") return cameHome();
+    if (m.t) return;
     if (Array.isArray(m.lan)) native.lan = m.lan.filter(isIPv4).slice(0, 4);
     if (typeof m.app === "string") native.app = m.app.slice(0, 20);
     if (Array.isArray(m.can)) {
@@ -4374,6 +4551,7 @@ async function boot() {
   // Any standard controller drives the remote: D-pad to surf, A for OK, B to go back.
   createGamepad(
     function (a) {
+      if (app.away) return; // a controller playing the arcade's games, over this page
       fromInput("pad", a);
     },
     {

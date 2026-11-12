@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
     <title>NostalGem Remote</title>
-    <meta name="description" content="Use your phone as the remote for NostalGem: buttons, a channel list, and a keyboard for searching the Internet Archive." />
+    <meta name="description" content="Use your phone as the remote for NostalGem: buttons, a trackpad and keyboard for the TV, a channel list, and a keyboard for searching the Internet Archive." />
     <meta name="theme-color" content="#0d0221" />
     <meta name="color-scheme" content="dark" />
     <link rel="manifest" href="remote.webmanifest" />
@@ -96,9 +96,53 @@
         </div>
       </section>
 
+      <!-- Mouse: a trackpad for a pointer on the TV, keys, and a keyboard (pointer.js on the TV) -->
+      <section id="mouse" class="view" hidden>
+        <p id="mouseWhere" class="where">The pointer is on the TV. Drag here to move it, tap to click.</p>
+        <div id="trackpad" class="trackpad" role="application" aria-label="Trackpad: drag to move the pointer on the TV, tap to click, two fingers to scroll, hold to drag">
+          <span class="tp-hint">Drag to move · tap to click<br />two fingers to scroll · hold, then move to drag</span>
+        </div>
+        <div class="keys" role="group" aria-label="Keys">
+          <div class="krow">
+            <button type="button" data-kbd="Escape" class="kk">Esc</button>
+            <button type="button" data-kbd="Tab" class="kk">Tab</button>
+            <button type="button" data-kbd="Backspace" data-hold class="kk" aria-label="Backspace">⌫</button>
+            <button type="button" data-kbd="Enter" class="kk wide" aria-label="Enter">Enter ⏎</button>
+          </div>
+          <div class="krow arrows">
+            <div class="kpad">
+              <button type="button" data-kbd="ArrowUp" data-hold class="k-up" aria-label="Up arrow">▲</button>
+              <button type="button" data-kbd="ArrowLeft" data-hold class="k-left" aria-label="Left arrow">◀</button>
+              <button type="button" data-kbd="ArrowDown" data-hold class="k-down" aria-label="Down arrow">▼</button>
+              <button type="button" data-kbd="ArrowRight" data-hold class="k-right" aria-label="Right arrow">▶</button>
+            </div>
+            <div class="kgame" role="group" aria-label="Game keys">
+              <button type="button" data-kbd="z" data-hold class="kk">Z</button>
+              <button type="button" data-kbd="x" data-hold class="kk">X</button>
+              <button type="button" data-kbd="a" data-hold class="kk">A</button>
+              <button type="button" data-kbd="s" data-hold class="kk">S</button>
+            </div>
+          </div>
+          <div class="krow">
+            <button type="button" data-kbd=" " data-hold class="kk space" aria-label="Space">space</button>
+            <button type="button" id="kbdBtn" class="kk wide" aria-expanded="false" aria-controls="kbd">⌨ Keyboard</button>
+          </div>
+        </div>
+        <form id="kbd" class="kbd" autocomplete="off" hidden>
+          <input id="kbdInput" type="text" enterkeyhint="send" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Type here: it types on the TV" aria-label="Type on the TV" />
+          <button type="submit" class="kk">⏎</button>
+        </form>
+      </section>
+
       <!-- Channel list -->
       <section id="channels" class="view" hidden>
         <h2>Channels</h2>
+        <div class="send-pack">
+          <button type="button" id="packBtn" class="big alt">📦 Send a pack to the TV</button>
+          <input type="file" id="packFile" accept=".json,.zip,application/json,application/zip,application/x-zip-compressed" hidden />
+          <p id="packMsg" class="msg" role="status"></p>
+          <ul id="packList" class="pack-list" hidden></ul>
+        </div>
         <ul id="chList" class="ch-list"></ul>
       </section>
 
@@ -122,6 +166,7 @@
 
     <nav class="tabs" id="tabs" hidden>
       <button type="button" data-tab="remote" class="on"><i>◉</i>Remote</button>
+      <button type="button" data-tab="mouse"><i>➚</i>Mouse</button>
       <button type="button" data-tab="channels"><i>☰</i>Channels</button>
       <button type="button" data-tab="search"><i>⌕</i>Search</button>
     </nav>

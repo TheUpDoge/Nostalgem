@@ -156,7 +156,9 @@ YouTube's player) and rebuilt daily:
   `web/data/skip-lists.json` is empty, and a pack can carry its own (see [PACKS.md](PACKS.md)).
 - **📱 Phone remote**: Menu ▸ Phone remote shows a QR code; the phone opens it and becomes a
   remote for that TV — channels, volume, guide — over a direct connection. The pairing code is
-  kept, so a paired phone reconnects after the TV restarts.
+  kept, so a paired phone reconnects after the TV restarts. Its **Mouse** page is a trackpad and
+  keyboard for the TV (777's arcade, ASCII City, the YouTube player), and its **Channels** page sends a
+  channel pack to the TV.
 - **Search the Archive** builds a channel from words, Archive search terms, or a pasted archive.org link
   (one item or a whole collection). A channel number typed there just tunes that channel.
 
@@ -188,8 +190,8 @@ channel, play/pause, info, guide and coloured buttons.
 
 The app runs the published site, so new channels and fixes reach the TV as soon as they're on GitHub
 Pages, with no reinstall. Stations that are another site (777's arcade and the like) open right on the
-TV in the app: press OK, play with the remote or a controller, and press BACK on the remote (or hold
-Select on the controller) to come back. Reinstall only when the app itself changes: run the workflow again and use
+TV in the app: press OK, play with the remote, a controller or the phone remote's Mouse page, and press
+BACK on the remote (or hold Select on the controller) to come back. Reinstall only when the app itself changes: run the workflow again and use
 the same link. Your favorites and settings are kept.
 
 > The APK is signed with a key kept in this repo (`android-tv/keystore/`), so new builds install over
@@ -278,6 +280,28 @@ real keyboard for **Search the Archive**.
 - The TV keeps its code, so a paired phone reconnects by itself after the TV restarts. **New code** in
   the same dialog disconnects every phone paired before; **Turn off** stops listening.
 - The QR code points at the GitHub Pages copy, so turn on Pages first: Settings ▸ Pages ▸ Source: **GitHub Actions**.
+
+**🖱 Mouse: a trackpad and keyboard for the TV.** For the sites some stations open (777's arcade, ASCII
+City) and anything else that wants a mouse or a keyboard:
+
+- Drag on the trackpad and a pointer moves on the TV; tap to click. Two fingers scroll (over the guide
+  or a menu, a row at a time). Hold still a moment, then move, to drag (a slider, a game).
+- Keys: Esc, Tab, ⌫, Enter, the arrows, space, and Z X A S for games. Held keys stay down (and the
+  arrows and ⌫ repeat) until you let go.
+- **⌨ Keyboard** drops down a text field: what you type goes to the TV as you type it, corrections too.
+- **In the TV app** (updated once for this: run the workflow, then the same Downloader link) the app draws the pointer over whatever is on the screen
+  and presses there for real: NostalGem, the YouTube player, and the link-out stations' sites, which open
+  over NostalGem so the phone stays linked. While a site is up, the phone's arrows and OK go to it, BACK
+  steps back through it and then home, and CH, Guide or Menu come home and do what they say.
+- **In a browser** the TV page draws the pointer and works its own screen: menus, the guide, buttons and
+  text fields. A browser doesn't let one page press buttons in another, so it can't reach into the
+  YouTube player or a link-out site (those open in their own tab).
+
+**📦 Send a pack to the TV** (the phone's Channels page): pick a channel pack, a `.json` or a `.zip` of
+them, from the phone's files. It goes to the TV over the same link (direct or relay), and the TV checks
+it with its own pack loader and asks **Load these packs?**; a pack that doesn't check out is listed and
+left out, and the phone shows the same list. OK on the remote loads them, and the phone says what went
+on the air.
 
 ## Make it yours
 
@@ -385,6 +409,7 @@ npm i --no-save playwright@1.63.0 peer@1.0.2 && npx playwright install chromium
 npm run test:browser      # drives the app in Chromium with remote keys; SHOTS=1 saves screenshots
 npm run test:lan          # the phone remote over real WebRTC, through a local PeerJS broker
 npm run test:relay        # the phone remote through the relay with WebRTC blocked (local MQTT broker)
+npm run test:mouse        # the phone's Mouse page and packs from the phone: in a browser, in the TV app, and through the relay
 ```
 
 The browser test needs no network. Small local clips stand in for the Archive, and it checks
@@ -401,6 +426,7 @@ web/
   js/archive.js                Internet Archive client: search, pick the best MP4/MP3, subtitles, filters
   js/remote.js                 keys from keyboards, TV browsers (webOS/Tizen codes) and the Android app
   js/link.js                   phone remote pairing and messages (TV and phone side)
+  js/pointer.js                the phone's Mouse page on the TV: a pointer, clicks, scrolling, keys and typing
   js/relay.js                  the encrypted relay the phone remote falls back on
   js/ui/numpad.js              the on-screen number pad
   remote.html, js/phone.js     the phone remote page (an installable PWA)
@@ -454,7 +480,12 @@ tests/                         node:test unit tests + a Playwright smoke test
   of home Wi-Fi (and any Android app that doesn't ask for multicast) never answers. So the TV app hands
   the page its real Wi-Fi address (`window.NostalGemTV`, offered only to this site's pages), and the
   TV sends the phone each hidden address twice: as the browser wrote it, and with the real one. The phone sends the same actions a
-  key press makes; the TV sends back what's on. Only whitelisted actions are accepted.
+  key press makes; the TV sends back what's on. Only whitelisted actions are accepted. The Mouse page
+  sends pointer moves (fractions of the TV's width), clicks, scrolls, keys and text; in the TV app the page
+  hands them to the app (`MainActivity.kt`), which draws the pointer and injects real touches, mouse
+  hovers, wheel scrolls and key presses into whatever view is in front. A pack sent from the phone goes
+  in 12,000-character pieces, each answered, and the TV puts it through the same loader as a file picked
+  on the TV.
 - **The relay** (`js/relay.js`) runs alongside, for networks where the two can't reach each other. Both
   sides connect out over secure WebSockets to public MQTT brokers (EMQX, HiveMQ, Eclipse); the TV
   listens on all of them, the phone uses the first where the TV answers. The topic is a hash of the code

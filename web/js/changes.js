@@ -4,6 +4,15 @@
 
 export const CHANGES = [
   {
+    v: "1.13.0",
+    title: "A mouse and keyboard on your phone",
+    items: [
+      "The phone remote has a Mouse page: drag on it and a pointer moves on the TV, tap to click, two fingers to scroll. Keys for Esc, Enter, the arrows, space and games, and a keyboard that types on the TV.",
+      "In the TV app, the pointer works everywhere: on 777's arcade, ASCII City and the YouTube player too. Those sites now open over NostalGem, so the phone stays linked while you play. Needs the newest TV app.",
+      "Send a channel pack from your phone: the phone remote's Channels page ▸ Send a pack to the TV. The TV checks it and asks before loading, and the phone shows what it found.",
+    ],
+  },
+  {
     v: "1.12.0",
     title: "Packs in the hundreds",
     items: [

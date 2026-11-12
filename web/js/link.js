@@ -9,9 +9,20 @@
 //               { t: "search", text, kind }      build a channel from an Archive search ("video" | "audio")
 //               { t: "find", text }              find a show on the TV's channels (the TV lists them)
 //               { t: "hello", v }                sent once the channel opens
+//             The Mouse page (pointer.js carries these out on the TV):
+//               { t: "ptr", dx, dy }             move the pointer, in fractions of the TV's width
+//               { t: "click" }                   click where the pointer is
+//               { t: "press", down }             hold the button down (a drag), or let go
+//               { t: "scroll", dx, dy }          scroll, in fractions of the TV's width
+//               { t: "kbd", key, down }          a keyboard key: down true/false holds it, null presses it
+//               { t: "text", s }                 typed text
+//             Sending a channel pack (a .json, or a .zip of them) in pieces:
+//               { t: "file", id, name, size, n, i, data }   piece i of n, base64
 //   TV → phone  { t: "state", ... }              what's on, sent whenever it changes
 //               { t: "channels", list }          the lineup with what's on each channel now
 //               { t: "toast", text }             the TV's own pop-up messages, mirrored
+//               { t: "fileack", id, i }          piece i arrived
+//               { t: "packs", id, state, ... }   what the TV made of a pack the phone sent
 //
 // When the two can't reach each other directly, the same messages go through a relay instead (relay.js):
 // public message brokers, encrypted with a key made from the code. Both run at once; the phone keeps
@@ -66,6 +77,34 @@ export function remoteUrl(code, loc, override) {
   return base + "#" + code;
 }
 
+// Keys the Mouse page may press on the TV, as a keyboard would: the arrows, Enter, Escape, Space, Tab and
+// the editing keys, and single letters and digits (a game's buttons). Anything else is dropped.
+export const KBD_KEYS = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "Escape", " ", "Tab", "Backspace", "Delete", "Home", "End", "PageUp", "PageDown"];
+export function kbdKey(k) {
+  return typeof k === "string" && (KBD_KEYS.indexOf(k) >= 0 || /^[a-z0-9]$/.test(k)) ? k : "";
+}
+
+// The phone's keyboard field, before and after a change: how many letters to delete on the TV, then what
+// to add. A correction (an autocorrected word) comes out as ⌫s and the new letters.
+export function typingDiff(was, now) {
+  let i = 0;
+  while (i < was.length && i < now.length && was.charAt(i) === now.charAt(i)) i++;
+  return { del: was.length - i, add: now.slice(i) };
+}
+
+// A file from the phone (a channel pack): at most FILE_MAX bytes, sent FILE_CHUNK base64 characters at a
+// time, small enough for the relay's message brokers.
+export const FILE_MAX = 1024 * 1024;
+export const FILE_CHUNK = 12000;
+export const FILE_PIECES = Math.ceil(Math.ceil(FILE_MAX / 3) * 4 / FILE_CHUNK);
+
+function finite(v, limit) {
+  return typeof v === "number" && isFinite(v) && Math.abs(v) <= limit ? v : null;
+}
+function whole(v, lo, hi) {
+  return typeof v === "number" && Math.floor(v) === v && v >= lo && v <= hi;
+}
+
 // Actions a phone may send. Anything else is dropped.
 const KEYS = [
   "up", "down", "left", "right", "ok", "back", "chup", "chdown", "guide", "menu", "info",
@@ -96,6 +135,36 @@ export function checkMessage(m) {
     }
     case "hello":
       return { t: "hello", v: Number(m.v) || 0 };
+    case "ptr": {
+      const dx = finite(m.dx, 1);
+      const dy = finite(m.dy, 1);
+      return dx === null || dy === null ? null : { t: "ptr", dx: dx, dy: dy };
+    }
+    case "click":
+      return { t: "click" };
+    case "press":
+      return { t: "press", down: m.down === true };
+    case "scroll": {
+      const dx = finite(m.dx, 2);
+      const dy = finite(m.dy, 2);
+      return dx === null || dy === null ? null : { t: "scroll", dx: dx, dy: dy };
+    }
+    case "kbd": {
+      const key = kbdKey(m.key);
+      if (!key) return null;
+      return { t: "kbd", key: key, down: m.down === true ? true : m.down === false ? false : null };
+    }
+    case "text": {
+      const text = typeof m.s === "string" ? m.s.replace(/[\u0000-\u001f\u007f]/g, "").slice(0, 200) : "";
+      return text ? { t: "text", s: text } : null;
+    }
+    case "file": {
+      if (typeof m.id !== "string" || !/^[A-Za-z0-9]{4,16}$/.test(m.id)) return null;
+      if (typeof m.name !== "string" || !m.name || m.name.length > 120) return null;
+      if (!whole(m.size, 1, FILE_MAX) || !whole(m.n, 1, FILE_PIECES) || !whole(m.i, 0, m.n - 1)) return null;
+      if (typeof m.data !== "string" || m.data.length > FILE_CHUNK || !/^[A-Za-z0-9+/=]*$/.test(m.data)) return null;
+      return { t: "file", id: m.id, name: m.name.replace(/[\\/]+/g, "_"), size: m.size, n: m.n, i: m.i, data: m.data };
+    }
     default:
       return null;
   }
