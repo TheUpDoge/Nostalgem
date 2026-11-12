@@ -130,6 +130,8 @@ check(lines.some((l) => c.text.includes(l.replace(/\s+/g, " "))) && /CH 06 · MI
 check(await page.isVisible("#card .fscene.fs-noir .l2"), "…blinds and a shaft of light behind it");
 await shot("card-loading-noir.png", 350);
 await page.waitForFunction(() => window.NP.state().mode === "playing", null, { timeout: 15000 }).catch(() => {});
+// The card stays through its minimum and a short grace after the picture is really up (loadhold.js), then leaves.
+await page.waitForFunction(() => window.NP.state().mode === "playing" && document.getElementById("card").hidden, null, { timeout: 12000 }).catch(() => {});
 check((await st()).mode === "playing" && (await card()).hidden, "…and it goes when the picture comes");
 slowMedia = 0;
 
