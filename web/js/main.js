@@ -609,6 +609,24 @@ function onCut(info) {
   }
 }
 
+// Is what's on now sound only? A radio channel's program, or a recording sent from a phone (whatever the
+// channel under it).
+function radioNow(ch) {
+  const item = player.slot ? player.slot.item : null;
+  return item && item.sent ? item.sent === "audio" : !!ch && ch.kind === "audio";
+}
+
+// The channel whose look the ad card takes: none while the ad is ahead of something sent from a phone
+// (that isn't the channel's show, so it gets the plain card).
+function adChannel(ch) {
+  const item = player.slot ? player.slot.item : null;
+  return item && item.sent ? null : ch;
+}
+function showAdCard(ch) {
+  const own = adChannel(ch);
+  V.showCard("adbreak", V.adBreakCard(app.adQuip, own), own ? cardClass(own) : "");
+}
+
 function onPlayerState(mode, extra) {
   const ch = current();
   clearTimeout(app.loadCardTimer);
@@ -621,13 +639,16 @@ function onPlayerState(mode, extra) {
       V.hideCard();
       showRadio(ch);
       // A slow load (a TV on slow Wi-Fi, a big film): after a moment the channel's own card, in its family's
-      // look, takes over from the snow until the picture comes. Radio has its own panel.
-      if (ch && ch.kind !== "audio") {
+      // look, takes over from the snow until the picture comes. Radio has its own panel. Something sent
+      // from a phone isn't the channel's program: it gets NostalGem's own card, saying whose it is.
+      if (ch && !radioNow(ch)) {
         const tunedAt = Date.now();
+        const item = player.slot ? player.slot.item : null;
         app.loadCardTimer = setTimeout(function () {
-          if (player.mode !== "tuning" || app.state !== "on" || current() !== ch) return;
+          if (player.mode !== "tuning" || app.state !== "on" || current() !== ch || (player.slot ? player.slot.item : null) !== item) return;
           fx.release();
-          V.showCard("tuning", V.loadingCard(ch, app.cards, tunedAt), cardClass(ch));
+          if (item && item.sent) V.showCard("tuning", V.sentLoadingCard(item));
+          else V.showCard("tuning", V.loadingCard(ch, app.cards, tunedAt), cardClass(ch));
         }, LOAD_CARD_AFTER);
       }
       break;
@@ -663,8 +684,8 @@ function onPlayerState(mode, extra) {
     case "adbreak":
       fx.release();
       hideRadio();
-      app.adQuip = V.adQuip(app.adCount++, familyAdQuips(app.cards, ch));
-      V.showCard("adbreak", V.adBreakCard(app.adQuip, ch), cardClass(ch));
+      app.adQuip = V.adQuip(app.adCount++, adChannel(ch) ? familyAdQuips(app.cards, ch) : []);
+      showAdCard(ch);
       break;
     case "off":
       fx.release();
@@ -2200,8 +2221,7 @@ function showProblems() {
 function showRadio(ch) {
   const item = player.slot ? player.slot.item : null;
   // Something sent from a phone is radio or a picture by what it is, whatever the channel under it.
-  const audio = item && item.sent ? item.sent === "audio" : !!ch && ch.kind === "audio";
-  if (!ch || !audio || app.state !== "on") {
+  if (!ch || !radioNow(ch) || app.state !== "on") {
     hideRadio();
     return;
   }
@@ -3888,14 +3908,17 @@ function phoneMessage(m, conn) {
       return c.slug === m.slug;
     })[0];
     if (!ch) return;
+    phoneHome();
     phoneWake();
     closeOverlays();
     tuneTo(ch);
   } else if (m.t === "search") {
+    phoneHome();
     phoneWake();
     closeOverlays();
     if (!tuneTypedNumber(m.text)) buildCustom(searchDef(m.text, m.kind));
   } else if (m.t === "find") {
+    phoneHome();
     phoneWake();
     closeOverlays();
     if (!tuneTypedNumber(m.text)) showFound(m.text);
@@ -4065,7 +4088,7 @@ function openPairing() {
     title: "Phone remote",
     html:
       '<div class="pair"><div class="pair-qr"></div><div class="pair-info">' +
-      "Point your phone's camera at the code to use it as the remote: buttons, a channel list, a keyboard for searching, and Send to TV for a YouTube or archive.org link." +
+      "Point your phone's camera at the code to use it as the remote: buttons, a mouse and keyboard, a channel list, searching, and Send to TV for a YouTube or archive.org link." +
       '<div class="pair-or">or open <b>' +
       esc(shown) +
       "</b> and enter</div>" +
@@ -4260,7 +4283,7 @@ function restoreCard() {
   if (player.mode === "gap" && player.slot) V.showCard("gap", V.gapCard(ch, player.slot, s.clock24, app.bumpers, app.cards), cardClass(ch));
   else if (player.mode === "standby") V.showCard("standby", V.standbyCard(app.standby));
   else if (player.mode === "empty") V.showCard("empty", V.emptyCard(ch, app.emptyWhy));
-  else if (player.mode === "adbreak") V.showCard("adbreak", V.adBreakCard(app.adQuip, ch), cardClass(ch));
+  else if (player.mode === "adbreak") showAdCard(ch);
   else if (player.mode === "gesture") V.showCard("gesture", V.gestureCard());
   else if (isLinkChannel(ch)) showLinkCard(ch);
   else V.hideCard();

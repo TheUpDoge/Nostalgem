@@ -238,6 +238,20 @@ const browser = await chromium.launch();
   p = await ph.evaluate(() => window.NGRemote.state());
   check(/couldn't load bad\.json/.test(p.pack) && /30 to 49/.test(p.packList), "a pack that doesn't check out: the phone says why (" + p.packList.slice(0, 90) + ")");
   check(/won't load/.test(await tv.textContent("#dialog")), "…and so does the TV");
+  // The hundreds are open to packs (CH 100–199): one sent from the phone that asks for CH 101 lands there.
+  await send({ t: "key", type: "back" });
+  await tv.waitForFunction(() => window.NP.state().overlay !== "dialog", null, { timeout: 5000 }).catch(() => {});
+  const [chooser3] = await Promise.all([ph.waitForEvent("filechooser"), ph.click("#packBtn")]);
+  await chooser3.setFiles({ name: "hundreds.json", mimeType: "application/json", buffer: Buffer.from(pack("Mouse Hundred", 101, "test_mouse_b")) });
+  await tv.waitForFunction(() => /Load this pack/.test(document.getElementById("dialog").textContent), null, { timeout: 8000 }).catch(() => {});
+  await ph.waitForFunction(() => /Mouse Hundred — CH 101/.test(window.NGRemote.state().packList), null, { timeout: 5000 }).catch(() => {});
+  p = await ph.evaluate(() => window.NGRemote.state());
+  check(/Mouse Hundred — CH 101/.test(p.packList), "a pack from the phone that asks for CH 101 is offered CH 101: " + p.packList.slice(0, 80));
+  await send({ t: "key", type: "ok" });
+  await ph.waitForFunction(() => /On the air/.test(window.NGRemote.state().pack), null, { timeout: 15000 }).catch(() => {});
+  p = await ph.evaluate(() => window.NGRemote.state());
+  s = await st();
+  check(/On the air: CH 101 Mouse Hundred/.test(p.pack) && s.channel === 101 && s.label === "101", `…and it goes on the air there (${p.pack.slice(0, 60)}; the TV is on CH ${s.label})`);
   await ctx.close();
 }
 

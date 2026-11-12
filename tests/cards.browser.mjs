@@ -92,6 +92,23 @@ check(/SHOWDOWN IN/.test(c.text) && (await page.isVisible("#card .card-count")),
 check(c.text.includes(b.slot.next.t.slice(0, 20)), "…naming the next program: " + b.slot.next.t);
 await shot("card-western.png");
 
+// With Screen shape on 4:3 the card and its scenery keep to the box in the middle of the screen.
+await page.evaluate(() => localStorage.setItem("nostalgem:settings", JSON.stringify({ staticFx: "silent", shape: "43" })));
+await ctx.addInitScript(() => localStorage.setItem("nostalgem:settings", JSON.stringify({ staticFx: "silent", shape: "43" })));
+await page.goto(base + "?ch=1");
+await page.waitForFunction(() => window.NP && window.NP.state().mode === "gap", null, { timeout: 15000 }).catch(() => {});
+const box = await page.evaluate(() => {
+  const r = (el) => {
+    const b = el.getBoundingClientRect();
+    return { x: Math.round(b.left), w: Math.round(b.width), h: Math.round(b.height) };
+  };
+  const sc = document.querySelector("#card .fscene.fs-western");
+  const panel = document.querySelector("#card .card-panel").getBoundingClientRect();
+  return { tv: r(document.getElementById("tv")), card: r(document.getElementById("card")), scene: sc ? r(sc) : null, panelIn: panel.left >= 160 && panel.right <= 1120 };
+});
+check(box.tv.w === 960 && box.tv.x === 160 && box.card.w === 960 && box.card.x === 160 && box.scene && box.scene.w === 960 && box.scene.x === 160 && box.panelIn, `in 4:3 the western card and its sundown keep to the 960-wide box (card ${box.card.w} at ${box.card.x}, scene ${box.scene ? box.scene.w : "none"})`);
+await ctx.addInitScript(() => localStorage.setItem("nostalgem:settings", JSON.stringify({ staticFx: "silent" })));
+
 // ---------- a horror channel's break, with a bumper's break skipped if the clock lands on one ----------
 ch = chan("creature-feature");
 b = breakOf(ch);

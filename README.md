@@ -342,6 +342,8 @@ other TV still sees the shared clock.
   ⏮ ⏭, and pause. The bar is there for anything on demand: a Video Club tape and "watch from the start" too.
 - **🌐 Search the Archive**, on the same page, looks up films and recordings by title from the phone. Tap
   one and the TV plays it.
+- **If a link-out station's site is open** over NostalGem in the TV app (777's arcade, say), it closes when
+  you send a link, and when you tap a channel on the phone.
 - **Android: the Share menu.** With the remote added to the home screen (Chrome ▸ Add to Home Screen),
   **NG Remote** appears in other apps' Share menus. Share a video from YouTube or a page from archive.org
   and it lands in the Send to TV box; one tap plays it. It never plays by itself, so a link somebody else

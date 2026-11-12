@@ -235,6 +235,13 @@ export function loadingCard(ch, cards, startMs) {
   return sceneFor(ch) + panel("CH " + chLabel(ch) + " · " + ch.name.toUpperCase(), loadingLine(cards, ch, startMs), "", '<div class="card-dots"><i></i><i></i><i></i></div>');
 }
 
+// Something a phone sent (Send to TV) is taking a moment to load: NostalGem's own card, not the channel's,
+// saying whose it is. A YouTube video has no title until it plays.
+export function sentLoadingCard(item) {
+  const title = item && !item.untitled ? item.t + (item.e ? " · " + item.e : "") : "";
+  return SCENE + panel("📲 FROM YOUR PHONE", "ONE MOMENT PLEASE", title, '<div class="card-dots"><i></i><i></i><i></i></div>');
+}
+
 // A house bumper: same sunset scene and panel, same countdown and up-next line
 // as the plain break card, so it still does the break card's job.
 export function bumperCard(ch, slot, clock24, bumper) {

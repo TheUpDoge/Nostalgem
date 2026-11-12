@@ -8,6 +8,10 @@
 //   lines up, skipping one that won't play. A link from the phone's Share sheet waits for one tap. The
 //   phone's own Archive search lists what it found (adult left out) and a tap plays one. Through the relay
 //   (no WebRTC, a local broker) a link gets there too.
+//   Where it meets the other features: a sent film slow to load gets NostalGem's own "from your phone" card
+//   (not the channel family's), an ad ahead of a sent YouTube video gets the plain ad card, and in the TV
+//   app a link-out station's site that's open over NostalGem closes when the phone sends a link or taps a
+//   channel.
 //
 //   npm install --no-save playwright && node tests/sendto.browser.mjs
 
@@ -38,8 +42,10 @@ async function serveMedia(req, res, file, type) {
   const end = m[2] ? Math.min(Number(m[2]), body.length - 1) : body.length - 1;
   res.writeHead(206, { "content-type": type, "content-length": end - start + 1, "content-range": `bytes ${start}-${end}/${body.length}`, "accept-ranges": "bytes" }).end(body.subarray(start, end + 1));
 }
+let slowMedia = 0; // ms to hold a film back, for the card while something sent loads
 const site = createServer(async (q, s) => {
   const path = new URL(q.url, "http://x").pathname;
+  if (slowMedia && path.startsWith("/__media/")) await new Promise((ok) => setTimeout(ok, slowMedia));
   if (path === "/__media/test.mp4") return serveMedia(q, s, join(fixtures, "test.mp4"), "video/mp4");
   if (path === "/__media/test.mp3") return serveMedia(q, s, join(fixtures, "test.mp3"), "audio/mpeg");
   if (path === "/data/lineup.json") return s.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(lineup));
@@ -417,6 +423,19 @@ const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gestur
   await tv.evaluate(() => window.NP.back());
   await tvLive();
 
+  // Something sent that's slow to load: NostalGem's own card, saying it's from the phone. Not the channel
+  // family's card (CH 01 is a western), and not the channel's name.
+  slowMedia = 2600;
+  await sendFromBox("https://archive.org/details/test_sent_film");
+  await tv.waitForFunction(() => !document.getElementById("card").hidden && /card-tuning/.test(document.getElementById("card").className), null, { timeout: 9000 }).catch(() => {});
+  const lc = await tv.evaluate(() => ({ cls: document.getElementById("card").className, hidden: document.getElementById("card").hidden, text: document.getElementById("card").textContent.replace(/\s+/g, " ").trim(), house: !!document.querySelector("#card .scene"), fam: !!document.querySelector("#card .fscene") }));
+  check(!lc.hidden && /card-tuning/.test(lc.cls) && !/fam-/.test(lc.cls) && lc.house && !lc.fam && /FROM YOUR PHONE/.test(lc.text) && /The Sent Film/.test(lc.text) && !/HIGH NOON/.test(lc.text), `a sent film slow to load gets NostalGem's own card, not the channel family's (${lc.cls}): ${lc.text.slice(0, 70)}`);
+  slowMedia = 0;
+  await tvPlays("The Sent Film", 20000);
+  check((await st()).program === "The Sent Film" && (await tv.evaluate(() => document.getElementById("card").hidden)), "…and it goes when the picture comes");
+  await tv.evaluate(() => window.NP.back());
+  await tvLive();
+
   // The bar is for anything on demand: "watch from the start" (Find a show) gets it too.
   const word = live.program.split(/\s+/).filter((w) => w.length > 3)[0] || live.program;
   await ph.evaluate((t) => window.NGRemote.send({ t: "find", text: t }), word);
@@ -490,6 +509,19 @@ const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gestur
   await ph.evaluate(() => window.NGRemote.send({ t: "seek", to: 8 }));
   await tv.waitForFunction(() => window.NP.state().at >= 7.5, null, { timeout: 8000 }).catch(() => {});
   check((await tv.evaluate(() => window.NP.state().at)) >= 7.5, "…and the phone moves through it from there too");
+  // An ad ahead of a sent YouTube video (the TV app may start sound by itself, so the ad is covered): the
+  // plain ad card. The western scenery is for CH 01's own shows.
+  await tv.evaluate(() => window.NP.back());
+  await tv.waitForFunction(() => !window.NP.state().sent, null, { timeout: 8000 }).catch(() => {});
+  await ph.click('#tabs [data-tab="search"]');
+  await ph.fill("#sendInput", "https://youtu.be/advideo00002");
+  await ph.click("#sendBtn");
+  await tv.waitForFunction(() => window.NP.state().mode === "adbreak", null, { timeout: 15000 }).catch(() => {});
+  const ad = await tv.evaluate(() => ({ mode: window.NP.state().mode, cls: document.getElementById("card").className, fam: !!document.querySelector("#card .fscene"), text: document.getElementById("card").textContent.trim().slice(0, 60) }));
+  check(ad.mode === "adbreak" && /card-adbreak/.test(ad.cls) && !/fam-/.test(ad.cls) && !ad.fam, `an ad ahead of a sent YouTube video gets the plain ad card (${ad.cls}): ${ad.text}`);
+  await tv.waitForFunction(() => window.NP.state().mode === "playing" && window.NP.state().program === "Title of advideo00002", null, { timeout: 15000 }).catch(() => {});
+  check((await tv.evaluate(() => window.NP.state().program)) === "Title of advideo00002", "…and the video plays when the ad is over");
+
   // The app's BACK button (MainActivity asks the page): back to the channel, without leaving the app.
   const stayed = await tv.evaluate(() => window.NP.back());
   await tv.waitForFunction(() => !window.NP.state().sent && !window.NP.state().shifted, null, { timeout: 8000 }).catch(() => {});
@@ -500,6 +532,63 @@ const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gestur
   check(!errors.length, "no page errors " + errors.join(" | "));
   await ctx.close();
   broker.close();
+}
+
+// ---------- in the TV app, with a link-out station's site open over NostalGem ----------
+{
+  errors.length = 0;
+  const CODE = "AWY234";
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  await ctx.addInitScript({ path: join(fixtures, "fake-peer.js") });
+  // The app's half: says what it can do, and keeps what the page hands it.
+  await ctx.addInitScript(() => {
+    window.__toApp = [];
+    window.NostalGemTV = {
+      postMessage(msg) {
+        if (msg === "hello") {
+          setTimeout(() => window.NostalGemTV.onmessage && window.NostalGemTV.onmessage({ data: JSON.stringify({ lan: [], app: "1.0.99", can: ["open", "overlay", "pointer"] }) }), 20);
+          return;
+        }
+        window.__toApp.push(JSON.parse(msg));
+      },
+    };
+  });
+  await setup(ctx, CODE);
+  const tv = await ctx.newPage();
+  const ph = await ctx.newPage();
+  await ph.setViewportSize({ width: 390, height: 844 });
+  watch("TV app", tv);
+  watch("phone", ph);
+  const st = () => tv.evaluate(() => window.NP.state());
+  const send = (m) => ph.evaluate((x) => window.NGRemote.send(x), m);
+  const toApp = () => tv.evaluate(() => window.__toApp.splice(0));
+  const openArcade = async () => {
+    for (const d of [7, 7, 7]) await send({ t: "key", type: "digit", digit: d });
+    await tv.waitForFunction(() => window.NP.state().channel === 777, null, { timeout: 8000 }).catch(() => {});
+    await send({ t: "key", type: "ok" });
+    await tv.waitForFunction(() => window.NP.state().away, null, { timeout: 6000 }).catch(() => {});
+    await toApp();
+    return (await st()).away;
+  };
+  check(await pair(tv, ph, "?tv=android&ch=1", "remote.html#" + CODE), "in the TV app, the phone pairs");
+  check((await openArcade()) === "RetroGames.cc", "777's arcade is open over NostalGem");
+  await ph.click('#tabs [data-tab="search"]');
+  await ph.fill("#sendInput", "https://archive.org/details/test_sent_film");
+  await ph.click("#sendBtn");
+  await tv.waitForFunction(() => window.NP.state().mode === "playing" && window.NP.state().program === "The Sent Film", null, { timeout: 15000 }).catch(() => {});
+  let got = await toApp();
+  let s = await st();
+  check(got.some((m) => m.t === "close") && !s.away && s.sent && s.program === "The Sent Film" && s.channel !== 777, `a link sent while the arcade is up closes the site and plays, on a channel with a schedule to come back to (CH ${s.label})`);
+  await tv.evaluate(() => window.NP.back());
+  await tv.waitForFunction(() => !window.NP.state().sent && !window.NP.state().shifted, null, { timeout: 8000 }).catch(() => {});
+  check((await openArcade()) === "RetroGames.cc", "the arcade is open again");
+  await send({ t: "tune", slug: "midnight-noir" });
+  await tv.waitForFunction(() => window.NP.state().channel === 6 && !window.NP.state().away, null, { timeout: 8000 }).catch(() => {});
+  got = await toApp();
+  s = await st();
+  check(got.some((m) => m.t === "close") && !s.away && s.channel === 6, `a channel tapped on the phone closes the site and tunes it (CH ${s.label} ${s.name})`);
+  check(!errors.length, "no page errors " + errors.join(" | "));
+  await ctx.close();
 }
 
 await browser.close();
