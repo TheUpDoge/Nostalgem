@@ -14,6 +14,7 @@
     "test:stations": "node tests/stations.browser.mjs",
     "test:cuts": "node tests/cuts.browser.mjs",
     "test:mouse": "node tests/mouse.browser.mjs",
+    "test:screen": "node tests/screen.browser.mjs",
     "lineup": "node tools/build-lineup.mjs"
   },
   "devDependencies": {

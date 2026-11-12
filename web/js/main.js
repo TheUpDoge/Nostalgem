@@ -39,7 +39,7 @@ import { loadLineup, builtAt } from "./lineup.js";
 import { loadBumpers } from "./bumpers.js";
 import { escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder, numberText } from "./util.js";
 
-const VERSION = "1.13.0";
+const VERSION = "1.14.0";
 const NAME = "NostalGem";
 const params = new URLSearchParams(window.location.search);
 const ANDROID = params.get("tv") === "android";
@@ -49,7 +49,7 @@ const ON_PAGES = window.location.href.indexOf(PAGES_BASE) === 0;
 const LIVE_LINEUP = ANDROID && !ON_PAGES ? PAGES_BASE + "data/lineup.json" : "";
 const LINEUP_RECHECK = 3 * 3600 * 1000; // coming back to the app after this long: look for a newer lineup
 
-const DEFAULTS = { crt: "light", fit: "contain", cc: "off", staticFx: "sound", bug: true, clock24: false, surf: "all", phone: false, region: "auto", look: "off", mix: "off", ambience: "off", lookQuality: "auto", liteLooks: {}, readMode: "auto", readPaper: "day" };
+const DEFAULTS = { shape: "wide", crt: "light", fit: "contain", cc: "off", staticFx: "sound", bug: true, clock24: false, surf: "all", phone: false, region: "auto", look: "off", mix: "off", ambience: "off", lookQuality: "auto", liteLooks: {}, readMode: "auto", readPaper: "day" };
 const SLEEP_STEPS = [0, 15, 30, 45, 60, 90, 120];
 // Whether this TV had used NostalGem before this start (for a welcome, or "what's new").
 const HAD_USED = load("settings", null) != null || load("last", null) != null || load("favs", null) != null;
@@ -120,6 +120,8 @@ const app = {
   callingWhy: "",
 };
 const s = app.s;
+// 4:3 for an old TV, before anything is drawn (see applyShape).
+document.documentElement.classList.toggle("shape-43", s.shape === "43");
 
 const fx = new Static($("static"));
 const ambience = new Ambience();
@@ -2092,6 +2094,18 @@ function applyLook() {
   if (!banner.hidden) renderBanner();
 }
 
+// Menu ▸ Screen shape: 4:3 for an old CRT TV. The set becomes a 4:3 box in the middle of the screen, black
+// at the sides (css/app.css, html.shape-43), and everything sized to the set follows it: the canvas
+// filters are drawn again for the new shape, and the guide and menus lay themselves out inside it.
+function applyShape() {
+  const on = s.shape === "43";
+  if (document.documentElement.classList.contains("shape-43") === on) return;
+  document.documentElement.classList.toggle("shape-43", on);
+  canvasLook.set(null);
+  applyLook();
+  if (guide.isOpen) guide.render();
+}
+
 // Called twice a second: watch while a heavy filter is on a playing picture, and nothing else is going on.
 function watchFrames() {
   const on = app.lookHeavy && s.lookQuality === "auto" && !lookIsLite() && app.state === "on" && !app.suspended && !document.hidden && player.mode === "playing" && !overlayOpen();
@@ -2521,6 +2535,17 @@ function rootPage() {
             ["fill", "Stretch"],
           ],
           applyLook
+        )
+      );
+      list.push(
+        cycler(
+          "📺 Screen shape",
+          "shape",
+          [
+            ["wide", "Widescreen"],
+            ["43", "4:3 for old CRT TVs"],
+          ],
+          applyShape
         )
       );
       list.push(

@@ -40,6 +40,8 @@ jobs:
         run: npm run test:cuts
       - name: The phone's Mouse page (pointer, keys, typing) and packs sent from the phone, in a browser, the TV app and through the relay
         run: npm run test:mouse
+      - name: Screen shape, 4:3 for old CRT TVs (everything inside the box, nothing stretched)
+        run: npm run test:screen
 
   # Publishes web/ to GitHub Pages from main. One-time setup: Settings → Pages → Source: GitHub Actions.
   deploy:
