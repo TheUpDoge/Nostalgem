@@ -1897,6 +1897,81 @@ body {
 }
 /* ---- /theme: hardchrome ---- */
 
+/* ---- theme: polygon ----
+   Polygon Hour: early-90s virtual room, purple void, green wireframe. Static. No film title. */
+.fs-polygon {
+  background: linear-gradient(#39ff14, #39ff14) center 57% / 100% 0.28vh no-repeat, repeating-linear-gradient(180deg, transparent 0 3px, rgba(57, 255, 20, 0.045) 3px 4px),
+    radial-gradient(ellipse at 50% 26%, #3a1468 0%, #160424 54%, #07010e 100%);
+}
+.fs-polygon .l1 {
+  left: -55%;
+  right: -55%;
+  top: 57%;
+  bottom: -48%;
+  background-image: linear-gradient(rgba(57, 255, 20, 0.7) 0.22vh, transparent 0.22vh), linear-gradient(90deg, rgba(57, 255, 20, 0.7) 0.22vh, transparent 0.22vh);
+  background-size: 7.5vh 7.5vh;
+  transform: perspective(30vh) rotateX(68deg);
+  transform-origin: center top;
+}
+.fs-polygon .l2 {
+  left: 8%;
+  top: 11%;
+  width: 30vh;
+  height: 30vh;
+  border: 0.34vh solid #39ff14;
+  transform: rotate(45deg);
+  box-shadow: 0 0 2vh rgba(57, 255, 20, 0.8);
+  background: linear-gradient(#c84bff, #c84bff) center / 100% 0.28vh no-repeat, linear-gradient(#c84bff, #c84bff) center / 0.28vh 100% no-repeat;
+}
+.fs-polygon .l3 {
+  right: 7%;
+  left: auto;
+  top: 16%;
+  width: 20vh;
+  height: 20vh;
+  border: 0.28vh solid #d58bff;
+  transform: rotate(45deg);
+  box-shadow: 0 0 1.6vh rgba(200, 75, 255, 0.85);
+  background: linear-gradient(#39ff14, #39ff14) center / 100% 0.22vh no-repeat, linear-gradient(#39ff14, #39ff14) center / 0.22vh 100% no-repeat;
+}
+.fam-polygon {
+  --fam: #39ff14;
+}
+.fam-polygon .card-panel {
+  background: rgba(10, 0, 24, 0.86);
+  border: 0.16rem solid #39ff14;
+  border-radius: 0;
+  box-shadow: 0 0 2.2rem rgba(57, 255, 20, 0.3), inset 0 0 2.4rem rgba(160, 40, 255, 0.3);
+}
+.fam-polygon .card-kicker,
+.fam-polygon .card-title,
+.fam-polygon .card-sub,
+.fam-polygon .card-countlabel,
+.fam-polygon .card-count {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  text-shadow: 0 0 0.35em rgba(57, 255, 20, 0.4);
+}
+.fam-polygon .card-kicker {
+  color: #e0a6ff;
+  letter-spacing: 0.1em;
+  font-size: 1.55rem;
+}
+.fam-polygon .card-title {
+  color: #d8ffc8;
+  font-size: 3.15rem;
+}
+.fam-polygon .card-sub,
+.fam-polygon .card-countlabel {
+  color: #c9f5c0;
+}
+.fam-polygon .card-count,
+.fam-polygon .card-dots {
+  color: #39ff14;
+  text-shadow: 0 0 0.4em rgba(57, 255, 20, 0.75);
+}
+/* ---- /theme: polygon ---- */
+
 .ad-box {
   max-width: 52rem;
   text-align: left;

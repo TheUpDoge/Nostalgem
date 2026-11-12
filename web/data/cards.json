@@ -115,6 +115,12 @@
       "loading": ["HANDSHAKE…", "BUFFERING THE LOUD PART", "SIGNAL'S DIRTY. CLEANING IT UP.", "YELLOW BARS. THAT MEANS WAIT.", "ONE SEC. SOMETHING GLITCHED."],
       "ad": ["an ad kicked the door in. we cut its mic.", "popup with a jingle. muted.", "sponsor detected. threat level: annoying.", "this square is selling you something. sound's off."],
       "count": "SYNC IN"
+    },
+    "polygon": {
+      "kickers": ["NEXT IN THE VIRTUAL ROOM", "THE WORLD FINISHES AT {time}", "UP NEXT · STEP INSIDE", "A NEW ROOM ON {name}", "WIREFRAME AT {time}"],
+      "loading": ["DRAWING THE FLOOR…", "COUNTING POLYGONS. THERE AREN'T MANY.", "THE HEADSET IS WARMING UP", "PLEASE KEEP YOUR ARMS IN THE WIREFRAME", "THE MOUNTAINS ARE STILL TRIANGLES"],
+      "ad": ["an ad at twelve polygons. muted.", "a sponsor wandered into the room. speaker's off.", "this commercial is not part of the simulation.", "a word from our sponsor. the word is quiet."],
+      "count": "RENDER IN"
     }
   }
 }
