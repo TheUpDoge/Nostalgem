@@ -46,6 +46,83 @@ function loadApi() {
   return apiPromise;
 }
 
+// The videos on a playlist, in order (at most `max`): a player nobody sees is handed the list and asked
+// what's on it. No key and no signing in, so it works for playlists anyone may watch. holder: an element to
+// put that player in; it's taken out again afterwards.
+export function playlistIds(listId, holder, max, timeoutMs) {
+  return loadApi().then(function (YT) {
+    return new Promise(function (ok, fail) {
+      const box = document.createElement("div");
+      const mount = document.createElement("div");
+      box.style.cssText = "position:absolute;left:0;top:0;width:2px;height:2px;overflow:hidden;opacity:0;pointer-events:none";
+      box.appendChild(mount);
+      holder.appendChild(box);
+      let player = null;
+      let poll = 0;
+      let done = false;
+      const read = function () {
+        let ids = null;
+        try {
+          ids = player.getPlaylist();
+        } catch (e) {
+          /* not yet */
+        }
+        return (Array.isArray(ids) ? ids : []).filter(function (id) {
+          return typeof id === "string" && /^[\w-]{6,20}$/.test(id);
+        });
+      };
+      const finish = function (ids, err) {
+        if (done) return;
+        done = true;
+        clearInterval(poll);
+        clearTimeout(timer);
+        try {
+          if (player) player.destroy();
+        } catch (e) {
+          /* fine */
+        }
+        if (box.parentNode) box.parentNode.removeChild(box);
+        if (ids && ids.length) ok(ids.slice(0, max || 200));
+        else fail(err || new Error("YouTube listed no videos"));
+      };
+      const timer = setTimeout(function () {
+        finish(read(), new Error("YouTube didn't answer"));
+      }, timeoutMs || 12000);
+      const loc = window.location;
+      player = new YT.Player(mount, {
+        width: "200",
+        height: "113",
+        host: "https://www.youtube-nocookie.com",
+        playerVars: {
+          listType: "playlist",
+          list: listId,
+          autoplay: 0,
+          controls: 0,
+          playsinline: 1,
+          origin: /^https?:$/.test(loc.protocol) ? loc.protocol + "//" + loc.host : undefined,
+          widget_referrer: loc.href.replace(/#.*$/, ""),
+        },
+        events: {
+          onReady: function () {
+            try {
+              player.cuePlaylist({ listType: "playlist", list: listId });
+            } catch (e) {
+              /* the player variables above already asked for it */
+            }
+            poll = setInterval(function () {
+              const ids = read();
+              if (ids.length) finish(ids);
+            }, 250);
+          },
+          onError: function (e) {
+            finish(read(), new Error("YouTube error " + (e && e.data)));
+          },
+        },
+      });
+    });
+  });
+}
+
 // YT.PlayerState
 const ENDED = 0;
 const PLAYING = 1;
@@ -302,6 +379,17 @@ export class YtMedia {
   get duration() {
     const d = this.yt && this.ready && this.metaSent ? this.yt.getDuration() : NaN;
     return d > 0 ? d : NaN;
+  }
+  // The video's own title, once YouTube's player has it (for a video sent from a phone, which arrives
+  // as a bare link).
+  get title() {
+    if (!this.yt || !this.ready || !this.videoId || typeof this.yt.getVideoData !== "function") return "";
+    try {
+      const d = this.yt.getVideoData();
+      return d && d.video_id === this.videoId && typeof d.title === "string" ? d.title.replace(/\s+/g, " ").trim().slice(0, 140) : "";
+    } catch (e) {
+      return "";
+    }
   }
   get currentTime() {
     return this.yt && this.ready ? this.yt.getCurrentTime() || 0 : 0;

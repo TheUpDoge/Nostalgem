@@ -33,6 +33,7 @@ const MAX_DRIFT = 30; // fallen this many seconds behind live after buffering: j
 const RETRY_AFTER = 30000; // standby retry interval
 const SKIPS_IN_A_ROW = 6; // this many programs in a row that can't play here: say so instead of trying them all
 const CUT_WATCH_MS = 100; // how often a film with a clean-cut list is checked against its scenes
+const UNKNOWN_LENGTH = 4 * 3600; // seconds an on-demand program is given until its real length is known
 
 export class Player {
   constructor(video, hooks) {
@@ -226,7 +227,7 @@ export class Player {
 
   wantsChurch(item) {
     const ch = this.tl && this.tl.channel;
-    return !!(this.church && ch && ch.sound === "church" && item && !isYouTube(item) && !item.live);
+    return !!(this.church && ch && ch.sound === "church" && item && !isYouTube(item) && !item.live && !item.sent);
   }
 
   // Load this film with CORS, for the full reverb?
@@ -355,7 +356,30 @@ export class Player {
     this.emit("buffering", false);
     if (this.v === this.ytm && this.ccWanted) this.ytm.setCaptions(true, this.ccLang);
     this.churchIn();
+    this.learn();
     if (this.mode !== "playing") this.setMode("playing");
+  }
+
+  // An on-demand program whose length or title wasn't known when it was asked for (a YouTube video sent
+  // from a phone): the player knows once it plays.
+  learn() {
+    const sl = this.slot;
+    if (!sl || !sl.onDemand) return;
+    const item = sl.item;
+    let learned = false;
+    const dur = this.v.duration;
+    if (!(item.d > 0) && isFinite(dur) && dur > 0) {
+      item.d = Math.round(dur);
+      sl.endMs = sl.slotEndMs = Date.now() + ((item.d - Math.max(0, this.v.currentTime || 0)) / this.rate()) * 1000;
+      learned = true;
+    }
+    const title = item.untitled && this.v === this.ytm ? this.ytm.title : "";
+    if (title) {
+      item.t = title;
+      delete item.untitled;
+      learned = true;
+    }
+    if (learned) this.emit("learned", sl);
   }
 
   onError() {
@@ -387,6 +411,9 @@ export class Player {
       return;
     }
     if (this.shifted || !this.slot) {
+      // An on-demand program is over: the app may have the next one lined up (a sent item's next part),
+      // or it's back to the schedule.
+      if (this.slot && this.slot.onDemand && this.hooks.demandEnded && this.hooks.demandEnded(this.slot.item)) return;
       this.syncToLive();
       return;
     }
@@ -537,13 +564,17 @@ export class Player {
   // On demand: one of this channel's programs from its start, off the schedule. It plays to the end (or
   // until "Back to live"), and then the channel's schedule takes over again.
   // at: seconds in to start from (a Video Club tape picks up where it was stopped).
-  playFromStart(item, at) {
-    if (!this.tl || !item || item.live || !(item.d > 0)) return false;
-    const into = Math.max(0, Math.min(item.d - 5, Number(at) || 0));
-    const rate = this.tl.rate || 1;
+  // opts.rate: the speed to play at, whatever the channel's own (something sent from a phone plays as made).
+  // opts.anyLength: its length may not be known yet (a YouTube video): it's learned once it plays.
+  playFromStart(item, at, opts) {
+    const o = opts || {};
+    const known = !!item && item.d > 0;
+    if (!this.tl || !item || item.live || !(known || o.anyLength)) return false;
+    const into = known ? Math.max(0, Math.min(item.d - 5, Number(at) || 0)) : Math.max(0, Number(at) || 0);
+    const rate = o.rate || this.tl.rate || 1;
     const now = Date.now();
     const start = now - (into / rate) * 1000;
-    const end = start + (item.d / rate) * 1000;
+    const end = start + ((known ? item.d : UNKNOWN_LENGTH) / rate) * 1000;
     this.shifted = true;
     this.retryAt = 0;
     this.slot = { index: -1, item: item, into: into, rate: rate, startMs: start, endMs: end, slotEndMs: end, inGap: false, next: null, onDemand: true };
@@ -572,9 +603,29 @@ export class Player {
     const rate = this.rate();
     if ((this.mode === "playing" || this.mode === "paused") && !this.slot.item.live) {
       const t = this.v.currentTime;
-      if (isFinite(t) && t > 0) return { at: Math.min(t, d), d: d, rate: rate };
+      if (isFinite(t) && t > 0) return { at: d > 0 ? Math.min(t, d) : t, d: d, rate: rate };
     }
-    return { at: Math.min(d, Math.max(0, this.liveTarget(Date.now()))), d: d, rate: rate };
+    const target = Math.max(0, this.liveTarget(Date.now()));
+    return { at: d > 0 ? Math.min(d, target) : target, d: d, rate: rate };
+  }
+
+  // On demand only (the shared clock isn't for moving): jump to a place in the program, or by some seconds.
+  // Returns where it went, or -1.
+  seekTo(sec) {
+    const sl = this.slot;
+    if (!sl || !sl.onDemand || sl.item.live || (this.mode !== "playing" && this.mode !== "paused")) return -1;
+    const d = sl.item.d;
+    const t = Math.max(0, d > 0 ? Math.min(d - 2, Number(sec) || 0) : Number(sec) || 0);
+    try {
+      this.v.currentTime = t;
+    } catch (e) {
+      return -1;
+    }
+    return t;
+  }
+  seekBy(sec) {
+    const t = this.v ? this.v.currentTime : NaN;
+    return isFinite(t) ? this.seekTo(t + (Number(sec) || 0)) : -1;
   }
 
   setMuted(m) {

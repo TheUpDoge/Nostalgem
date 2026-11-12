@@ -2,6 +2,9 @@
 // that web/js/youtube.js uses. A video id starting with "bad" fails with error 150 (embedding disabled),
 // one starting with "cfg" with error 153 (YouTube refuses the page); one starting with "ad" sits unstarted for
 // 8 seconds first, the way the embed does while a pre-roll ad runs; every video is 12 seconds long. window.__yt.log records what was loaded and where it started.
+// Playlists: window.__ytLists (set before this loads) maps a playlist id to its video ids; a player handed
+// one with cuePlaylist says what's on it from getPlaylist a moment later. getVideoData gives each video the
+// title "Title of <id>" once it has played.
 (function () {
   const log = [];
   window.__yt = { log: log, players: [] };
@@ -78,6 +81,25 @@
   };
   Player.prototype.unMute = function () {
     this.muted = false;
+  };
+  Player.prototype.cuePlaylist = function (o) {
+    const self = this;
+    const ids = (window.__ytLists || {})[o && o.list];
+    log.push({ list: o && o.list });
+    setTimeout(function () {
+      self.list = ids || null;
+      if (!ids && self.ev.onError) self.ev.onError({ data: 2, target: self });
+    }, 80);
+  };
+  Player.prototype.getPlaylist = function () {
+    return this.list || null;
+  };
+  Player.prototype.getVideoData = function () {
+    return { video_id: this.vid, title: this.state === 1 || this.state === 2 ? "Title of " + this.vid : "" };
+  };
+  Player.prototype.destroy = function () {
+    this.destroyed = true;
+    if (this.el.parentNode) this.el.parentNode.removeChild(this.el);
   };
   Player.prototype.setVolume = function () {};
   Player.prototype.loadModule = function () {};

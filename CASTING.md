@@ -1,7 +1,8 @@
 # Casting from a phone: what to build
 
-**A recommendation, not a build** (work order 2026-11-08, Task 5). Nothing here is built yet: Mitchel
-picks the path, then it gets built.
+**Decided and built.** This began as a recommendation (work order 2026-11-08, Task 5). Mitchel picked
+**Option B, Send to TV**, on 2026-11-09, and it shipped in 1.17.0: see
+[What was built](#what-was-built-1170) at the end. The comparison is kept as the record of why.
 
 ## The short answer
 
@@ -112,6 +113,39 @@ Build **B** in two steps:
 Come back to **A** only if the Cast button on Chromecasts is wanted for its own sake. It would bring
 Google's SDK into a zero-dependency app, it needs the $5 registration, and Fire TV and iPhone users would
 still need B.
+
+## What was built (1.17.0)
+
+Option B, both steps. How to use it is in the README under **📲 Send to TV**.
+
+1. **Send to TV.** The phone remote's Search page has a Send to TV box. A link goes to the TV as
+   `{ t: "play", url }`, the TV plays it on demand on the channel it was on, and the phone that sent it
+   hears how it went (`{ t: "sent", state, text }`). The phone's Now card gets a bar to drag
+   (`{ t: "seek", to }`), ⏪ ⏩ (`{ t: "seek", by }`) and ⏮ ⏭ for parts (`{ t: "queue", go }`). BACK
+   on any remote goes back to the channel.
+2. **Share and search.** The remote's manifest is a share target, so on Android the installed remote
+   is in the Share menu. 🌐 Search the Archive on the phone lists films and recordings, and a tap sends one.
+
+Where it differs from the plan above:
+
+- **A collection or a search link isn't played.** It's a channel's worth, so the phone offers
+  📡 New TV channel, which already builds one from a link.
+- **A shared link waits for one tap.** It lands in the box and never plays by itself. Otherwise any page
+  could link to the remote with a video in the address and start it on a paired TV.
+- **The seek bar works for everything on demand**, Video Club tapes and "watch from the start" included.
+  It does nothing on a live channel: the shared clock isn't the phone's to move.
+- **An item in parts, or a playlist, plays one after the other** (up to 60). One that won't play is
+  skipped for the next.
+- **Only two filters apply to a sent link:** members-only items (they can't play), and adult material
+  (the sexual words of the lineup's leave-out lists). The year cap and the trailer and rip words that
+  channel builds use don't apply to a link somebody chose to send.
+- **A YouTube playlist is read with YouTube's own player**, with no key and no sign-in, so only playlists
+  anyone may watch. Mixes, Watch later and Liked can't be sent; the video itself still can.
+
+The code: `web/js/sendto.js` (which links count, and what an Archive item becomes), `web/js/main.js`
+(the "Send to TV" section), `web/js/phone.js`, `web/js/player.js` (on-demand programs of unknown length,
+seeking, the next in line), `web/js/youtube.js` (a video's title, a playlist's videos). Tests:
+`tests/sendto.test.mjs` and `tests/sendto.browser.mjs`.
 
 ## Sources
 

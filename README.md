@@ -157,6 +157,9 @@ YouTube's player) and rebuilt daily:
 - **📱 Phone remote**: Menu ▸ Phone remote shows a QR code; the phone opens it and becomes a
   remote for that TV — channels, volume, guide — over a direct connection. The pairing code is
   kept, so a paired phone reconnects after the TV restarts.
+- **📲 Send to TV**: paste a YouTube or archive.org link on the phone remote (or share it to the remote on
+  Android) and the TV plays it right away, in NostalGem. The phone moves through it, and BACK goes back to
+  the channel. See [Send to TV](#-send-to-tv).
 - **Search the Archive** builds a channel from words, Archive search terms, or a pasted archive.org link
   (one item or a whole collection). A channel number typed there just tunes that channel.
 
@@ -278,9 +281,34 @@ real keyboard for **Search the Archive**.
 - The TV keeps its code, so a paired phone reconnects by itself after the TV restarts. **New code** in
   the same dialog disconnects every phone paired before; **Turn off** stops listening.
 - The QR code points at the GitHub Pages copy, so turn on Pages first: Settings ▸ Pages ▸ Source: **GitHub Actions**.
-- Casting from the phone (the phone picks, the TV plays) isn't built yet: [CASTING.md](CASTING.md) is the
-  plan, waiting on a pick. To show the phone's whole screen on the TV today, use the phone's own screen
-  mirroring (Android: Quick Settings ▸ Cast or Screen cast; iPhone: Screen Mirroring).
+
+### 📲 Send to TV
+
+Found something on your phone? Send it to the TV. On the phone remote, open **Search**, paste a link in
+**Send to TV** and tap **▶ Play on TV**. The TV plays it right away, inside NostalGem, with your picture
+filter and subtitles, on the channel it was on. The banner says **ON DEMAND · 📲 FROM YOUR PHONE**.
+**BACK** (or LIVE, or changing channel) goes back to the schedule. Live channels aren't touched: every
+other TV still sees the shared clock.
+
+- **What it takes:** a YouTube video or playlist, and an archive.org film or recording
+  (`archive.org/details/…`, or a link to one file of it). An item in parts, or a playlist, plays one after
+  the other. A link with a time in it (`?t=90`) starts there.
+- **From the phone** you can drag the bar to move through it, tap ⏪ 15 and 30 ⏩, step between parts with
+  ⏮ ⏭, and pause. The bar is there for anything on demand: a Video Club tape and "watch from the start" too.
+- **🌐 Search the Archive**, on the same page, looks up films and recordings by title from the phone. Tap
+  one and the TV plays it.
+- **Android: the Share menu.** With the remote added to the home screen (Chrome ▸ Add to Home Screen),
+  **NG Remote** appears in other apps' Share menus. Share a video from YouTube or a page from archive.org
+  and it lands in the Send to TV box; one tap plays it. It never plays by itself, so a link somebody else
+  made can't put something on your TV. iPhones have no share targets for web apps, so there you paste the link.
+- **What it won't play:** a YouTube video whose owner doesn't allow it outside YouTube; an Archive item
+  that's only for signed-in members; adult material (the sexual words Search the Archive leaves out, and
+  nothing else from that list); an item with no MP4 and no MP3. The phone says which. A whole archive.org
+  collection or search isn't one program, so the phone offers **📡 New TV channel** for it instead.
+- **Nothing new to set up.** It goes over the link the remote already has (direct, or the encrypted
+  relay), with no accounts and nothing from Google's Cast. It isn't screen mirroring: to show the phone's
+  whole screen, use the phone's own (Android: Quick Settings ▸ Cast or Screen cast; iPhone: Screen
+  Mirroring). [CASTING.md](CASTING.md) has the reasons.
 
 ## Make it yours
 
@@ -384,6 +412,7 @@ npm i --no-save playwright@1.63.0 peer@1.0.2 && npx playwright install chromium
 npm run test:browser      # drives the app in Chromium with remote keys; SHOTS=1 saves screenshots
 npm run test:lan          # the phone remote over real WebRTC, through a local PeerJS broker
 npm run test:relay        # the phone remote through the relay with WebRTC blocked (local MQTT broker)
+npm run test:sendto       # Send to TV: links from the phone played on demand, the seek bar, parts, Share
 ```
 
 The browser test needs no network. Small local clips stand in for the Archive, and it checks
@@ -401,6 +430,7 @@ web/
   js/remote.js                 keys from keyboards, TV browsers (webOS/Tizen codes) and the Android app
   js/link.js                   phone remote pairing and messages (TV and phone side)
   js/relay.js                  the encrypted relay the phone remote falls back on
+  js/sendto.js                 Send to TV: which links a phone may send, and what the TV makes of an Archive item
   js/ui/numpad.js              the on-screen number pad
   remote.html, js/phone.js     the phone remote page (an installable PWA)
   vendor/                      PeerJS and a QR code generator, both MIT (see vendor/README.md)

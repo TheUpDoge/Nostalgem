@@ -72,7 +72,9 @@ export function programMeta(item) {
   const parts = [];
   if (item.e) parts.push(item.e);
   if (item.y) parts.push(String(item.y));
-  parts.push(item.live ? "● LIVE" : fmtRuntime(item.d));
+  // A length that isn't known yet (a YouTube video sent from a phone, before it plays) is left out.
+  if (item.live) parts.push("● LIVE");
+  else if (item.d > 0) parts.push(fmtRuntime(item.d));
   return parts.join(" · ");
 }
 
@@ -101,10 +103,13 @@ export function bannerHtml(d) {
   if (d.fav) badges.push('<span class="badge warn">★ FAV</span>');
   if (d.sleepLeft) badges.push('<span class="badge warn">SLEEP ' + Math.ceil(d.sleepLeft / 60000) + "m</span>");
   if (d.cut) badges.push('<span class="badge">✂ TV-SAFE CUT</span>');
+  if (item && item.sent) badges.push('<span class="badge">📲 FROM YOUR PHONE</span>');
 
   let main;
   if (item) {
-    const pct = d.pos ? Math.max(0, Math.min(100, (d.pos.at / d.pos.d) * 100)) : 0;
+    // known: the program's length is known (a sent YouTube video's isn't until it plays).
+    const known = d.pos ? d.pos.d > 0 : item.d > 0;
+    const pct = d.pos && known ? Math.max(0, Math.min(100, (d.pos.at / d.pos.d) * 100)) : 0;
     // Time left on the clock: a channel playing slower (666) takes longer than the film's own length.
     const left = d.pos ? (d.pos.d - d.pos.at) / (d.pos.rate || 1) : item.d;
     main =
@@ -118,9 +123,9 @@ export function bannerHtml(d) {
       pct.toFixed(1) +
       '%"></i></div>' +
       '<div class="b-times"><span>' +
-      (d.pos ? fmtDuration(d.pos.at) + " / " + fmtDuration(d.pos.d) : "") +
+      (d.pos ? fmtDuration(d.pos.at) + (known ? " / " + fmtDuration(d.pos.d) : "") : "") +
       "</span><span>" +
-      fmtLeft(left) +
+      (known ? fmtLeft(left) : "") +
       "</span></div>" +
       (d.desc ? '<div class="b-desc">' + esc(d.desc) + "</div>" : "");
   } else {

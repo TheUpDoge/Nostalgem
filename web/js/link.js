@@ -8,16 +8,21 @@
 //               { t: "tune", slug }              tap a channel in the list
 //               { t: "search", text, kind }      build a channel from an Archive search ("video" | "audio")
 //               { t: "find", text }              find a show on the TV's channels (the TV lists them)
+//               { t: "play", url }               Send to TV: a YouTube or archive.org link to play now (sendto.js)
+//               { t: "seek", to } | { by }       on demand only: to a place in the program, or by some seconds
+//               { t: "queue", go }               the next (1) or previous (-1) part of what was sent
 //               { t: "hello", v }                sent once the channel opens
 //   TV → phone  { t: "state", ... }              what's on, sent whenever it changes
 //               { t: "channels", list }          the lineup with what's on each channel now
 //               { t: "toast", text }             the TV's own pop-up messages, mirrored
+//               { t: "sent", state, text, i, n } how a sent link went: looking | playing | failed | collection | ended
 //
 // When the two can't reach each other directly, the same messages go through a relay instead (relay.js):
 // public message brokers, encrypted with a key made from the code. Both run at once; the phone keeps
 // whichever opens first and moves to the direct link if that comes up later.
 
 import { RelayHost, relaySupported, brokerName } from "./relay.js";
+import { parseSent, sentUrl, SENT_MAX } from "./sendto.js";
 
 export const PEER_PREFIX = "nostalgem-";
 export const PROTOCOL = 1;
@@ -94,6 +99,17 @@ export function checkMessage(m) {
       const text = typeof m.text === "string" ? m.text.replace(/\s+/g, " ").trim().slice(0, 80) : "";
       return text.length < 2 ? null : { t: "find", text: text };
     }
+    case "play": {
+      // Send to TV: only a link the TV knows how to play, and in its tidy form.
+      const p = typeof m.url === "string" && m.url.length <= SENT_MAX ? parseSent(m.url) : null;
+      return p ? { t: "play", url: sentUrl(p) } : null;
+    }
+    case "seek":
+      if (typeof m.by === "number" && isFinite(m.by) && m.by !== 0 && Math.abs(m.by) <= 3600) return { t: "seek", by: Math.round(m.by) };
+      if (typeof m.to === "number" && isFinite(m.to) && m.to >= 0 && m.to <= 86400 && m.by == null) return { t: "seek", to: Math.round(m.to) };
+      return null;
+    case "queue":
+      return m.go === 1 || m.go === -1 ? { t: "queue", go: m.go } : null;
     case "hello":
       return { t: "hello", v: Number(m.v) || 0 };
     default:

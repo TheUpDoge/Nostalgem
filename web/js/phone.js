@@ -5,6 +5,8 @@
 import { cleanCode, peerIdFor, prettyCode, peerClass, peerOptions, linkReport, PROTOCOL } from "./link.js";
 import { relayConnect, relaySupported, probeBrokers, pathsText } from "./relay.js";
 import { escapeHtml as esc, fmtDuration, pad2 } from "./util.js";
+import { parseSent, sentUrl, sentLabel, sharedLink, isAdult } from "./sendto.js";
+import { searchUrl, textOf, cleanTitle } from "./archive.js";
 
 const KEY = "nostalgem-remote:";
 function load(k, d) {
@@ -52,6 +54,13 @@ const r = {
   tab: load("tab", "remote"),
   recent: load("recent", []),
   searching: false,
+  shared: "", // a link the phone's Share sheet handed over, waiting for a tap
+  sentUrl: "", // the last link sent to the TV
+  sentWait: false, // sent, and the TV hasn't said it's playing yet
+  seeking: false, // a finger is on the seek bar
+  seekHold: 0, // just let go of it: the bar stays put until the TV answers
+  found: [], // what the Archive search turned up
+  findToken: 0,
 };
 
 // ---------- haptics ----------
@@ -371,6 +380,7 @@ function receive(m) {
   if (m.t === "state") {
     if (m.clock) r.skew = m.clock - Date.now();
     r.state = m;
+    r.seekHold = 0;
     renderNow();
     renderButtons();
     renderChannels();
@@ -380,7 +390,7 @@ function receive(m) {
     renderChannels();
   } else if (m.t === "toast" && typeof m.text === "string") {
     toast(m.text);
-  }
+  } else if (m.t === "sent") sentReport(m);
 }
 
 // ---------- drawing ----------
@@ -416,6 +426,8 @@ function renderNow() {
   let badge = "LIVE";
   if (st.app === "off") badge = "OFF";
   else if (st.paused) badge = "PAUSED";
+  else if (st.sent) badge = "FROM PHONE";
+  else if (st.demand) badge = "ON DEMAND";
   else if (st.shifted) badge = "REPLAY";
   else if (st.mode === "standby") badge = "NO SIGNAL";
   else if (st.mode === "gap") badge = "BREAK";
@@ -424,7 +436,16 @@ function renderNow() {
   b.className = "now-badge " + badge.toLowerCase().replace(/\s+/g, "-");
   const it = st.now;
   el.querySelector(".now-title").textContent = it ? it.t + (it.y && it.t.indexOf(String(it.y)) < 0 ? " (" + it.y + ")" : "") : ch.tagline || "";
-  el.querySelector(".now-next").textContent = st.next ? "Up next: " + st.next : "";
+  const parts = st.sent && st.sent.n > 1 ? "Part " + (st.sent.i + 1) + " of " + st.sent.n : "";
+  el.querySelector(".now-next").textContent = parts ? parts + (st.next ? " · next: " + st.next : "") : st.next ? "Up next: " + st.next : "";
+  // On demand, the phone can move through the program: the bar becomes one to drag, with ⏪ ⏩ under it
+  // (and ⏮ ⏭ for something sent in parts).
+  const canSeek = !!(st.demand && it && it.d > 0);
+  $("seekBar").hidden = !canSeek;
+  el.querySelector(".now-bar").hidden = canSeek;
+  $("seekRow").hidden = !st.demand;
+  $("prevBtn").disabled = !(st.sent && st.sent.i > 0);
+  $("nextBtn").disabled = !(st.sent && st.sent.i < st.sent.n - 1);
   tickProgress();
 }
 
@@ -439,10 +460,164 @@ function tickProgress() {
   }
   const it = st.now;
   let at = it.pos >= 0 ? it.pos : (Date.now() + r.skew - it.start) / 1000;
-  at = Math.max(0, Math.min(it.d, at));
+  // A length that isn't known yet (a YouTube video that was sent, before it plays): just the time so far.
+  at = Math.max(0, it.d ? Math.min(it.d, at) : at);
   el.querySelector(".now-bar i").style.width = (it.d ? (100 * at) / it.d : 0).toFixed(2) + "%";
-  el.querySelector(".now-at").textContent = fmtDuration(at);
-  el.querySelector(".now-left").textContent = "−" + fmtDuration(it.d - at);
+  const bar = $("seekBar");
+  const held = r.seeking || Date.now() < r.seekHold;
+  if (!bar.hidden && !held) {
+    bar.max = String(Math.max(1, Math.round(it.d)));
+    bar.value = String(Math.round(at));
+  }
+  if (!held) el.querySelector(".now-at").textContent = fmtDuration(at);
+  el.querySelector(".now-left").textContent = it.d ? "−" + fmtDuration(it.d - (held && !bar.hidden ? Number(bar.value) : at)) : "";
+}
+
+// ---------- Send to TV ----------
+// A YouTube or archive.org link goes to the TV, which plays it right away (sendto.js says what counts as one).
+function sendMsg(text, bad) {
+  const el = $("sendMsg");
+  el.textContent = text || "";
+  el.classList.toggle("bad", !!bad);
+}
+
+// Why the box's text isn't something to send.
+function notALink(text) {
+  const t = String(text || "").trim();
+  if (!t) return "Paste a YouTube or archive.org link first.";
+  if (/youtu\.?be/i.test(t)) return "That YouTube page isn't a video or a playlist. Open the video itself and send its link.";
+  if (/archive\.org/i.test(t)) return "That archive.org page isn't a film or a recording. Open the item itself and send its link.";
+  return "That isn't a link the TV can play. It takes YouTube and archive.org links.";
+}
+
+function sendLink(text) {
+  const p = parseSent(text);
+  if (!p) {
+    sendMsg(notALink(text), true);
+    buzz([30, 40, 30]);
+    return false;
+  }
+  const url = sentUrl(p);
+  if (p.kind === "search") {
+    // A search page is a channel's worth, not a program: the channel buttons take it from here.
+    $("searchInput").value = url;
+    sendMsg("That's an archive.org search: a channel's worth. Tap 📡 New TV channel or 📻 New radio channel below to make a channel of it.");
+    return false;
+  }
+  if (!send({ t: "play", url: url })) return false;
+  buzz(16);
+  r.shared = "";
+  r.sentUrl = url;
+  r.sentWait = true;
+  $("sendInput").value = url;
+  $("sendInput").blur();
+  sendMsg("Sent to the TV: " + sentLabel(p) + "…");
+  return true;
+}
+
+// What the TV says about a link it was sent.
+function sentReport(m) {
+  const text = typeof m.text === "string" ? m.text : "";
+  // Another phone's link (the TV tells everyone when it can't tell who sent it): only what's on matters here.
+  if (!r.sentUrl && m.state !== "playing" && m.state !== "ended") return;
+  if (m.state === "looking") sendMsg(text || "The TV is looking it up…");
+  else if (m.state === "playing") {
+    sendMsg("▶ On the TV: " + text + (m.n > 1 ? " (" + ((Number(m.i) || 0) + 1) + " of " + m.n + ")" : ""));
+    // The first word that it's playing: over to the remote, where the bar to move through it is.
+    if (r.sentWait && r.tab === "search") setTab("remote");
+    r.sentWait = false;
+  } else if (m.state === "failed") {
+    r.sentWait = false;
+    sendMsg("✖ " + (text || "The TV couldn't play that."), true);
+    buzz([30, 40, 30]);
+  } else if (m.state === "collection") {
+    r.sentWait = false;
+    if (r.sentUrl) $("searchInput").value = r.sentUrl;
+    sendMsg(text);
+  } else if (m.state === "ended") {
+    r.sentWait = false;
+    if (/^(▶|Sent to the TV)/.test($("sendMsg").textContent)) sendMsg("");
+  }
+}
+
+// 📋 Paste: the clipboard's link into the box, where the browser allows it; a long press otherwise.
+function pasteLink() {
+  const box = $("sendInput");
+  const byHand = function () {
+    box.focus();
+    sendMsg("Press and hold the box, then tap Paste.");
+  };
+  if (!navigator.clipboard || !navigator.clipboard.readText) {
+    byHand();
+    return;
+  }
+  navigator.clipboard.readText().then(function (text) {
+    const p = parseSent(text);
+    box.value = p ? sentUrl(p) : String(text || "").trim().slice(0, 300);
+    if (p) sendMsg("Ready: " + sentLabel(p) + ". Tap ▶ Play on TV.");
+    else sendMsg(box.value ? notALink(box.value) : "Nothing copied yet. Copy a link first.", true);
+  }, byHand);
+}
+
+// 🌐 Search the Archive, from this phone: titles first, and anything that mentions the words if no title
+// does. Adult material is left out, as on the TV (sendto.js). Tapping one sends it to the TV.
+function archiveQuery(text, anywhere) {
+  const words = text.replace(/[+\-!(){}[\]^"~*?:\\/&|]+/g, " ").replace(/\s+/g, " ").trim();
+  return (anywhere ? "(" + words + ")" : "title:(" + words + ")") + " AND mediatype:(movies OR audio) AND -access-restricted-item:true";
+}
+function archiveSearch(text, anywhere) {
+  const token = ++r.findToken;
+  const msg = $("searchMsg");
+  msg.textContent = "Searching the Internet Archive…";
+  fetch(searchUrl(archiveQuery(text, anywhere), { rows: 40, fields: ["mediatype"] }), { credentials: "omit" })
+    .then(function (res) {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    })
+    .then(function (json) {
+      if (token !== r.findToken) return;
+      const docs = ((json && json.response && json.response.docs) || []).filter(function (d) {
+        return d && typeof d.identifier === "string" && !isAdult(textOf(d), "");
+      });
+      if (!docs.length && !anywhere) {
+        archiveSearch(text, true);
+        return;
+      }
+      r.found = docs.slice(0, 30).map(function (d) {
+        const title = Array.isArray(d.title) ? d.title[0] : d.title;
+        const year = Number(d.year) || Number(String(d.date || "").slice(0, 4)) || 0;
+        return { id: d.identifier, t: cleanTitle(title || d.identifier), y: year, audio: d.mediatype === "audio" || d.mediatype === "etree" };
+      });
+      renderFound();
+      msg.textContent = r.found.length ? "On the Archive: tap one to play it on the TV now." : "Nothing by that name on the Archive. Try other words.";
+      // The list is under the buttons: bring it into view.
+      if (r.found.length && msg.scrollIntoView) msg.scrollIntoView({ block: "start", behavior: "smooth" });
+    })
+    .catch(function () {
+      if (token === r.findToken) msg.textContent = "Couldn't reach the Internet Archive from this phone. Try again in a moment.";
+    });
+}
+
+function renderFound() {
+  const ul = $("foundList");
+  ul.hidden = !r.found.length;
+  ul.innerHTML = r.found
+    .map(function (f) {
+      return (
+        '<li><button type="button" data-send="https://archive.org/details/' +
+        esc(f.id) +
+        '" style="--ch:' +
+        (f.audio ? "#05d9e8" : "#ff2a6d") +
+        '"><span class="ci">' +
+        (f.audio ? "🎧" : "🎬") +
+        '</span><span class="ct"><b>' +
+        esc(f.t) +
+        "</b><small>" +
+        esc((f.y ? f.y + " · " : "") + (f.audio ? "sound" : "picture") + " · ▶ play on the TV") +
+        "</small></span></button></li>"
+      );
+    })
+    .join("");
 }
 
 function renderButtons() {
@@ -596,6 +771,27 @@ document.addEventListener("click", function (e) {
     if (send({ t: "tune", slug: ch.getAttribute("data-slug") })) toast("Tuning…");
     return;
   }
+  const seek = t.closest("[data-seek]");
+  if (seek) {
+    buzz(8);
+    send({ t: "seek", by: Number(seek.getAttribute("data-seek")) });
+    return;
+  }
+  const part = t.closest("[data-queue]");
+  if (part) {
+    buzz(8);
+    send({ t: "queue", go: Number(part.getAttribute("data-queue")) });
+    return;
+  }
+  const pick = t.closest("[data-send]");
+  if (pick) {
+    sendLink(pick.getAttribute("data-send"));
+    return;
+  }
+  if (t.closest("#pasteBtn")) {
+    pasteLink();
+    return;
+  }
   const idea = t.closest("[data-idea]");
   if (idea) {
     $("searchInput").value = idea.getAttribute("data-idea");
@@ -637,6 +833,23 @@ $("pairForm").addEventListener("submit", function (e) {
   pair(code);
 });
 
+$("sendForm").addEventListener("submit", function (e) {
+  e.preventDefault();
+  sendLink($("sendInput").value);
+});
+
+// The seek bar (on demand only): the time follows the finger, and the TV goes there when it lets go.
+$("seekBar").addEventListener("input", function () {
+  r.seeking = true;
+  $("now").querySelector(".now-at").textContent = fmtDuration(Number(this.value) || 0);
+});
+$("seekBar").addEventListener("change", function () {
+  r.seeking = false;
+  r.seekHold = Date.now() + 2500;
+  buzz(10);
+  send({ t: "seek", to: Number(this.value) || 0 });
+});
+
 // Enter on the keyboard finds a show; the channel buttons build a new channel instead.
 let searchKind = "find";
 $("searchForm").addEventListener("click", function (e) {
@@ -650,6 +863,18 @@ $("searchForm").addEventListener("submit", function (e) {
   searchKind = "find";
   if (text.length < 2) {
     $("searchMsg").textContent = "Type a few words first, like: hopalong cassidy";
+    return;
+  }
+  // A link in the search box, with Find or Search the Archive: it's something to play.
+  if ((kind === "find" || kind === "archive") && parseSent(text)) {
+    $("sendInput").value = text;
+    $("searchInput").value = "";
+    sendLink(text);
+    return;
+  }
+  if (kind === "archive") {
+    $("searchInput").blur();
+    archiveSearch(text, false);
     return;
   }
   if (kind === "find") {
@@ -695,7 +920,18 @@ window.addEventListener("hashchange", function () {
 setInterval(tickProgress, 1000);
 renderIdeas();
 const start = cleanCode(window.location.hash) || cleanCode(load("code", ""));
-setStatus("idle");
+// Opened from the phone's Share sheet (the installed remote is a share target, remote.webmanifest), or by a
+// link with ?url=: the link waits in the Send to TV box for one tap. It never plays by itself, so a link
+// somebody else made can't put something on the TV.
+const shared = sharedLink(window.location.search);
+if (window.location.search) history.replaceState(null, "", window.location.pathname + window.location.hash);
+if (shared) {
+  r.shared = sentUrl(shared);
+  r.tab = "search";
+  $("sendInput").value = r.shared;
+  sendMsg("Shared with NostalGem: " + sentLabel(shared) + ". Tap ▶ Play on TV.");
+}
+setStatus("idle", shared && !start ? "Pair with your TV first. The link you shared is waiting." : undefined);
 if (start) {
   $("codeInput").value = prettyCode(start);
   pair(start);
@@ -708,7 +944,10 @@ if ("serviceWorker" in navigator && window.location.protocol === "https:") {
 
 // For tests.
 window.NGRemote = {
+  send: function (m) {
+    return send(m);
+  },
   state: function () {
-    return { status: r.status, code: r.code, tv: r.state, channels: r.channels.length, tab: r.tab };
+    return { status: r.status, code: r.code, tv: r.state, channels: r.channels.length, tab: r.tab, shared: r.shared, found: r.found.length };
   },
 };
