@@ -68,6 +68,7 @@ const SHELL = [
   "icons/apple-touch-icon.png",
   "icons/icon.svg",
   "icons/icon-192.png",
+  "icons/boot-gem.webp",
   "fonts/orbitron-latin-500-normal.woff2",
   "fonts/orbitron-latin-700-normal.woff2",
   "fonts/orbitron-latin-900-normal.woff2",

@@ -421,9 +421,11 @@ body {
 }
 
 /* ---------- boot ----------
-   Five-second title card (TURN_ON_MS in intro.js). A short power flash, then three
-   one-shot titles: letters type on, a credit slides in, a tagline's colors lock.
-   Nothing here repeats. Channel tuning stays on the set underneath. */
+   Five-second title card (TURN_ON_MS in intro.js). The CRT in the logo powers on
+   (a line that opens), the crystal settles with one glint and a magenta/cyan glow,
+   then three one-shot titles: letters type on, a credit slides in, a tagline's
+   colors lock. Nothing here repeats, and nothing keeps painting after it ends.
+   Channel tuning stays on the set underneath. */
 .boot {
   position: absolute;
   top: 0;
@@ -435,6 +437,7 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 1.4vh;
   background: #000;
   transition: opacity 0.4s ease;
 }
@@ -442,47 +445,45 @@ body {
   opacity: 0;
   pointer-events: none;
 }
-.boot-world {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 0;
-  overflow: hidden;
-  background: radial-gradient(1px 1px at 12% 14%, #fff, transparent), radial-gradient(1px 1px at 31% 8%, #ffd6ff, transparent),
-    radial-gradient(1.5px 1.5px at 47% 21%, #fff, transparent), radial-gradient(1px 1px at 66% 11%, #c8f7ff, transparent),
-    radial-gradient(1.5px 1.5px at 83% 18%, #fff, transparent), radial-gradient(1px 1px at 92% 6%, #fff, transparent),
-    radial-gradient(1px 1px at 6% 33%, #fff, transparent), radial-gradient(1px 1px at 74% 31%, #fff, transparent),
-    linear-gradient(180deg, #0d0221 0%, #241056 38%, #6c1a74 58%, #ff4f8b 62%, #0d0221 62.1%);
-}
-.boot-world .cacti {
-  z-index: 1;
-  filter: drop-shadow(0 0 0.5vh #ff71ce);
-}
-.boot-world .horizon {
+.boot-set {
+  position: relative;
   z-index: 2;
+  width: min(58vh, 78vw);
+  flex: 0 0 auto;
 }
-.boot-grid {
+.boot-glow {
   position: absolute;
-  left: -40%;
-  right: -40%;
-  top: 62%;
-  bottom: -30%;
+  left: -12%;
+  right: -12%;
+  top: 6%;
+  bottom: -6%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(ellipse at 16% 72%, rgba(255, 40, 160, 0.72), transparent 58%),
+    radial-gradient(ellipse at 88% 64%, rgba(0, 220, 255, 0.62), transparent 54%);
+  animation: boot-glow 1.45s ease-out 0.22s both;
+}
+.boot-crt {
+  position: relative;
   z-index: 1;
-  background-color: #12032c;
-  background-image: linear-gradient(rgba(255, 42, 212, 0.85) 0.3vh, transparent 0.3vh), linear-gradient(90deg, rgba(255, 42, 212, 0.85) 0.3vh, transparent 0.3vh);
-  background-size: 7vh 7vh;
-  transform: perspective(28vh) rotateX(64deg);
-  transform-origin: center top;
+  transform-origin: center 46%;
+  animation: boot-crt-on 0.95s cubic-bezier(0.45, 0.02, 0.2, 1) both;
+}
+.boot-gem {
+  display: block;
+  width: 100%;
+  height: auto;
+  transform-origin: center center;
+  animation: boot-gem-in 1.15s cubic-bezier(0.16, 0.84, 0.32, 1) both;
 }
 .boot-tube {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 4;
+  left: 11%;
+  top: 15%;
+  width: 78%;
+  height: 63%;
+  z-index: 3;
   overflow: hidden;
   pointer-events: none;
 }
@@ -494,7 +495,6 @@ body {
 .boot-beam {
   position: absolute;
   pointer-events: none;
-  animation-timing-function: linear;
   animation-fill-mode: forwards;
 }
 .boot-power {
@@ -505,28 +505,28 @@ body {
   z-index: 1;
   background: #000;
   opacity: 1;
-  animation: boot-power 0.9s linear forwards;
+  animation: boot-power 1.05s linear both;
 }
 .boot-snow {
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 7;
+  z-index: 4;
   opacity: 0;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
-  animation: boot-snow 0.95s linear forwards;
+  animation: boot-snow 1.15s linear both;
 }
 .boot-bars {
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 8;
+  z-index: 5;
   opacity: 0;
   background: linear-gradient(90deg, #c0c0c0 0 14.28%, #c0c000 14.28% 28.57%, #00c0c0 28.57% 42.85%, #00c000 42.85% 57.14%, #c000c0 57.14% 71.42%, #c00000 71.42% 85.71%, #0000c0 85.71%);
-  animation: boot-bars 1.15s ease-in forwards;
+  animation: boot-bars 1.15s ease-in both;
 }
 .boot-bars::after {
   content: "";
@@ -534,7 +534,7 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  height: 24%;
+  height: 22%;
   background: linear-gradient(90deg, #00214c 0 18%, #fff 18% 36%, #32006a 36% 54%, #131313 54% 72%, #090909 72% 78%, #131313 78% 84%, #1d1d1d 84% 90%, #131313 90%);
 }
 .boot-flash,
@@ -547,28 +547,56 @@ body {
   transform-origin: center center;
 }
 .boot-flash {
-  z-index: 4;
-  transform: scaleY(0.012);
-  animation: boot-flash 0.85s linear forwards;
+  z-index: 2;
+  transform: scaleY(0.02);
+  animation: boot-flash 0.7s linear both;
 }
 .boot-bloom {
-  z-index: 5;
+  z-index: 3;
   opacity: 0;
   background: #fff;
-  animation: boot-bloom 0.85s linear forwards;
+  animation: boot-bloom 0.85s linear both;
 }
 .boot-beam {
   z-index: 6;
   left: 0;
   right: 0;
   top: 50%;
-  height: 0.45vh;
-  margin-top: -0.22vh;
+  height: 2px;
+  margin-top: -1px;
   background: #f4fff8;
-  box-shadow: 0 0 1.2vh 0.35vh rgba(190, 255, 245, 0.95), 0 0 3.5vh 0.8vh rgba(5, 217, 232, 0.45);
-  transform: scaleX(0.02);
+  box-shadow: 0 0 8px 2px rgba(190, 255, 245, 0.95), 0 0 18px 4px rgba(255, 60, 180, 0.45);
+  transform: scaleX(0.04);
   transform-origin: center center;
-  animation: boot-beam 0.55s ease-out forwards;
+  animation: boot-beam 0.62s ease-out both;
+}
+.boot-glint {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  -webkit-mask-image: url("../icons/boot-gem.webp");
+  mask-image: url("../icons/boot-gem.webp");
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  animation: boot-glint-fade 0.85s linear 1.12s both;
+}
+.boot-glint::after {
+  content: "";
+  position: absolute;
+  top: -8%;
+  bottom: -8%;
+  width: 14%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08) 35%, rgba(255, 255, 255, 0.72) 50%, rgba(255, 255, 255, 0.08) 65%, transparent);
+  transform: translateX(-220%) skewX(-18deg);
+  animation: boot-glint 0.7s ease-in-out 1.16s both;
 }
 .boot-scan {
   position: absolute;
@@ -576,68 +604,61 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 6;
+  z-index: 5;
   pointer-events: none;
   opacity: 0;
-  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 0) calc(100vh / 540), rgba(0, 0, 0, 0.22) calc(100vh / 360), rgba(0, 0, 0, 0) calc(100vh / 270)),
-    radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 58%, rgba(0, 0, 0, 0.42) 100%);
-  animation: boot-scan 0.6s linear 0.85s forwards;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 52%, rgba(0, 0, 0, 0.38) 100%);
+  animation: boot-scan 0.45s linear 1.2s both;
 }
 .boot-titles {
   position: relative;
   z-index: 9;
   text-align: center;
-  margin-top: -6vh;
   width: 92vw;
 }
 .boot-spell {
   font-family: var(--font-display);
   font-weight: 900;
-  font-size: 4.4rem;
-  letter-spacing: 0.12em;
+  font-size: 3.7rem;
+  letter-spacing: 0.08em;
   line-height: 1;
   white-space: nowrap;
-  filter: drop-shadow(0 0 0.18em rgba(255, 42, 212, 0.55));
 }
 .boot-spell span {
   display: inline-block;
   opacity: 0;
-  transform: translateY(0.45em) scale(0.6);
-  background: linear-gradient(180deg, #ffffff 0%, #c6f6ff 38%, #3d2bff 50%, #ff8af1 54%, #fff3fd 100%);
+  transform: translateY(0.4em) scale(0.62);
+  color: transparent;
+  background: linear-gradient(180deg, #ffffff 0%, #f3f7fb 10%, #9aafc2 26%, #ffffff 42%, #5c7084 49%, #f7fbff 53%, #c5d3e0 70%, #ffffff 86%, #ffc2ee 100%);
   -webkit-background-clip: text;
   background-clip: text;
-  color: transparent;
+  filter: drop-shadow(0 0.06em 0 rgba(18, 28, 42, 0.85)) drop-shadow(0 0 0.14em rgba(255, 50, 175, 0.9)) drop-shadow(0 0 0.32em rgba(0, 220, 255, 0.45));
   animation: boot-type 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
-.boot-spell span:nth-child(1) { animation-delay: 0.72s; }
-.boot-spell span:nth-child(2) { animation-delay: 0.86s; }
-.boot-spell span:nth-child(3) { animation-delay: 1s; }
-.boot-spell span:nth-child(4) { animation-delay: 1.14s; }
-.boot-spell span:nth-child(5) { animation-delay: 1.28s; }
-.boot-spell span:nth-child(6) { animation-delay: 1.42s; }
-.boot-spell span:nth-child(7) { animation-delay: 1.56s; }
-.boot-spell span:nth-child(8) { animation-delay: 1.7s; }
-.boot-spell span:nth-child(9) { animation-delay: 1.84s; }
-.boot-spell span:nth-child(n + 7) {
-  background: linear-gradient(180deg, #ffffff 0%, #ffc2f4 36%, #b967ff 50%, #05d9e8 56%, #e6fdff 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-}
+.boot-spell span:nth-child(1) { animation-delay: 1.32s; }
+.boot-spell span:nth-child(2) { animation-delay: 1.43s; }
+.boot-spell span:nth-child(3) { animation-delay: 1.54s; }
+.boot-spell span:nth-child(4) { animation-delay: 1.65s; }
+.boot-spell span:nth-child(5) { animation-delay: 1.76s; }
+.boot-spell span:nth-child(6) { animation-delay: 1.87s; }
+.boot-spell span:nth-child(7) { animation-delay: 1.98s; }
+.boot-spell span:nth-child(8) { animation-delay: 2.09s; }
+.boot-spell span:nth-child(9) { animation-delay: 2.2s; }
 .boot-caret {
   display: inline-block;
-  width: 0.28em;
-  height: 0.82em;
+  width: 0.22em;
+  height: 0.78em;
   margin-left: 0.08em;
-  vertical-align: -0.05em;
-  background: var(--cyan);
-  box-shadow: 0 0 0.4em var(--cyan);
+  vertical-align: -0.02em;
+  background: #e8eef5;
+  box-shadow: 0 0 0.35em rgba(255, 70, 190, 0.8), 0 0 0.7em rgba(0, 220, 255, 0.45);
   opacity: 0;
-  animation: boot-caret 1.5s steps(2, end) 0.72s forwards;
+  animation: boot-caret 1.35s steps(2, end) 1.32s forwards;
 }
 .boot-credit {
-  margin-top: 1.15rem;
+  margin-top: 0.7rem;
   font-family: var(--font-mono);
-  font-size: 2.15rem;
+  font-size: 1.85rem;
   letter-spacing: 0.16em;
   color: var(--cyan);
   text-shadow: 0 0 0.45em rgba(5, 217, 232, 0.8);
@@ -647,10 +668,10 @@ body {
 }
 .boot-tag {
   position: relative;
-  height: 2.4rem;
-  margin-top: 0.85rem;
+  height: 2.1rem;
+  margin-top: 0.45rem;
   font-family: var(--font-mono);
-  font-size: 2.35rem;
+  font-size: 2rem;
   letter-spacing: 0.14em;
 }
 .boot-tag span {
@@ -728,40 +749,64 @@ body {
   display: none !important;
 }
 
+@keyframes boot-crt-on {
+  0%,
+  22% { transform: scaleY(0.014); }
+  100% { transform: none; }
+}
+@keyframes boot-gem-in {
+  0% { opacity: 0; transform: scale(0.9); }
+  32% { opacity: 1; transform: scale(0.95); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes boot-glow {
+  0% { opacity: 0; }
+  50% { opacity: 1; }
+  100% { opacity: 0.82; }
+}
 @keyframes boot-power {
   0%,
-  55% { opacity: 1; }
+  42% { opacity: 1; }
   100% { opacity: 0; }
 }
 @keyframes boot-beam {
-  0% { transform: scaleX(0.02); opacity: 1; }
-  55% { transform: scaleX(1); opacity: 1; }
+  0% { transform: scaleX(0.04); opacity: 1; }
+  62% { transform: scaleX(1); opacity: 1; }
   100% { transform: scaleX(1); opacity: 0; }
 }
 @keyframes boot-flash {
   0%,
-  18% { transform: scaleY(0.012); opacity: 1; }
-  62% { transform: scaleY(1); opacity: 1; }
+  16% { transform: scaleY(0.02); opacity: 1; }
+  68% { transform: scaleY(1); opacity: 0.55; }
   100% { transform: scaleY(1); opacity: 0; }
 }
 @keyframes boot-bloom {
   0%,
-  40% { opacity: 0; }
-  62% { opacity: 0.9; }
+  38% { opacity: 0; }
+  58% { opacity: 0.72; }
   100% { opacity: 0; }
 }
 @keyframes boot-snow {
   0%,
-  42% { opacity: 0; }
-  58% { opacity: 0.95; }
+  34% { opacity: 0; }
+  50% { opacity: 0.92; }
   100% { opacity: 0; }
 }
 @keyframes boot-bars {
   0%,
-  48% { opacity: 0; transform: translateY(8%); }
-  62%,
-  78% { opacity: 1; transform: translateY(0); }
+  42% { opacity: 0; transform: translateY(8%); }
+  58%,
+  74% { opacity: 1; transform: translateY(0); }
   100% { opacity: 0; transform: translateY(-110%); }
+}
+@keyframes boot-glint {
+  to { transform: translateX(780%) skewX(-18deg); }
+}
+@keyframes boot-glint-fade {
+  0% { opacity: 0; }
+  18% { opacity: 1; }
+  78% { opacity: 1; }
+  100% { opacity: 0; }
 }
 @keyframes boot-scan {
   from { opacity: 0; }
@@ -772,7 +817,7 @@ body {
 }
 @keyframes boot-caret {
   0%,
-  80% { opacity: 1; }
+  78% { opacity: 1; }
   100% { opacity: 0; }
 }
 @keyframes boot-slide {
@@ -800,9 +845,13 @@ body {
 
 .boot.boot-hold .boot-tube,
 .boot.boot-hold .boot-scan,
+.boot.boot-hold .boot-glint,
 .boot.boot-hold .boot-caret {
   display: none;
 }
+.boot.boot-hold .boot-crt,
+.boot.boot-hold .boot-gem,
+.boot.boot-hold .boot-glow,
 .boot.boot-hold .boot-spell span,
 .boot.boot-hold .boot-credit,
 .boot.boot-hold .boot-tag-y,
@@ -818,25 +867,29 @@ body {
 }
 
 @media (max-aspect-ratio: 1/1) {
-  .boot-spell { font-size: 2.15rem; letter-spacing: 0.06em; }
-  .boot-credit { font-size: 1.35rem; }
-  .boot-tag { font-size: 1.45rem; height: 1.6rem; }
+  .boot-set { width: min(40vh, 88vw); }
+  .boot-spell { font-size: 1.65rem; letter-spacing: 0.04em; }
+  .boot-credit { font-size: 1.15rem; }
+  .boot-tag { font-size: 1.2rem; height: 1.35rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .boot-tube,
   .boot-scan,
+  .boot-glint,
   .boot-caret,
   .boot-tag-c,
   .boot-tag-m {
     display: none !important;
   }
+  .boot-crt,
+  .boot-gem,
+  .boot-glow,
   .boot-spell span,
   .boot-credit,
   .boot-tag-y,
   .boot-hint,
-  .boot-version,
-  .boot-world {
+  .boot-version {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
