@@ -4012,6 +4012,7 @@ document.addEventListener("keydown", function (e) {
   // Keys the remote doesn't use still skip the turn-on. "a" should not have to be OK.
   if (app.turnOn && app.turnOn.active() && !actionFor(e) && !isTypingTarget(e.target)) {
     skipTurnOn();
+    if (player.mode === "gesture") player.userGesture();
     e.preventDefault();
     return;
   }
@@ -4110,6 +4111,9 @@ document.addEventListener(
   function () {
     if (!(app.turnOn && app.turnOn.active())) return;
     skipTurnOn();
+    // The click that follows this tap is swallowed, so this is the press that lets a
+    // blocked picture start. Otherwise the next dock button (MENU, GUIDE) is eaten.
+    if (player.mode === "gesture") player.userGesture();
     turnOnTap = true;
     setTimeout(function () {
       turnOnTap = false;
