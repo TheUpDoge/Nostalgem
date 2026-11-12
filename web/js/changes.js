@@ -7,8 +7,9 @@ export const CHANGES = [
     v: "1.12.0",
     title: "Packs in the hundreds",
     items: [
-      "Channel packs can use the hundreds now, CH 100–199, as well as 30–49. Type 1 0 1 for CH 101: it reads CH 101 while it tunes.",
+      "Channel packs can use CH 100–199 and CH 200–299, as well as 30–49. Type 1 0 1 for CH 101, or 2 0 2 for CH 202: it reads the channel while it tunes.",
       "A pack asking for a number that's taken moves to the next free one, past the secret stations and the numbers sub-channels use.",
+      "CH 202 can be a pack channel. The Witching Hour stays on CH 20-2, and channel up and down still find it.",
       "A one-digit channel's sub-channel can be typed the way the guide writes it: 0 3 2 for 03-2.",
       "The TV guide no longer squeezes a long channel name over its number.",
     ],
