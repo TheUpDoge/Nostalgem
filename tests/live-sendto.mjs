@@ -92,7 +92,7 @@ if (process.env.ONLY === "archive") {
 
 // ---------- 2. in the app: a real film, sent from the phone ----------
 const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gesture-required"] });
-const CODE = "LVE234";
+const CODE = "TRY234"; // only letters a pairing code uses (no L, V, I, O, U)
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
 await ctx.addInitScript({ path: join(here, "fixtures", "fake-peer.js") });
 await ctx.addInitScript((code) => {
@@ -120,8 +120,9 @@ await tv.goto(site + "?ch=1");
 await tv.waitForFunction(() => window.NP && window.NP.state().app === "on" && window.NP.state().phone.status === "ready", null, { timeout: 30000 }).catch(() => {});
 await ph.goto(site + "remote.html#" + CODE);
 await ph.waitForFunction(() => window.NGRemote && window.NGRemote.state().status === "connected" && window.NGRemote.state().tv, null, { timeout: 30000 }).catch(() => {});
-const paired = (await ph.evaluate(() => window.NGRemote && window.NGRemote.state().status)) === "connected";
-check(paired && (await ph.evaluate(() => !!document.getElementById("sendInput"))), "the phone is paired, and its Search page has the Send to TV box");
+const phoneIs = await ph.evaluate(() => (window.NGRemote ? window.NGRemote.state().status + " " + window.NGRemote.state().code : "no remote"));
+const paired = /^connected /.test(phoneIs);
+check(paired && (await ph.evaluate(() => !!document.getElementById("sendInput"))), `the phone is paired, and its Search page has the Send to TV box (phone: ${phoneIs}; TV: ${JSON.stringify((await st()).phone)})`);
 
 if (paired) {
   await sendFromBox("https://archive.org/details/" + film.id);
