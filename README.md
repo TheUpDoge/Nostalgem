@@ -97,7 +97,12 @@ YouTube's player) and rebuilt daily:
   color of one pixel of a tiny copy), so they run at full speed on a TV; on YouTube they get
   lighter stand-ins, since YouTube's player can't be drawn. **Filter quality** (Auto, Full, Light): on
   Auto, a filter that makes the picture choppy on your TV switches itself to its light version (run on
-  a small copy of the picture), and says so.
+  a small copy of the picture), and says so. **On a TV** (the TV app, or a TV's own browser) the filters
+  keep to a TV's means: ASCII has 80 characters across and a new picture ten times a second, stained
+  glass eight times a second, and the filters drawn by the graphics chip over the whole screen (Sin
+  City, the tints, VHS, Colorized and the other Wild ones) start on their light version, which a TV's
+  slow processor can keep up with; **Filter quality ▸ Full** gets the full ones back. A computer is left
+  as it is. Measured, not guessed: see the TV performance pull request.
 - **YouTube ads**: when YouTube puts an ad before a show, a late-night "word from our sponsors" card
   covers it with the sound off, and the show starts by itself when the ad is over. OK never restarts it.
 - **Ambience**: lo-fi vinyl crackle, a rainy window, or tape hiss under the program (Menu ▸ Picture & sound).
@@ -416,6 +421,8 @@ npm run test:lan          # the phone remote over real WebRTC, through a local P
 npm run test:relay        # the phone remote through the relay with WebRTC blocked (local MQTT broker)
 npm run test:mouse        # the phone's Mouse page and packs from the phone: in a browser, in the TV app, and through the relay
 npm run test:screen       # Screen shape: 4:3 for old CRT TVs, everything inside the box
+npm run test:tvlimits     # the TV path's limits on the filters, and nothing different on a computer
+npm run perf              # not a test: measures what filters and channel switching cost on a TV-sized, slowed screen
 ```
 
 The browser test needs no network. Small local clips stand in for the Archive, and it checks

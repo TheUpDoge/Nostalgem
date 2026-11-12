@@ -39,10 +39,12 @@ import { loadLineup, builtAt } from "./lineup.js";
 import { loadBumpers } from "./bumpers.js";
 import { escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder, numberText } from "./util.js";
 
-const VERSION = "1.14.0";
+const VERSION = "1.15.0";
 const NAME = "NostalGem";
 const params = new URLSearchParams(window.location.search);
 const ANDROID = params.get("tv") === "android";
+// A TV: the TV app, or a TV's own browser (LG webOS, Samsung Tizen, Sony, Fire TV, Google TV and the like).
+const ON_TV = ANDROID || /SMART-TV|SmartTV|Web0S|WebOS|Tizen|NetCast|BRAVIA|HbbTV|\bAFT[A-Z]|GoogleTV|Android TV|CrKey|AppleTV/i.test(navigator.userAgent || "");
 // The TV app opens the published site, and falls back to its own copy when it can't reach it. That
 // copy's lineup is as old as the app, while the published one is rebuilt daily, so the copy asks for it.
 const ON_PAGES = window.location.href.indexOf(PAGES_BASE) === 0;
@@ -135,6 +137,17 @@ const frameWatch = new FrameWatch(function (key) {
   V.toast("🎨 " + lookById(lookId()).name + " was slowing this TV down, so it's on its light version now (Menu ▸ Filter quality)", 6000);
 });
 const canvasLook = new CanvasLook({ video: $("screen"), yt: $("yt"), before: $("yt"), rainBefore: $("radio") });
+// The TV path gets the strictest limits on the filters (fxcanvas.js TV_LIMITS): what a filter costs a TV's
+// slow processor, a computer never notices. Nothing changes on a computer.
+// ?perf=asciiCols:64,asciiMs:150 changes them, for measuring (tests, and the profile in the TV performance PR).
+canvasLook.setTv(
+  ON_TV,
+  (params.get("perf") || "").split(",").reduce(function (o, kv) {
+    const a = kv.split(":");
+    if (a.length === 2 && isFinite(Number(a[1]))) o[a[0]] = Number(a[1]);
+    return o;
+  }, {})
+);
 const church = new Church(); // 111's sound
 
 // Clean cuts (cuts.js): the lists that ship (data/skip-lists.json, none yet) and any a pack brought to this
@@ -2030,7 +2043,14 @@ function lookKey() {
 function lookIsLite() {
   if (s.lookQuality === "light") return true;
   if (s.lookQuality === "full") return false;
-  return !!(s.liteLooks && s.liteLooks[lookKey()]);
+  if (s.liteLooks && s.liteLooks[lookKey()]) return true;
+  // Auto, on a TV: a filter with an SVG part starts on its light version. The full version is worked out
+  // over the whole screen, off the page's own thread (several times the work, measured), where the
+  // frame-rate watch can't see it slowing the picture down. Filter quality: Full still gets it.
+  const look = lookById(lookId());
+  if (!ON_TV || look.canvas || look.id === "off") return false;
+  const mix = lookById(s.mix);
+  return /url\(/.test(comboCss(look, mixable(mix) && mix.id !== look.id ? mix : null));
 }
 
 function applyLook() {
@@ -4369,7 +4389,8 @@ window.NP = {
       reader: reader.state(),
       station: app.station || "",
       intro: !$("intro").hidden,
-      look: { id: lookId(), setting: s.look, station: app.stationLook || "", mix: s.mix, key: lookKey(), lite: lookIsLite(), quality: s.lookQuality, watching: frameWatch.key, fps: frameWatch.last },
+      look: { id: lookId(), setting: s.look, station: app.stationLook || "", mix: s.mix, key: lookKey(), lite: lookIsLite(), quality: s.lookQuality, watching: frameWatch.key, fps: frameWatch.last, canvas: canvasLook.out.hidden ? "" : canvasLook.out.width + "x" + canvasLook.out.height, pictures: canvasLook.pictures, onScreen: tv.style.getPropertyValue("--look") },
+      tv: ON_TV,
       sound: player.soundState(),
       cut: player.cutState(),
       cutCard: !$("cutcard").hidden,

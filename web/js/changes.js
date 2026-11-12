@@ -4,6 +4,13 @@
 
 export const CHANGES = [
   {
+    v: "1.15.0",
+    title: "Lighter on the TV",
+    items: [
+      "Filters cost a TV less: ASCII has 80 characters across and a new picture ten times a second (it ran the TV flat out before), and Sin City, the tints and the other whole-screen filters start on their light version on a TV. Menu ▸ Filter quality ▸ Full brings the full ones back. Nothing changes on a computer.",
+    ],
+  },
+  {
     v: "1.14.0",
     title: "4:3 for old TVs",
     items: [
