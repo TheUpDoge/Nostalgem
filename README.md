@@ -77,6 +77,17 @@ YouTube's player) and rebuilt daily:
 
 - **Live, synchronized schedule.** Every TV agrees on what's on, with no server involved: the schedule
   is worked out from the clock. Programs have an 8-second station break between them with an "up next" card.
+- **Cards with character.** The up-next card in a station break, and the card while a channel's program
+  loads, come in the channel family's own look and voice: a sundown for the westerns, venetian blinds and
+  rain for noir, a full moon for horror, a starfield for science fiction, T-minus for Mission Control, a
+  comic panel for the cartoons, speed lines for anime, a curtain for comedy, equalizer bars for music,
+  title cards between sprocket holes for the silent era, a countdown leader for the newsreels and serials,
+  a green terminal for the computer channels, marquee bulbs for the game shows, a lower third for talk
+  and news, a dial for radio. Every TV in the same break sees the same card. Which channel is in which
+  family is in `web/js/cards.js` (viewer-added channels go by their words); the words are in
+  [`web/data/cards.json`](web/data/cards.json), for anyone to edit. The YouTube sponsor card keeps its
+  late-night deadpan and works as before, with the channel family's scenery turned right down behind it
+  and a line in the channel's voice now and then.
 - **House bumpers.** About one station break in three (every break on Commercial Break) shows a station
   ID card instead of the plain up-next card — short original bumpers from `web/data/bumpers.json`,
   picked from the clock so every TV in the same break sees the same one.
@@ -423,6 +434,7 @@ npm run test:mouse        # the phone's Mouse page and packs from the phone: in 
 npm run test:screen       # Screen shape: 4:3 for old CRT TVs, everything inside the box
 npm run test:tvlimits     # the TV path's limits on the filters, and nothing different on a computer
 npm run perf              # not a test: measures what filters and channel switching cost on a TV-sized, slowed screen
+npm run test:cards        # station cards in the channel family's look: a break, and a slow load
 ```
 
 The browser test needs no network. Small local clips stand in for the Archive, and it checks
@@ -452,6 +464,7 @@ web/
   js/cuts.js                   clean cuts: skip lists checked, and how a program plays with one (card or skip)
   js/framewatch.js             notices a filter making the picture choppy (Filter quality: Auto)
   js/library.js, js/ui/club.js the Video Club: library card, checkout rules, the store's shelves and screens
+  js/cards.js, data/cards.json the station cards' families, looks and words (up next, loading, the ad card's quips)
   js/changes.js                What's new: the changes in each version
   js/ui/drag.js                touch: a finger dragged over the guide or a menu moves through it
   js/books.js, js/ui/reader.js the Reading Room: Archive books as page images, and the reader

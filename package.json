@@ -17,6 +17,7 @@
     "test:screen": "node tests/screen.browser.mjs",
     "test:tvlimits": "node tests/tvlimits.browser.mjs",
     "perf": "node tests/perf.mjs",
+    "test:cards": "node tests/cards.browser.mjs",
     "lineup": "node tools/build-lineup.mjs"
   },
   "devDependencies": {

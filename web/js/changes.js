@@ -4,6 +4,14 @@
 
 export const CHANGES = [
   {
+    v: "1.16.0",
+    title: "Cards with character",
+    items: [
+      "The up-next cards between programs, and the card while a channel loads, now come in the channel's own style: a sundown for the westerns, venetian blinds for noir, a full moon for horror, a countdown leader for the newsreels, title cards for the silent era, a terminal for the computer channels, and more. Every TV in the same break sees the same card.",
+      "YouTube's ad card keeps its late-night deadpan, now over the channel's scenery turned right down, with a line in the channel's voice now and then. The words are in data/cards.json, for anyone to edit.",
+    ],
+  },
+  {
     v: "1.15.0",
     title: "Lighter on the TV",
     items: [
