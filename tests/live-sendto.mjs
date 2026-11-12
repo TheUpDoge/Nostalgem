@@ -129,10 +129,11 @@ if (paired) {
   await tv.waitForFunction((t) => window.NP.state().mode === "playing" && window.NP.state().sent && window.NP.state().program === t, film.t, { timeout: 90000 }).catch(() => {});
   let s = await st();
   check(s.mode === "playing" && s.sent && s.program === film.t && s.shifted, `a real film sent from the phone plays on demand: ${s.program} (${s.mode}, ${s.length}s long); the phone says: ${await sendMsg()}`);
+  // A runner starts a film slowly (it buffers, and has no graphics card): give it a while to get going.
   const at0 = s.at;
-  await tv.waitForTimeout(4000);
+  await tv.waitForFunction((from) => window.NP.state().at >= from + 2, at0, { timeout: 20000 }).catch(() => {});
   s = await st();
-  check(s.at > at0 + 2, `…and it's moving (${at0}s → ${s.at}s)`);
+  check(s.at >= at0 + 2 && s.mode === "playing", `…and it's moving (${at0}s → ${s.at}s)`);
   await ph.waitForFunction(() => window.NGRemote.state().tv && window.NGRemote.state().tv.sent && !document.getElementById("seekBar").hidden, null, { timeout: 10000 }).catch(() => {});
   check(await ph.evaluate(() => !document.getElementById("seekBar").hidden && Number(document.getElementById("seekBar").max) > 600), "the phone has the bar, as long as the film");
   await ph.evaluate(() => {
