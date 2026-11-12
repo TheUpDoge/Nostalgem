@@ -11,6 +11,7 @@ import {
   spillVector,
   scaleFromMatrix,
   playTreasureSound,
+  treasureCues,
 } from "../web/js/boot-treasure.js";
 
 const html = treasureMarkup();
@@ -84,7 +85,15 @@ test("the spill vector points at the chest, and a scaled word is divided back ou
   assert.equal(scaleFromMatrix("matrix(0, 0, 0, 0, 0, 0)"), 1);
 });
 
-test("no AudioContext means the treasure card stays silent", () => {
+test("the score is a thud, a creak and a jingle, and it stays silent without audio", () => {
+  const cues = treasureCues();
+  assert.deepEqual(
+    cues.map((c) => c.kind),
+    ["thud", "creak", "jingle"]
+  );
+  assert.ok(cues[0].t < 0.25);
+  assert.ok(cues[1].t > 0.4 && cues[1].t < 1.1);
+  assert.ok(cues[2].t > 1 && cues[2].t < 1.6);
   assert.equal(playTreasureSound(), null);
 });
 

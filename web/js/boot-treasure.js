@@ -367,7 +367,141 @@ export function mountTreasureBoot(bootEl, still) {
   });
 }
 
-// Scored separately. Silent until then, and never the CRT power-on.
+// Dig thud, lid creak, coin jingle. Times line up with the CSS scene.
+// Mute and Channel static are decided by the caller (introAudible); this only plays.
+export function treasureCues() {
+  return [
+    { t: 0.06, kind: "thud" },
+    { t: 0.66, kind: "creak" },
+    { t: 1.22, kind: "jingle" },
+  ];
+}
+
+var JINGLE = [784, 988, 1175, 1319, 1568, 1760, 2093, 1319, 1568];
+
+function tone(ctx, master, at, freq, dur, type, peak) {
+  var o = ctx.createOscillator();
+  var g = ctx.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(freq, at);
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.exponentialRampToValueAtTime(peak, at + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+  o.connect(g);
+  g.connect(master);
+  o.start(at);
+  o.stop(at + dur + 0.02);
+}
+
+function noiseBand(ctx, master, at, dur, peak, kind, hz) {
+  var len = Math.max(1, Math.floor(ctx.sampleRate * dur));
+  var buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  var data = buf.getChannelData(0);
+  var i;
+  for (i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+  var src = ctx.createBufferSource();
+  src.buffer = buf;
+  var filter = ctx.createBiquadFilter();
+  filter.type = kind;
+  filter.frequency.value = hz;
+  var g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.exponentialRampToValueAtTime(peak, at + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+  src.connect(filter);
+  filter.connect(g);
+  g.connect(master);
+  src.start(at);
+  src.stop(at + dur + 0.02);
+}
+
+function creak(ctx, master, at) {
+  var o = ctx.createOscillator();
+  var g = ctx.createGain();
+  o.type = "triangle";
+  o.frequency.setValueAtTime(190, at);
+  o.frequency.exponentialRampToValueAtTime(95, at + 0.2);
+  o.frequency.exponentialRampToValueAtTime(150, at + 0.36);
+  o.frequency.exponentialRampToValueAtTime(72, at + 0.58);
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.exponentialRampToValueAtTime(0.11, at + 0.04);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + 0.62);
+  o.connect(g);
+  g.connect(master);
+  o.start(at);
+  o.stop(at + 0.66);
+  noiseBand(ctx, master, at, 0.48, 0.035, "bandpass", 680);
+}
+
+function playCues(ctx, master, t) {
+  var cues = treasureCues();
+  var i;
+  for (i = 0; i < cues.length; i++) {
+    var c = cues[i];
+    var at = t + c.t;
+    if (c.kind === "thud") {
+      tone(ctx, master, at, 58, 0.26, "sine", 0.85);
+      tone(ctx, master, at, 36, 0.32, "triangle", 0.32);
+      noiseBand(ctx, master, at, 0.14, 0.22, "lowpass", 220);
+    } else if (c.kind === "creak") {
+      creak(ctx, master, at);
+    } else if (c.kind === "jingle") {
+      var n;
+      for (n = 0; n < JINGLE.length; n++) tone(ctx, master, at + n * 0.085, JINGLE[n], 0.1, "triangle", 0.1);
+      noiseBand(ctx, master, at + 0.06, 0.035, 0.06, "highpass", 2800);
+      noiseBand(ctx, master, at + 0.32, 0.03, 0.05, "highpass", 3200);
+      noiseBand(ctx, master, at + 0.55, 0.03, 0.045, "highpass", 2600);
+    }
+  }
+}
+
+// resume() runs from boot, not from a key, so a normal tab leaves the context suspended
+// and this stays silent. A capture that allows autoplay is the exception. Any failure
+// is swallowed: a blocked gesture must not throw over the picture.
 export function playTreasureSound() {
-  return null;
+  var AC = typeof window !== "undefined" && (window.AudioContext || window.webkitAudioContext);
+  if (!AC) return null;
+  var ctx;
+  try {
+    ctx = new AC();
+  } catch (e) {
+    return null;
+  }
+  var master;
+  try {
+    master = ctx.createGain();
+    master.gain.value = 0.2;
+    master.connect(ctx.destination);
+    var t = ctx.currentTime + 0.02;
+    if (ctx.state === "suspended") {
+      var resumed = ctx.resume();
+      if (resumed && resumed.catch) resumed.catch(function () {});
+    }
+    playCues(ctx, master, t);
+  } catch (e2) {
+    try {
+      ctx.close();
+    } catch (e3) {
+      /* already closed */
+    }
+    return null;
+  }
+  var stopped = false;
+  return {
+    stop: function () {
+      if (stopped) return;
+      stopped = true;
+      try {
+        master.gain.cancelScheduledValues(ctx.currentTime);
+        master.gain.setValueAtTime(0.0001, ctx.currentTime);
+      } catch (e4) {
+        /* context already closed */
+      }
+      try {
+        ctx.close();
+      } catch (e5) {
+        /* already closed */
+      }
+    },
+  };
 }
