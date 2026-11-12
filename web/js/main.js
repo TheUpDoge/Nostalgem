@@ -36,6 +36,7 @@ import { loadLineup, builtAt } from "./lineup.js";
 import { loadBumpers } from "./bumpers.js";
 import { DEFAULT_CARDS, loadCards, familyAdQuips, familyOf, cardClass } from "./cards.js";
 import { crystalChime, stopCrystalChime } from "./crystal-chime.js";
+import { pictureReady, loadCardDecision } from "./loadhold.js";
 import { pad2, escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder, numberText } from "./util.js";
 
 const VERSION = "1.16.0";
@@ -58,6 +59,8 @@ const BAD_TTL = 24 * 3600 * 1000; // a file that wouldn't play is skipped for a 
 const PROBLEMS_KEPT = 30; // Menu ▸ Playback problems lists this many
 const CUSTOM_FROM = 30; // channels you add start at CH 30
 const LOAD_CARD_AFTER = 1500; // ms of loading before the channel's own "one moment" card takes over from the snow
+// Once that card is up, loadhold.js keeps it until the picture is really playing (at least this long,
+// and no longer than LOAD_CARD_HOLD). Claude: the wait lives here and in loadhold.js; player.pictureState is read-only.
 const SWATCHES = ["#ff2a6d", "#05d9e8", "#b967ff", "#fffb96", "#ff9f1c", "#3ddc97", "#f72585", "#4cc9f0"];
 
 const $ = V.$;
@@ -597,15 +600,84 @@ function onCut(info) {
   }
 }
 
+// The loading card's extra hold. shown: when it appeared. readyAt: when the picture first qualified.
+let loadShown = 0;
+let loadReadyAt = 0;
+let loadTime = null;
+let loadFrame = false;
+let loadTimer = 0;
+
+function clearLoadHold() {
+  loadShown = 0;
+  loadReadyAt = 0;
+  loadTime = null;
+  loadFrame = false;
+  clearTimeout(loadTimer);
+  loadTimer = 0;
+}
+
+function armLoadFrame() {
+  loadFrame = false;
+  const v = player.v;
+  if (!v || typeof v.requestVideoFrameCallback !== "function") return;
+  try {
+    v.requestVideoFrameCallback(function () {
+      loadFrame = true;
+      pokeLoadHold();
+    });
+  } catch (e) {
+    /* the readyState and currentTime checks still apply */
+  }
+}
+
+function pokeLoadHold() {
+  if (!loadShown) return;
+  clearTimeout(loadTimer);
+  const card = $("card");
+  if (!card || card.hidden || card.className.indexOf("card-tuning") < 0) {
+    clearLoadHold();
+    return;
+  }
+  const snap = player.pictureState ? player.pictureState() : { playing: player.mode === "playing", signals: false };
+  const ready = pictureReady({
+    playing: snap.playing,
+    signals: snap.signals,
+    frame: loadFrame,
+    readyState: snap.readyState,
+    currentTime: snap.currentTime,
+    lastTime: loadTime,
+  });
+  if (typeof snap.currentTime === "number") loadTime = snap.currentTime;
+  const d = loadCardDecision(Date.now(), loadShown, loadReadyAt, ready, LOAD_CARD_AFTER);
+  loadReadyAt = d.readyAt;
+  if (d.hide) fadeLoadCard();
+  else loadTimer = setTimeout(pokeLoadHold, Math.max(40, d.wait || 200));
+}
+
+function fadeLoadCard() {
+  clearTimeout(loadTimer);
+  loadTimer = 0;
+  const card = $("card");
+  loadShown = 0;
+  if (!card || card.hidden || card.className.indexOf("card-tuning") < 0) return;
+  card.classList.add("card-leave");
+  loadTimer = setTimeout(function () {
+    stopCrystalChime();
+    if (card.className.indexOf("card-tuning") >= 0) V.hideCard();
+  }, 450);
+}
+
 function onPlayerState(mode, extra) {
   const ch = current();
-  stopCrystalChime();
+  // Leave the ident playing while the loading card is held over the first frames.
+  if (mode !== "playing") stopCrystalChime();
   clearTimeout(app.loadCardTimer);
   tv.classList.toggle("paused", mode === "paused");
   if (mode !== "playing") tv.classList.remove("buffering");
   if (app.stillShownAt && mode !== "playing" && mode !== "tuning") app.stillShownAt = 0;
   switch (mode) {
     case "tuning":
+      clearLoadHold();
       if (s.staticFx !== "off") fx.hold();
       V.hideCard();
       showRadio(ch);
@@ -619,12 +691,19 @@ function onPlayerState(mode, extra) {
           V.showCard("tuning", V.loadingCard(ch, app.cards, tunedAt), cardClass(ch));
           // The ident plays once, with the light sweep. Muted, or a blocked audio context: silence.
           if (familyOf(ch).id === "crystalsignal") crystalChime({ muted: player.muted, volume: player.v && typeof player.v.volume === "number" ? player.v.volume : 1 });
+          loadShown = Date.now();
+          loadReadyAt = 0;
+          loadTime = null;
+          armLoadFrame();
+          pokeLoadHold();
         }, LOAD_CARD_AFTER);
       }
       break;
     case "playing":
       fx.release();
-      if (!app.stillShownAt) V.hideCard();
+      // The loading card stays up until the picture is really ready (loadhold.js), for every theme.
+      if (loadShown) pokeLoadHold();
+      else if (!app.stillShownAt) V.hideCard();
       showRadio(ch);
       break;
     case "paused":

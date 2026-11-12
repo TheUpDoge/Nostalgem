@@ -464,6 +464,20 @@ export class Player {
     }
   }
 
+  // Read-only, for the loading card (loadhold.js). Whether a frame is really on the way.
+  // Claude: this does not change playback. Drop it with the hold in main.js if you don't want the wait.
+  pictureState() {
+    const v = this.v;
+    const playing = this.mode === "playing";
+    if (!v || (typeof v.readyState !== "number" && typeof v.currentTime !== "number")) return { playing: playing, signals: false };
+    return {
+      playing: playing,
+      signals: true,
+      readyState: typeof v.readyState === "number" ? v.readyState : null,
+      currentTime: typeof v.currentTime === "number" && isFinite(v.currentTime) ? v.currentTime : null,
+    };
+  }
+
   // Called twice a second by the app.
   tick() {
     const now = Date.now();

@@ -876,6 +876,11 @@ body {
 .card-tuning {
   animation: card-in 0.35s ease-out;
 }
+.card-tuning.card-leave {
+  animation: none;
+  opacity: 0;
+  transition: opacity 0.45s ease;
+}
 @keyframes card-in {
   from {
     opacity: 0;
