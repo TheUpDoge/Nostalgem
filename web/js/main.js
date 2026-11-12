@@ -34,6 +34,7 @@ import { TvLink, makeCode, cleanCode, remoteUrl, prettyCode, qrSvg, loadScript, 
 import { pathsText } from "./relay.js";
 import { loadLineup, builtAt } from "./lineup.js";
 import { SNOW_FRAMES, createTurnOn, introAudible, playTurnOnSound, prefersStill, showBootSnow, snowBufferSize, snowPixels, turnOnAction, turnOnDuration } from "./intro.js";
+import { mountTreasureBoot, playTreasureSound, treasureWanted } from "./boot-treasure.js";
 import { loadBumpers } from "./bumpers.js";
 import { pad2, escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder, numberText } from "./util.js";
 
@@ -143,7 +144,11 @@ function loadSkipLists() {
       return r.ok ? r.json() : null;
     })
     .then(function (json) {
-      if (json) skipLists.shipped = checkSkipLists(json).lists;
+      if (!json) return;
+      skipLists.shipped = checkSkipLists(json).lists;
+      // The boot tunes as soon as the lineup is in, which can be before this file
+      // comes back. Apply the list to whatever is already playing.
+      if (player.refreshCuts) player.refreshCuts();
     })
     .catch(function () {
       /* none, then */
@@ -3851,7 +3856,11 @@ function handleAction(a) {
   }
   if (player.mode === "gesture") {
     player.userGesture();
-    return;
+    // The press that lets a blocked picture start still changes the channel. Dropping it
+    // left the phone's channel-up on channel 1 while the boot card had the set waiting.
+    // OK on an open dialog (What's new) has to land too, or that page never closes.
+    var channelPress = a.type === "up" || a.type === "down" || a.type === "chup" || a.type === "chdown";
+    if (!channelPress && !(dialog.isOpen && a.type === "ok")) return;
   }
   if (numpad.isOpen) {
     numpad.handle(a);
@@ -4010,6 +4019,7 @@ document.addEventListener("keydown", function (e) {
   // Keys the remote doesn't use still skip the turn-on. "a" should not have to be OK.
   if (app.turnOn && app.turnOn.active() && !actionFor(e) && !isTypingTarget(e.target)) {
     skipTurnOn();
+    if (player.mode === "gesture") player.userGesture();
     e.preventDefault();
     return;
   }
@@ -4108,6 +4118,9 @@ document.addEventListener(
   function () {
     if (!(app.turnOn && app.turnOn.active())) return;
     skipTurnOn();
+    // The click that follows this tap is swallowed, so this is the press that lets a
+    // blocked picture start. Otherwise the next dock button (MENU, GUIDE) is eaten.
+    if (player.mode === "gesture") player.userGesture();
     turnOnTap = true;
     setTimeout(function () {
       turnOnTap = false;
@@ -4470,16 +4483,19 @@ function askApp() {
 
 async function boot() {
   const bootEl = $("boot");
+  const still = prefersStill(function (q) {
+    return window.matchMedia(q);
+  });
+  // Alternate card only. The CRT title card stays the markup in index.html.
+  const treasure = !!(bootEl && treasureWanted(params.get("boot")));
+  if (treasure) mountTreasureBoot(bootEl, still);
   const bootVersion = document.querySelector(".boot-version");
   if (bootVersion) bootVersion.textContent = "v" + VERSION;
   askApp();
   registerTvKeys();
   applyLook();
   tv.classList.add("hide-cursor");
-  const still = prefersStill(function (q) {
-    return window.matchMedia(q);
-  });
-  if (!showBootSnow(s.staticFx) || still) bootEl.classList.add("boot-quiet");
+  if (!treasure && (!showBootSnow(s.staticFx) || still)) bootEl.classList.add("boot-quiet");
   const waitEl = document.querySelector(".boot-wait");
   // The title card plays over the load. It does not wait, and it does not hold the tuner.
   const turnOn = createTurnOn({
@@ -4496,12 +4512,12 @@ async function boot() {
     audible: function () {
       return !still && introAudible({ muted: player.muted, staticFx: s.staticFx });
     },
-    playSound: playTurnOnSound,
+    playSound: treasure ? playTreasureSound : playTurnOnSound,
     onFinish: endTurnOn,
     onWait: holdTurnOn,
   });
   app.turnOn = turnOn;
-  if (!still && showBootSnow(s.staticFx)) paintBootSnow(turnOn);
+  if (!treasure && !still && showBootSnow(s.staticFx)) paintBootSnow(turnOn);
   let got = null;
   while (!got) {
     got = await loadLineup({ bundled: "data/lineup.json", live: LIVE_LINEUP });
