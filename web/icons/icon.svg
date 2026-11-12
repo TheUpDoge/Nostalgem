@@ -1,34 +1,32 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
     <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#0d0221"/>
-      <stop offset="0.5" stop-color="#3b0f6e"/>
-      <stop offset="0.62" stop-color="#ff4f8b"/>
+      <stop offset="0" stop-color="#241056"/>
+      <stop offset="0.48" stop-color="#ff4f8b"/>
+      <stop offset="1" stop-color="#ffb15a"/>
     </linearGradient>
-    <linearGradient id="sun" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0.05" stop-color="#ffd319"/>
-      <stop offset="0.4" stop-color="#ff901f"/>
-      <stop offset="0.7" stop-color="#ff2975"/>
-      <stop offset="1" stop-color="#f222ff"/>
+    <linearGradient id="gem" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.28" stop-color="#f0b6ff"/>
+      <stop offset="0.62" stop-color="#b44bff"/>
+      <stop offset="1" stop-color="#5ce8ff"/>
     </linearGradient>
-    <mask id="stripes">
-      <rect width="512" height="512" fill="#fff"/>
-      <rect y="250" width="512" height="7" fill="#000"/>
-      <rect y="268" width="512" height="9" fill="#000"/>
-      <rect y="288" width="512" height="11" fill="#000"/>
-      <rect y="309" width="512" height="13" fill="#000"/>
-    </mask>
-    <clipPath id="round"><rect width="512" height="512" rx="112"/></clipPath>
+    <radialGradient id="glowL" cx="0.12" cy="0.78" r="0.48">
+      <stop offset="0" stop-color="#ff2a9a" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#ff2a9a" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowR" cx="0.92" cy="0.68" r="0.42">
+      <stop offset="0" stop-color="#14e4ff" stop-opacity="0.8"/>
+      <stop offset="1" stop-color="#14e4ff" stop-opacity="0"/>
+    </radialGradient>
   </defs>
-  <g clip-path="url(#round)">
-    <rect width="512" height="512" fill="url(#sky)"/>
-    <circle cx="256" cy="228" r="148" fill="url(#sun)" mask="url(#stripes)"/>
-    <rect y="322" width="512" height="190" fill="#12032c"/>
-    <g stroke="#ff2ad4" stroke-width="3" fill="none" opacity="0.9">
-      <path d="M0 334H512M0 352H512M0 378H512M0 414H512M0 462H512"/>
-      <path d="M256 322V512M206 322L96 512M156 322L-64 512M306 322L416 512M356 322L576 512M106 322L-224 512M406 322L736 512"/>
-    </g>
-    <rect y="319" width="512" height="5" fill="#ff71ce"/>
-    <path fill="#12032c" stroke="#ff71ce" stroke-width="3" transform="translate(338 58) scale(1)" d="M0 264V165H-25Q-40 165-40 150V105Q-40 92-27 92Q-14 92-14 105V140H0V75Q0 60 15 60Q30 60 30 75V120H48V85Q48 72 61 72Q74 72 74 85V130Q74 145 59 145H30V264Z"/>
-  </g>
+  <rect width="64" height="64" fill="#05010c"/>
+  <rect width="64" height="64" fill="url(#glowL)"/>
+  <rect width="64" height="64" fill="url(#glowR)"/>
+  <rect x="6.5" y="7" width="51" height="40" rx="3" fill="#141414" stroke="#2a2a2a" stroke-width="1"/>
+  <rect x="10.5" y="11" width="43" height="28" rx="1.5" fill="url(#sky)"/>
+  <polygon points="32,14.5 44,26.5 32,38.5 20,26.5" fill="url(#gem)" stroke="#fff" stroke-width="0.7" stroke-linejoin="round"/>
+  <rect x="8" y="47.5" width="48" height="9.5" rx="1.4" fill="#101010"/>
+  <circle cx="45" cy="52.2" r="1.5" fill="#3a3a3a"/>
+  <circle cx="50.2" cy="52.2" r="1.5" fill="#3a3a3a"/>
 </svg>
