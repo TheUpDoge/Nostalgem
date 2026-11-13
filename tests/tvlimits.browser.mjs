@@ -6,6 +6,7 @@
 //   An SVG filter on a TV with Filter quality Auto: its light version, drawn 400 wide; Full still gets the
 //   full one. On a computer, Auto keeps the full one.
 //   A TV's own browser (a smart-TV user agent, no ?tv=android) counts as a TV too.
+//   With Screen shape 4:3, ASCII on a TV is still 80 across, in the box's shape.
 //
 //   npm install --no-save playwright && node tests/tvlimits.browser.mjs
 
@@ -95,6 +96,10 @@ r = await watch(false, { look: "pop-red" });
 check(!r.look.lite && !r.look.canvas && /url\(/.test(r.look.onScreen), "on a computer, Auto keeps the full Sin City red");
 r = await watch(true, { look: "sepia" });
 check(!r.look.lite && !r.look.canvas && /sepia/.test(r.look.onScreen), `TV app, a plain CSS filter (Sepia) is left as it is (${r.look.onScreen})`);
+
+// With Screen shape 4:3 (an old CRT TV) the limits hold inside the box: still 80 across, with a 4:3 box's rows.
+r = await watch(true, { look: "ascii", shape: "43" });
+check(r.tv && r.mode === "playing" && r.look.canvas === "640x480" && r.perSecond <= 11, `TV app, ASCII with Screen shape 4:3: still 80 across, in a 4:3 box's shape (canvas ${r.look.canvas}, ${r.perSecond.toFixed(1)}/s)`);
 
 r = await watch(false, { look: "ascii" }, "Mozilla/5.0 (Web0S; Linux/SmartTV) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36 WebAppManager");
 check(r.tv && r.look.canvas === "640x360", `a TV's own browser (an LG webOS user agent, no ?tv=android) gets the TV limits too (canvas ${r.look.canvas})`);

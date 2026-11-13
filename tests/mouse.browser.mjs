@@ -9,7 +9,7 @@
 //   its BACK steps back, CH comes home and changes channel, and the app's "home" brings the program back.
 //   Packs: a .zip with two packs and a broken one, picked on the phone, goes to the TV, which asks "Load
 //   these packs?" with the broken one left out; the phone says so too, OK loads them, and the phone hears
-//   what went on the air.
+//   what went on the air. A link sent from the phone while a pack waits for OK calls the pack off.
 //   Through the relay (no WebRTC at all, a local broker): the pointer, a key and a pack get through too.
 //
 //   npm install --no-save playwright && node tests/mouse.browser.mjs
@@ -263,6 +263,24 @@ const browser = await chromium.launch();
   p = await ph.evaluate(() => window.NGRemote.state());
   s = await st();
   check(/On the air: CH 101 Mouse Hundred/.test(p.pack) && s.channel === 101 && s.label === "101", `…and it goes on the air there (${p.pack.slice(0, 60)}; the TV is on CH ${s.label})`);
+
+  // Where packs meet Send to TV. A link sent while the TV is on a pack's channel in the hundreds says where
+  // BACK goes; and a pack still waiting for OK is called off, and the phone told, when a link arrives.
+  await send({ t: "play", url: "https://archive.org/details/test_mouse_a" });
+  await tv.waitForFunction(() => window.NP.state().sent && window.NP.state().mode === "playing", null, { timeout: 15000 }).catch(() => {});
+  const said = (await tv.textContent("#toast")) || "";
+  s = await st();
+  check(!!s.sent && s.mode === "playing" && /BACK returns to CH 101/.test(said), `a link sent while the TV is on CH 101 plays, and says where BACK goes (${said.slice(0, 90)})`);
+  const [chooser4] = await Promise.all([ph.waitForEvent("filechooser"), ph.click("#packBtn")]);
+  await chooser4.setFiles({ name: "later.json", mimeType: "application/json", buffer: Buffer.from(pack("Mouse Later", 46, "test_mouse_a")) });
+  await tv.waitForFunction(() => window.NP.state().overlay === "dialog" && /Load this pack/.test(document.getElementById("dialog").textContent), null, { timeout: 8000 }).catch(() => {});
+  const asked = (await st()).overlay === "dialog";
+  await send({ t: "play", url: "https://archive.org/details/test_mouse_b" });
+  await ph.waitForFunction(() => /cancelled/.test(window.NGRemote.state().pack), null, { timeout: 8000 }).catch(() => {});
+  await tv.waitForFunction(() => window.NP.state().sent && window.NP.state().mode === "playing" && /Mouse Film B/.test(window.NP.state().program), null, { timeout: 15000 }).catch(() => {});
+  p = await ph.evaluate(() => window.NGRemote.state());
+  s = await st();
+  check(asked && s.overlay === "" && !!s.sent && /Mouse Film B/.test(s.program) && /cancelled on the TV/.test(p.pack), `a link sent while a pack waits for OK calls the pack off, the phone hears it, and the link plays (${p.pack}; on the TV: ${s.program})`);
   await ctx.close();
 }
 
