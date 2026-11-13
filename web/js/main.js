@@ -3940,6 +3940,10 @@ const pagePointer = new PagePointer($("pointer"), {
     for (let i = 0; i < Math.abs(n); i++) handleAction({ type: n > 0 ? "down" : "up" });
     return true;
   },
+  // The pointer keeps to the set: with Screen shape 4:3, to the box.
+  box: function () {
+    return tv.getBoundingClientRect();
+  },
 });
 function appCan(what) {
   return ANDROID && native.can.indexOf(what) >= 0;

@@ -2,7 +2,8 @@
 //
 //   In a browser (the web path): the TV page draws the pointer itself. The phone's trackpad moves it, a tap
 //   clicks what's under it (a menu row), keys reach the page (Enter in a dialog, Escape), typing goes into
-//   the TV's text field (corrections too), and two fingers move through the guide.
+//   the TV's text field (corrections too), and two fingers move through the guide. With Screen shape 4:3,
+//   the pointer keeps to the box.
 //   In the TV app (a stand-in for MainActivity's side): the page hands the same messages to the app, which
 //   draws and presses itself. A link-out station opens over the page; the phone's arrows go to the site,
 //   its BACK steps back, CH comes home and changes channel, and the app's "home" brings the program back.
@@ -74,7 +75,7 @@ async function setup(ctx, code, extra) {
     (a) => {
       window.NostalGemRelayBrokers = a.brokers || [];
       localStorage.setItem("nostalgem:seenVersion", JSON.stringify("999.0.0"));
-      localStorage.setItem("nostalgem:settings", JSON.stringify({ phone: true }));
+      localStorage.setItem("nostalgem:settings", JSON.stringify(Object.assign({ phone: true }, a.settings || {})));
       localStorage.setItem("nostalgem:phoneCode", JSON.stringify(a.code));
       if (a.noRtc) {
         window.RTCPeerConnection = undefined;
@@ -262,6 +263,60 @@ const browser = await chromium.launch();
   p = await ph.evaluate(() => window.NGRemote.state());
   s = await st();
   check(/On the air: CH 101 Mouse Hundred/.test(p.pack) && s.channel === 101 && s.label === "101", `…and it goes on the air there (${p.pack.slice(0, 60)}; the TV is on CH ${s.label})`);
+  await ctx.close();
+}
+
+// ---------- with Screen shape 4:3 (an old CRT TV): the pointer keeps to the box ----------
+{
+  const CODE = "BXS234";
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  await ctx.addInitScript({ path: join(fixtures, "fake-peer.js") });
+  await setup(ctx, CODE, { settings: { shape: "43" } });
+  const tv = await ctx.newPage();
+  const ph = await ctx.newPage();
+  watch("TV, 4:3", tv);
+  watch("phone", ph);
+  const st = () => tv.evaluate(() => window.NP.state());
+  const send = (m) => ph.evaluate((x) => window.NGRemote.send(x), m);
+  const at = async () => {
+    await tv.waitForTimeout(200);
+    return (await st()).pointer;
+  };
+  check(await pair(tv, ph, "?ch=1", CODE), "with 4:3 on, the phone pairs");
+  const box = await tv.evaluate(() => {
+    const r = document.getElementById("tv").getBoundingClientRect();
+    return { left: Math.round(r.left), right: Math.round(r.right) };
+  });
+  await send({ t: "ptr", dx: 0, dy: 0 });
+  let p = await at();
+  check(box.left === 160 && box.right === 1120 && p.visible && p.x === 640 && p.y === 360, `with 4:3 on, the pointer comes up in the middle of the box (${p.x}, ${p.y}; the box is ${box.left}–${box.right})`);
+  // All the way left, then all the way right: it stops at the box, not out in the black at the sides,
+  // which an old TV doesn't show.
+  for (let i = 0; i < 2; i++) await send({ t: "ptr", dx: -1, dy: 0 });
+  const left = (await at()).x;
+  for (let i = 0; i < 3; i++) await send({ t: "ptr", dx: 1, dy: 0 });
+  const right = (await at()).x;
+  check(left === box.left && right === box.right - 1, `…and stops at the box's edges, not out in the black at the sides (${left} and ${right})`);
+  // The trackpad's reach follows the box: a quarter of the way across is a quarter of the box.
+  await send({ t: "ptr", dx: -0.25, dy: 0 });
+  p = await at();
+  check(p.x === box.right - 1 - 240, `…a quarter of the way back is a quarter of the box (${p.x})`);
+  // What it clicks is still what's under it: Menu ▸ Find a show, inside the box.
+  await send({ t: "key", type: "menu" });
+  await tv.waitForFunction(() => window.NP.state().overlay === "menu", null, { timeout: 5000 }).catch(() => {});
+  const row = await tv.evaluate(() => {
+    const el = Array.from(document.querySelectorAll("#menu .m-item")).find((e) => e.textContent.includes("Find a show"));
+    if (!el) return null;
+    el.scrollIntoView({ block: "center" });
+    const b = el.getBoundingClientRect();
+    return { x: b.left + b.width / 2, y: b.top + b.height / 2 };
+  });
+  p = await at();
+  if (row) await send({ t: "ptr", dx: (row.x - p.x) / 960, dy: (row.y - p.y) / 960 });
+  await at();
+  await send({ t: "click" });
+  await tv.waitForFunction(() => window.NP.state().overlay === "dialog", null, { timeout: 5000 }).catch(() => {});
+  check(!!row && (await st()).overlay === "dialog" && /Find a show/.test(await tv.textContent("#dialog")), "…and a click lands on what's under it: Menu ▸ Find a show opens");
   await ctx.close();
 }
 

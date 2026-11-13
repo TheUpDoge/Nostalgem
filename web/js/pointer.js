@@ -101,7 +101,7 @@ export function editKey(el, key) {
 
 // The pointer this page draws for itself (not in the TV app).
 // opts: { say(text) for things it can't do, steps(n) for scrolling over the guide or a menu (n rows; true
-// when they took it), now() }
+// when they took it), box() the set's place on the page (the pointer keeps to it), now() }
 export class PagePointer {
   constructor(el, opts) {
     this.el = el;
@@ -117,19 +117,23 @@ export class PagePointer {
     this.lastHit = "";
   }
 
+  // Where the pointer may go: the set. That's the whole window, or with Screen shape 4:3 the box in the
+  // middle of it (opts.box), since an old TV doesn't show the black at the sides.
   size() {
-    return { w: window.innerWidth || 1, h: window.innerHeight || 1 };
+    const b = this.o.box ? this.o.box() : null;
+    if (b && b.width > 1 && b.height > 1) return { x: b.left, y: b.top, w: b.width, h: b.height };
+    return { x: 0, y: 0, w: window.innerWidth || 1, h: window.innerHeight || 1 };
   }
 
   show() {
     const sz = this.size();
     if (!this.placed) {
       this.placed = true;
-      this.x = sz.w / 2;
-      this.y = sz.h / 2;
+      this.x = sz.x + sz.w / 2;
+      this.y = sz.y + sz.h / 2;
     }
-    this.x = Math.max(0, Math.min(sz.w - 1, this.x));
-    this.y = Math.max(0, Math.min(sz.h - 1, this.y));
+    this.x = Math.max(sz.x, Math.min(sz.x + sz.w - 1, this.x));
+    this.y = Math.max(sz.y, Math.min(sz.y + sz.h - 1, this.y));
     this.el.style.transform = "translate(" + Math.round(this.x) + "px," + Math.round(this.y) + "px)";
     this.el.hidden = false;
     this.el.classList.remove("faded");
