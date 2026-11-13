@@ -377,8 +377,8 @@ Internet Archive [advanced search](https://archive.org/advancedsearch.php) plus 
 
 - `number` and `sub`: every built-in channel stays under 99. CH 1–29 are all taken, so a new channel
   goes on as a sub-channel of the one it fits with (`"number": 1, "sub": 2` is CH 1-2, typed 0 1 2).
-  CH 30–49 are left for channels viewers add, 50–90 hold the YouTube sub-channels, and the hundreds
-  (100–199) are for channel packs.
+  CH 30–49 are left for channels viewers add, 50–90 hold the YouTube sub-channels, and
+  100–199 and 200–299 are for channel packs.
 - `kind`: `video` (MP4) or `audio` (MP3, shown as radio).
 - `filesPerItem`: how many episodes one Archive item (a whole series, or a collection) may add.
 - `maxYear`: skip anything dated later. The default is 1977, because public-domain films are mostly
@@ -402,10 +402,10 @@ app pick it up.
 
 A channel pack is a small JSON file that adds channels on your own TV, without touching
 the shipped lineup. From the Menu: **Load a channel pack**, then choose a `.json` file, or a
-`.zip` holding several packs, or paste its text. Pack channels land on CH 30–49 or in the
-hundreds (CH 100–199) and are saved on that TV only, like channels you add by search.
+`.zip` holding several packs, or paste its text. Pack channels land on CH 30–49, in the
+hundreds (CH 100–199), or on CH 200–299 and are saved on that TV only, like channels you add by search.
 
-A pack defines one or more channels — a name, a number (30–49 or 100–199), and an Archive source:
+A pack defines one or more channels — a name, a number (30–49, 100–199, or 200–299), and an Archive source:
 a collection search or explicit Archive item IDs. Nothing else is allowed: no YouTube, no
 other sites, no direct video links. The full format is in [PACKS.md](PACKS.md), with an
 example in [packs/example-pack.json](packs/example-pack.json) (a western-features channel
@@ -448,7 +448,8 @@ Channels can share a number as **sub-channels**, like digital TV: give them the 
 the first one after a moment. Sub-channels can go past 9: 6 0 1 0 tunes 60-10, and where there is one,
 6 0 1 waits a moment for the 0 before tuning 60-1. A one-digit channel's sub-channel is typed with its 0,
 as the guide writes it: 0 3 2 tunes 03-2 (and 3 2 still does, unless a CH 32 is on the dial). Three-digit
-channels (packs in the hundreds) are typed and shown as themselves: 1 0 1 is CH 101.
+channels (packs on 100–299) are typed and shown as themselves: 1 0 1 is CH 101. 2 0 2 is CH 202 when a
+pack owns it, and CH 20-2 when it doesn't. Channel up and down still reach CH 20-2 either way.
 
 Only public, embeddable videos that aren't age-restricted, live, Shorts or blocked in the US go on the
 air. Building them needs a YouTube Data API key: add it as the repository secret `YOUTUBE_API_KEY`

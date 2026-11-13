@@ -534,7 +534,8 @@ function surf(dir) {
 // two, so 5 0 1 is CH 50-1 and 0 3 2 is CH 3-2. The TV tunes as soon as no longer number could follow,
 // otherwise after a short pause. 5 0 alone, on a channel that only has sub-channels, goes to the first of
 // them. Numbers are typed like a cable box: 5 0 waits a beat for a sub-channel, 5 0 1 tunes 50-1, 1 0 waits
-// a beat where there's a CH 101, and where there's a 60-10, 6 0 1 waits a beat for the 0.
+// a beat where there's a CH 101, and where there's a 60-10, 6 0 1 waits a beat for the 0. 2 0 2 is CH 20-2
+// until a pack owns 202; then it tunes the pack.
 function digit(n) {
   app.digits = (app.digits + String(n)).slice(-4);
   const typed = app.digits;
@@ -3211,7 +3212,7 @@ function addBuiltChannel(def, res, opts) {
   if (o.number == null) {
     number = nextNumber();
   } else {
-    // The number the pack asked for, or the next free one (dial.js): 30–49, then the hundreds.
+    // The number the pack asked for, or the next free one (dial.js): 30–49, 100–199, or 200–299.
     number = packNumberFor(app.channels, o.number);
     if (number == null) number = nextNumber();
     renumbered = number !== o.number;
@@ -3384,7 +3385,7 @@ function showPackHelp() {
     html:
       "A channel pack is a small JSON file that adds channels from the <b>Internet Archive</b> — " +
       "a collection search, or Archive item IDs. Nothing else: no YouTube, no other sites, no direct video links.<br><br>" +
-      "Pack channels land on <b>CH 30–49</b> or in the hundreds, <b>CH 100–199</b>, and are saved on this TV only, like channels you add by search. " +
+      "Pack channels land on <b>CH 30–49</b>, <b>CH 100–199</b>, or <b>CH 200–299</b>, and are saved on this TV only, like channels you add by search. " +
       "Loading a pack never changes the shipped lineup.<br><br>" +
       "The format is in <b>PACKS.md</b>, with an example pack in <b>packs/example-pack.json</b>. " +
       "Several packs can come together in one <b>.zip</b>: every .json file in it is loaded. " +
@@ -3463,7 +3464,7 @@ function openPackPaste() {
     title: "Paste pack JSON",
     html:
       "Paste the pack file's text. Packs only point at the Internet Archive — a collection search or " +
-      "Archive item IDs — and their channels land on CH 30–49 or 100–199 on this TV.",
+      "Archive item IDs — and their channels land on CH 30–49, 100–199, or 200–299 on this TV.",
     textarea: { placeholder: '{"pack": "Example pack", "version": 1, "channels": [...]}', rows: 8 },
     buttons: [
       {

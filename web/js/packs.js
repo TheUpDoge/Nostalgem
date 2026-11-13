@@ -1,7 +1,7 @@
 // Channel packs: small JSON files that add channels from the Internet Archive.
 // A pack never touches the shipped lineup — its channels load through the same
 // viewer-added path as Menu ▸ Add a channel, saved on this TV only. Pack channels take
-// CH 30–49 or the hundreds, 100–199 (dial.js): every built-in channel stays under 99.
+// CH 30–49, the hundreds 100–199, or 200–299 (dial.js): every built-in channel stays under 99.
 // Packs point at the Archive and nothing else: a collection search, or Archive item
 // IDs. No YouTube, no other sites, no direct video links.
 // A pack may also carry clean cuts ("skipLists", cuts.js): scenes to cover or skip in its films. A pack
@@ -24,7 +24,7 @@ import { readZip, utf8Text } from "./zip.js";
 import { packNumberOk, packRangesText } from "./dial.js";
 
 export const PACK_VERSION = 1;
-export const PACK_MIN_NUMBER = 30; // the viewer-added range, 30–49; packs may also use 100–199 (dial.js)
+export const PACK_MIN_NUMBER = 30; // the viewer-added range, 30–49; packs may also use 100–199 and 200–299 (dial.js)
 export const PACK_MAX_NUMBER = 49;
 const MAX_CHANNELS = 20;
 const MAX_SOURCES = 10;

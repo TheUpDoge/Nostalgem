@@ -1,9 +1,9 @@
 // The dial (web/js/dial.js): which channel typed digits reach, how they read while tuning, and where a
-// pack's channels go now that packs may use the hundreds (100–199) as well as 30–49.
+// pack's channels go now that packs may use 100–199 and 200–299 as well as 30–49.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { channelForDigits, moreToType, numberTaken, packNumberFor, packNumberOk, typedLabel, PACK_RANGES } from "../web/js/dial.js";
-import { chKey, chLabel, numberText } from "../web/js/util.js";
+import { chKey, chLabel, chOrder, numberText } from "../web/js/util.js";
 import { validatePack } from "../web/js/packs.js";
 
 const ch = (number, sub, name) => ({ number, sub, slug: (name || "ch") + "-" + number + (sub ? "-" + sub : ""), name: name || "CH " + number });
@@ -16,14 +16,22 @@ const DIAL = [
 ];
 const find = (n, sub) => DIAL.find((c) => c.number === n && (c.sub || 0) === (sub || 0));
 
-test("packs may use 30–49 and the hundreds, 100–199; nothing else", () => {
-  assert.deepEqual(PACK_RANGES, [[30, 49], [100, 199]]);
-  for (const n of [30, 49, 100, 101, 150, 199]) assert.equal(packNumberOk(n), true, String(n));
-  for (const n of [29, 50, 99, 200, 1000, 100.5, "101", null]) assert.equal(packNumberOk(n), false, String(n));
+test("packs may use 30–49, 100–199 and 200–299; nothing else", () => {
+  assert.deepEqual(PACK_RANGES, [[30, 49], [100, 199], [200, 299]]);
+  for (const n of [30, 49, 100, 101, 150, 199, 200, 202, 206, 250, 299]) assert.equal(packNumberOk(n), true, String(n));
+  for (const n of [29, 50, 99, 300, 1000, 100.5, "101", null]) assert.equal(packNumberOk(n), false, String(n));
   const pack = (number) => ({ pack: "Hundreds", version: 1, channels: [{ name: "Late Show", number, sources: [{ q: "collection:feature_films AND mediatype:movies", rows: 60 }] }] });
   assert.deepEqual(validatePack(pack(101)).errors, []);
   assert.deepEqual(validatePack(pack(199)).errors, []);
-  for (const bad of [99, 200, 250]) assert.match(validatePack(pack(bad)).errors.join(" "), /30 to 49, or 100 to 199/, String(bad));
+  assert.deepEqual(validatePack(pack(202)).errors, []);
+  assert.deepEqual(validatePack(pack(299)).errors, []);
+  for (const bad of [99, 300, 50]) {
+    assert.match(
+      validatePack(pack(bad)).errors.join(" "),
+      /number must be a whole number from 30 to 49, 100 to 199, or 200 to 299/,
+      String(bad)
+    );
+  }
 });
 
 test("what typing reaches: a channel's own number, then a sub-channel the short way", () => {
@@ -91,13 +99,63 @@ test("the renumber path: the number asked for, else the next free one in its ran
   assert.equal(packNumberFor(DIAL, 30), 32, "30 and 31 taken: 32");
   assert.equal(packNumberFor(DIAL, 199), 199);
   assert.equal(packNumberFor(DIAL.concat([ch(199)]), 199), 100, "wraps to the start of the hundreds");
+  assert.equal(packNumberFor(DIAL, 200), 200);
+  assert.equal(packNumberFor(DIAL.concat([ch(299)]), 299), 200, "wraps to the start of 200–299");
   // 30–49 full: the hundreds take the rest
   const full = DIAL.slice();
   for (let n = 30; n <= 49; n++) if (!full.some((c) => c.number === n)) full.push(ch(n));
   assert.equal(packNumberFor(full, 35), 100, "the viewer-added range is full: into the hundreds");
   assert.equal(packNumberFor(full, 101), 102);
+  // Hundreds full too: 200–299 takes the rest
+  const hundredsFull = full.slice();
+  for (let n = 100; n <= 199; n++) if (!numberTaken(hundredsFull, n)) hundredsFull.push(ch(n));
+  assert.equal(packNumberFor(hundredsFull, 120), 200, "100–199 full: into 200–299");
+  assert.equal(packNumberFor(hundredsFull, 202), 202);
+  // 200–299 full: back through the earlier ranges
+  const twoHundredsFull = DIAL.slice();
+  for (let n = 200; n <= 299; n++) twoHundredsFull.push(ch(n));
+  assert.equal(packNumberFor(twoHundredsFull, 250), 32, "200–299 full: 30 and 31 are taken, so 32");
   // Every pack number taken
-  const all = full.slice();
-  for (let n = 100; n <= 199; n++) if (!numberTaken(all, n)) all.push(ch(n));
+  const all = hundredsFull.slice();
+  for (let n = 200; n <= 299; n++) if (!numberTaken(all, n)) all.push(ch(n));
   assert.equal(packNumberFor(all, 120), null);
+  assert.equal(packNumberFor(all, 250), null);
+});
+
+test("CH 202 and CH 20-2: a loaded pack owns the number; with no pack, 2 0 2 is still The Witching Hour", () => {
+  const witch = ch(20, 2, "The Witching Hour");
+  const bare = DIAL.concat([witch]);
+  assert.equal(chKey(witch), "202");
+  assert.equal(channelForDigits(bare, "202", false), witch, "no pack: 2 0 2 is CH 20-2");
+  assert.equal(typedLabel(bare, "202", false), "20-2");
+  assert.equal(moreToType(bare, "20"), true);
+  assert.equal(moreToType(bare, "202"), false);
+  assert.equal(typedLabel(bare, "203", true), "20-3", "a miss under CH 20 still reads as a sub-channel");
+  for (let n = 200; n <= 209; n++) {
+    assert.equal(numberTaken(bare, n), false, "CH 20-2 does not take " + n);
+    assert.equal(packNumberFor(bare, n), n, "a pack asking for " + n + " stays there");
+  }
+  assert.equal(packNumberFor(bare.concat([ch(201)]), 201), 202, "201 is a pack's; 202 is not taken by CH 20-2");
+
+  const pack = ch(202, 0, "Computer Chronicles");
+  const both = bare.concat([pack]);
+  assert.equal(channelForDigits(both, "202", false), pack, "a loaded pack owns 202");
+  assert.equal(channelForDigits(both, "202", true), pack);
+  assert.equal(typedLabel(both, "202", false), "202", "CH 202, not 20-2");
+  assert.equal(moreToType(both, "202"), false);
+  assert.equal(numberTaken(both, 202), true);
+  assert.equal(packNumberFor(both, 202), 203, "202 itself is the pack; the next free number is 203");
+  assert.equal(typedLabel(both, "203", true), "20-3", "a 2xx the pack does not own still reads under CH 20");
+  const with203 = both.concat([ch(203, 0, "Late Show")]);
+  assert.equal(channelForDigits(with203, "203", false).number, 203);
+  assert.equal(typedLabel(with203, "203", false), "203");
+
+  // ▲▼ walks chOrder. CH 20-2 stays on that walk, ahead of the pack on 202.
+  const ordered = both.slice().sort(chOrder);
+  const atWitch = ordered.indexOf(witch);
+  const atPack = ordered.indexOf(pack);
+  assert.ok(atWitch > 0 && atWitch < atPack, "CH 20-2 sorts with channel 20, before CH 202");
+  assert.equal(ordered[atWitch], witch, "channel up still lands on The Witching Hour");
+  assert.notEqual(ordered[atWitch + 1], pack, "the next channel after CH 20-2 is not the pack on 202");
+  assert.equal(numberTaken(both, 152), true, "CH 15-2 still takes 152");
 });
