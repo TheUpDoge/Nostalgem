@@ -177,7 +177,11 @@ function loadSkipLists() {
       return r.ok ? r.json() : null;
     })
     .then(function (json) {
-      if (json) skipLists.shipped = checkSkipLists(json).lists;
+      if (!json) return;
+      skipLists.shipped = checkSkipLists(json).lists;
+      // The boot tunes as soon as the lineup is in, which can be before this file
+      // comes back. Apply the list to whatever is already playing.
+      if (player.refreshCuts) player.refreshCuts();
     })
     .catch(function () {
       /* none, then */
@@ -4527,7 +4531,11 @@ function handleAction(a) {
   }
   if (player.mode === "gesture") {
     player.userGesture();
-    return;
+    // The press that lets a blocked picture start still does its job when it is a channel
+    // change or it is for a dialog, menu or guide that is already open. Dropping it left
+    // the phone's channel-up on channel 1, and Enter unable to close What's new.
+    const moves = a.type === "up" || a.type === "down" || a.type === "chup" || a.type === "chdown";
+    if (!moves && !overlayOpen()) return;
   }
   if (numpad.isOpen) {
     numpad.handle(a);
@@ -4692,6 +4700,7 @@ document.addEventListener("keydown", function (e) {
   // Keys the remote doesn't use still skip the turn-on. "a" should not have to be OK.
   if (app.turnOn && app.turnOn.active() && !actionFor(e) && !isTypingTarget(e.target)) {
     skipTurnOn();
+    if (player.mode === "gesture") player.userGesture();
     e.preventDefault();
     return;
   }
@@ -4795,6 +4804,9 @@ document.addEventListener(
   function () {
     if (!(app.turnOn && app.turnOn.active())) return;
     skipTurnOn();
+    // The click that follows this tap is swallowed, so this is the press that lets a
+    // blocked picture start. Otherwise the next dock button (MENU, GUIDE) is eaten.
+    if (player.mode === "gesture") player.userGesture();
     turnOnTap = true;
     setTimeout(function () {
       turnOnTap = false;
