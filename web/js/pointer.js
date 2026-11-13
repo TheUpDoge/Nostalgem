@@ -108,6 +108,7 @@ export class PagePointer {
     this.o = opts || {};
     this.x = -1;
     this.y = -1;
+    this.placed = false; // it starts in the middle, the first time it's wanted
     this.down = null; // the element a held button went down on
     this.hideTimer = 0;
     this.held = {}; // key -> { timer, every, until }
@@ -122,7 +123,8 @@ export class PagePointer {
 
   show() {
     const sz = this.size();
-    if (this.x < 0) {
+    if (!this.placed) {
+      this.placed = true;
       this.x = sz.w / 2;
       this.y = sz.h / 2;
     }
@@ -158,7 +160,7 @@ export class PagePointer {
 
   move(dx, dy) {
     const sz = this.size();
-    if (this.x < 0) this.show();
+    if (!this.placed) this.show();
     this.x += dx * sz.w;
     this.y += dy * sz.w;
     this.show();

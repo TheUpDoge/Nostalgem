@@ -206,6 +206,16 @@ const browser = await chromium.launch();
   await send({ t: "key", type: "back" });
   await tv.waitForTimeout(300);
 
+  // Pushed against an edge, the pointer stays there: it doesn't jump back to the middle.
+  for (let i = 0; i < 2; i++) await send({ t: "ptr", dx: -1, dy: -1 });
+  await tv.waitForTimeout(200);
+  s = await st();
+  check(s.pointer.x === 0 && s.pointer.y === 0, `pushed past the top left corner, the pointer stops there (${s.pointer.x}, ${s.pointer.y})`);
+  for (let i = 0; i < 2; i++) await send({ t: "ptr", dx: 1, dy: 1 });
+  await tv.waitForTimeout(200);
+  s = await st();
+  check(s.pointer.x === 1279 && s.pointer.y === 719, `…and past the bottom right, there (${s.pointer.x}, ${s.pointer.y})`);
+
   // The pointer fades when it's left alone.
   await tv.waitForTimeout(4300);
   check(!(await st()).pointer.visible, "the pointer fades out when it's left alone");
