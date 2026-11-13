@@ -37,6 +37,7 @@ import { utf8Text } from "./zip.js";
 import { pathsText } from "./relay.js";
 import { loadLineup, builtAt } from "./lineup.js";
 import { SNOW_FRAMES, createTurnOn, introAudible, playTurnOnSound, prefersStill, showBootSnow, snowBufferSize, snowPixels, turnOnAction, turnOnDuration } from "./intro.js";
+import { mountTreasureBoot, playTreasureSound, treasureWanted } from "./boot-treasure.js";
 import { loadBumpers } from "./bumpers.js";
 import { DEFAULT_CARDS, loadCards, familyAdQuips, familyOf, cardClass } from "./cards.js";
 import { crystalChime, stopCrystalChime } from "./crystal-chime.js";
@@ -5184,16 +5185,19 @@ function askApp() {
 
 async function boot() {
   const bootEl = $("boot");
+  const still = prefersStill(function (q) {
+    return window.matchMedia(q);
+  });
+  // Alternate card only. The CRT title card stays the markup in index.html.
+  const treasure = !!(bootEl && treasureWanted(params.get("boot")));
+  if (treasure) mountTreasureBoot(bootEl, still);
   const bootVersion = document.querySelector(".boot-version");
   if (bootVersion) bootVersion.textContent = "v" + VERSION;
   askApp();
   registerTvKeys();
   applyLook();
   tv.classList.add("hide-cursor");
-  const still = prefersStill(function (q) {
-    return window.matchMedia(q);
-  });
-  if (!showBootSnow(s.staticFx) || still) bootEl.classList.add("boot-quiet");
+  if (!treasure && (!showBootSnow(s.staticFx) || still)) bootEl.classList.add("boot-quiet");
   const waitEl = document.querySelector(".boot-wait");
   // The title card plays over the load. It does not wait, and it does not hold the tuner.
   const turnOn = createTurnOn({
@@ -5210,12 +5214,12 @@ async function boot() {
     audible: function () {
       return !still && introAudible({ muted: player.muted, staticFx: s.staticFx });
     },
-    playSound: playTurnOnSound,
+    playSound: treasure ? playTreasureSound : playTurnOnSound,
     onFinish: endTurnOn,
     onWait: holdTurnOn,
   });
   app.turnOn = turnOn;
-  if (!still && showBootSnow(s.staticFx)) paintBootSnow(turnOn);
+  if (!treasure && !still && showBootSnow(s.staticFx)) paintBootSnow(turnOn);
   let got = null;
   while (!got) {
     got = await loadLineup({ bundled: "data/lineup.json", live: LIVE_LINEUP });
