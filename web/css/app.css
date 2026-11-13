@@ -467,7 +467,7 @@ body {
 .boot-set {
   position: relative;
   z-index: 2;
-  width: min(58vh, 78vw);
+  width: min(58vh, calc(78 * var(--vw)));
   flex: 0 0 auto;
 }
 .boot-glow {
@@ -633,7 +633,7 @@ body {
   position: relative;
   z-index: 9;
   text-align: center;
-  width: 92vw;
+  width: calc(92 * var(--vw));
 }
 .boot-spell {
   font-family: var(--font-display);
@@ -886,7 +886,7 @@ body {
 }
 
 @media (max-aspect-ratio: 1/1) {
-  .boot-set { width: min(40vh, 88vw); }
+  .boot-set { width: min(40vh, calc(88 * var(--vw))); }
   .boot-spell { font-size: 1.65rem; letter-spacing: 0.04em; }
   .boot-credit { font-size: 1.15rem; }
   .boot-tag { font-size: 1.2rem; height: 1.35rem; }

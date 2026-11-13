@@ -5230,14 +5230,21 @@ async function boot() {
     }
   }
   applyLineup(got.lineup, got.source);
+  // The tuner no longer waits for the start-up card, so a station break can be on screen before these two
+  // files are in: when one arrives, a break card that's up is drawn again with it.
+  const redrawBreak = function () {
+    if (app.state === "on" && player.mode === "gap" && player.slot && !app.stillShownAt) restoreCard();
+  };
   // House bumpers for the station breaks. Loads in the background; a missing
   // file just means plain "up next" cards.
   loadBumpers("data/bumpers.json").then(function (list) {
     app.bumpers = list;
+    redrawBreak();
   });
   // The station cards' words, in each family's voice. Missing: the plain words.
   loadCards("data/cards.json").then(function (c) {
     app.cards = c;
+    redrawBreak();
   });
   loadSkipLists();
   const asked = (params.get("ch") || "").replace(/[^0-9]/g, "").replace(/^0+(?=\d)/, "");

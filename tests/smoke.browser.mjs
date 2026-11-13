@@ -725,7 +725,7 @@ try {
     };
     await toClub();
     const clubMenu = await page.textContent("#menu");
-    check(/Get a library card/.test(clubMenu) && /Shelves/.test(clubMenu) && /New this week/.test(clubMenu), "Menu ▸ 📼 Video Club has shelves of tapes and offers a library card");
+    check(/Get a library card/.test(clubMenu) && /Rows/.test(clubMenu) && /Western Row\s*\d+ tapes/.test(clubMenu) && /The rest of the store/.test(clubMenu) && /New this week/.test(clubMenu), "Menu ▸ 📼 Video Club has rows of tapes by family, a front rack, and offers a library card");
     await page.click('#menu .m-item:has-text("Get a library card")');
     await page.waitForTimeout(300);
     check(/1\/3/.test(await dialogText()) && /two tapes/.test(await dialogText()), "…signing up starts with how the club works (1/3)");

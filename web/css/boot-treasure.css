@@ -52,9 +52,9 @@ html.boot-style-treasure .boot {
   position: absolute;
   left: 50%;
   top: 18%;
-  width: 76vw;
+  width: calc(76 * var(--vw));
   height: 28vh;
-  margin-left: -38vw;
+  margin-left: calc(-38 * var(--vw));
   background: radial-gradient(ellipse at center, rgba(185, 103, 255, 0.2), rgba(255, 42, 109, 0.07) 42%, transparent 72%);
   pointer-events: none;
 }

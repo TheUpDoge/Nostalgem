@@ -2,6 +2,8 @@
 // the middle, black at the sides; the picture, the guide, menus, dialogs, the banner and the canvas filters all
 // stay inside it, nothing cut off and nothing stretched; it's remembered; Widescreen puts it back. On a screen
 // that's already 4:3, nothing changes.
+// The start-up cards (the crystal CRT title card, and the treasure chest with ?boot=treasure) and the Video
+// Club's rows keep to the box too.
 // In the TV app, the app draws the phone's pointer and opens the link-out stations' sites in a view of its
 // own, so the page tells it the shape (a stand-in for the app's side here): at start-up, when the setting
 // changes, and again after a restart. An older app, which doesn't say "box", is told nothing.
@@ -170,6 +172,68 @@ await page.setViewportSize({ width: 390, height: 844 });
 await page.waitForTimeout(400);
 tv = await rect("#tv");
 check(tv.w === 390 && tv.x === 0, `…and a phone held upright is left alone (${tv.w})`);
+
+// ---------- the start-up cards and the Video Club, with 4:3 on from the start ----------
+{
+  const c = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  await c.addInitScript(() => {
+    window.NostalGemRelayBrokers = [];
+    localStorage.setItem("nostalgem:seenVersion", JSON.stringify("999.0.0"));
+    localStorage.setItem("nostalgem:settings", JSON.stringify({ shape: "43", staticFx: "silent" }));
+  });
+  await c.route(/^https:\/\/archive\.org\//, (r) => {
+    const u = new URL(r.request().url());
+    if (u.pathname.startsWith("/download/")) return r.fulfill({ status: 302, headers: { location: base + "__media/test.mp4" } });
+    return r.fulfill({ status: 404, body: "" });
+  });
+  await c.route(/^https?:\/\/(?!127\.0\.0\.1)(?!archive\.org)/, (r) => r.abort());
+  const p = await c.newPage();
+  p.on("pageerror", (e) => errors.push("4:3 from the start: " + e.message));
+  await p.clock.setFixedTime(new Date(Date.parse(lineup.epoch) + 3000));
+  // Everything showing under sel: how many pieces, and any that reach past the set's sides.
+  const past = (sel) =>
+    p.evaluate((q) => {
+      const tv = document.getElementById("tv").getBoundingClientRect();
+      const out = [];
+      let n = 0;
+      document.querySelectorAll(q).forEach((el) => {
+        const r = el.getBoundingClientRect();
+        const cs = getComputedStyle(el);
+        if (!r.width || !r.height || cs.visibility === "hidden" || cs.display === "none" || Number(cs.opacity) === 0) return;
+        n++;
+        if (r.left < tv.left - 1 || r.right > tv.right + 1) out.push((el.className || el.tagName) + " " + Math.round(r.left) + "→" + Math.round(r.right));
+      });
+      return { n: n, out: out.slice(0, 4), box: Math.round(tv.left) + "–" + Math.round(tv.right) };
+    }, sel);
+  await p.goto(base + "?ch=1");
+  await p.waitForTimeout(1500);
+  let b = await past("#boot, #boot *");
+  check(b.box === "160–1120" && b.n > 5 && !b.out.length, `with 4:3 on, the start-up card keeps to the box (${b.n} pieces showing, box ${b.box}) ${b.out.join(", ")}`);
+  // The three titles, all up and standing still (as with reduced motion: the moving card swells a line
+  // for a moment as its colors lock, which says nothing about where it sits).
+  await p.emulateMedia({ reducedMotion: "reduce" });
+  await p.goto(base + "?ch=1");
+  await p.waitForTimeout(700);
+  b = await past("#boot, #boot *");
+  const lines = await p.evaluate(() => (document.getElementById("boot").textContent || "").replace(/\s+/g, " "));
+  check(/NOSTALGEM/.test(lines) && /A Blast From The Past/.test(lines) && b.n > 5 && !b.out.length, `…its three titles too, standing still (${b.n} pieces) ${b.out.join(", ")}`);
+  await p.emulateMedia({ reducedMotion: "no-preference" });
+  await p.goto(base + "?ch=1&boot=treasure");
+  await p.waitForTimeout(2200);
+  b = await past("#boot, #boot *");
+  check((await p.evaluate(() => document.getElementById("boot").classList.contains("boot-treasure"))) && b.n > 20 && !b.out.length, `…and so does the treasure-chest start-up, ?boot=treasure (${b.n} pieces showing) ${b.out.join(", ")}`);
+  if (SHOTS) await p.screenshot({ path: join(SHOTS, "4x3-boot-treasure.png") });
+  await p.waitForFunction(() => window.NP && window.NP.state().app === "on" && !window.NP.state().turnOn, null, { timeout: 15000 }).catch(() => {});
+  await p.waitForTimeout(600);
+  await p.keyboard.press("ArrowRight");
+  await p.waitForFunction(() => window.NP.state().overlay === "menu", null, { timeout: 5000 }).catch(() => {});
+  await p.locator("#menu .m-item", { hasText: "Video Club" }).first().click();
+  await p.waitForTimeout(400);
+  b = await past("#menu, #menu *");
+  check(/Western Row/.test(await p.textContent("#menu")) && !b.out.length, `…and the Video Club's rows (${b.n} pieces showing) ${b.out.join(", ")}`);
+  if (SHOTS) await p.screenshot({ path: join(SHOTS, "4x3-club.png") });
+  await c.close();
+}
 
 // ---------- in the TV app: the page tells the app the shape ----------
 // can: what the app says it can do. -> the page, and what it has sent the app since the last look.
