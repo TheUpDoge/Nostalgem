@@ -28,6 +28,12 @@ export const FAMILIES = [
   { id: "desk", look: "desk", name: "Talk & news" },
   { id: "radio", look: "radio", name: "Radio" },
   { id: "retro", look: "retro", name: "NostalGem" },
+  // Extra looks. Not on the dial: nothing in BY_SLUG points here.
+  { id: "neonrain", look: "neonrain", name: "Neon Rain" },
+  { id: "hardchrome", look: "hardchrome", name: "Hard Chrome" },
+  { id: "polygon", look: "polygon", name: "Polygon Hour" },
+  { id: "glowcircuit", look: "glowcircuit", name: "Glow Circuit" },
+  { id: "crystalsignal", look: "crystalsignal", name: "Crystal Signal" },
 ];
 const FAMILY = {};
 FAMILIES.forEach(function (f) {
@@ -70,11 +76,24 @@ const KEYWORDS = [
   ["gameshow", /game show|quiz|panel show|contestant|jeopardy|password/i],
   ["desk", /\bnews\b|newscast|podcast|interview|talk show|documentary|documentar|noticias|\blive\b/i],
   ["reel", /newsreel|educational|classroom|industrial|ephemera|prelinger|travelogue|aviation|railroad|trains?\b|history|archive|vintage ads|commercial/i],
+  // Extra looks. Only the name, and only if nothing above matched, so the shipped lineup stays put.
+  ["neonrain", /\bneon rain\b/i],
+  ["hardchrome", /\bhard chrome\b/i],
+  ["polygon", /\bpolygon hour\b/i],
+  ["glowcircuit", /\bglow circuit\b/i],
+  ["crystalsignal", /\bcrystal signal\b/i],
 ];
 
-// A channel's family: by slug, then by its words, then radio for audio and NostalGem's own for the rest.
+// Extra looks are not on the dial. To try one on a real channel, map that channel's slug
+// to the family id. This ships empty; the shipped lineup keeps the families in BY_SLUG.
+//   "high-noon": "neonrain"
+export const EXTRA_SLUGS = {};
+
+// A channel's family: an EXTRA_SLUGS override, then by slug, then by its words,
+// then radio for audio and NostalGem's own for the rest.
 export function familyOf(ch) {
   if (!ch) return FAMILY.retro;
+  if (EXTRA_SLUGS[ch.slug] && FAMILY[EXTRA_SLUGS[ch.slug]]) return FAMILY[EXTRA_SLUGS[ch.slug]];
   const byName = BY_SLUG[ch.slug];
   if (byName) return FAMILY[byName];
   const text = [ch.name, ch.tagline, ch.slug].join(" ");
@@ -175,9 +194,108 @@ export function familyAdQuips(cards, ch) {
   return words(cards, ch).ad || [];
 }
 
+// Crystal Signal's scenery: one blurred ray disc, a gem, and 16 sparkles. The motion is CSS
+// (transform and opacity only) and stops when the card is hidden. See css/app.css.
+function crystalScene() {
+  // Eight glints on the stone, eight that drift in the field around it.
+  const spots = [
+    [46, 14, 0], [54, 16, 0.4], [42, 20, 0.8], [58, 22, 1.1], [50, 11, 1.5], [48, 26, 0.2], [57, 19, 1.8], [43, 17, 0.6],
+    [14, 28, 0.3], [24, 16, 1.2], [76, 14, 0.7], [86, 26, 1.6], [18, 44, 0.9], [82, 40, 0.1], [32, 12, 1.4], [70, 34, 0.5],
+  ];
+  let sparks = "";
+  for (let i = 0; i < spots.length; i++) {
+    sparks +=
+      '<i class="sp' +
+      (i < 8 ? " on" : "") +
+      '" style="--x:' +
+      spots[i][0] +
+      "%;--y:" +
+      spots[i][1] +
+      "%;--d:" +
+      spots[i][2] +
+      's"></i>';
+  }
+  return (
+    '<div class="fscene fs-crystalsignal" aria-hidden="true">' +
+    '<i class="rays"><b></b></i>' +
+    '<i class="gem"><i class="body">' +
+    cutRound() +
+    cutPrincess() +
+    cutEmerald() +
+    cutMarquise() +
+    '<i class="tint ice"></i><i class="tint pink"></i><i class="tint violet"></i><i class="tint cyan"></i>' +
+    '</i><i class="shine"></i><i class="sheath"><i class="sweep"></i></i></i>' +
+    '<i class="reflect"></i>' +
+    sparks +
+    "</div>"
+  );
+}
+
+// Prebuilt facet pictures. The loading card crossfades them; nothing is rebuilt per frame.
+function cutRound() {
+  return (
+    '<i class="cut round"><svg viewBox="0 0 200 210" aria-hidden="true">' +
+    '<polygon points="24,108 64,108 100,186" fill="#e7f6ff"/>' +
+    '<polygon points="64,108 100,108 100,186" fill="#ffffff"/>' +
+    '<polygon points="100,108 136,108 100,186" fill="#f3e8ff"/>' +
+    '<polygon points="136,108 176,108 100,186" fill="#d7f4ff"/>' +
+    '<polygon points="18,100 24,110 176,110 182,100 176,92 24,92" fill="#ffffff"/>' +
+    '<polygon points="24,92 68,92 62,66" fill="#ffffff"/>' +
+    '<polygon points="68,92 100,92 92,60 74,66" fill="#f5fbff"/>' +
+    '<polygon points="100,92 132,92 126,66 108,60" fill="#efe6ff"/>' +
+    '<polygon points="132,92 176,92 138,66" fill="#e5f8ff"/>' +
+    '<polygon points="24,92 62,66 36,86" fill="#fff"/>' +
+    '<polygon points="176,92 164,86 138,66" fill="#dff4ff"/>' +
+    '<polygon points="70,66 88,56 112,56 130,66 130,80 112,90 88,90 70,80" fill="#ffffff"/>' +
+    '<polygon points="88,56 100,50 112,56 104,66 96,66" fill="#f7fdff"/>' +
+    '<polygon points="94,60 106,60 100,70" fill="#fff"/>' +
+    "</svg></i>"
+  );
+}
+function cutPrincess() {
+  return (
+    '<i class="cut princess"><svg viewBox="0 0 200 210" aria-hidden="true">' +
+    '<polygon points="40,44 160,44 160,148 40,148" fill="#f4f9ff"/>' +
+    '<polygon points="40,44 100,96 40,148" fill="#ffffff"/>' +
+    '<polygon points="160,44 100,96 160,148" fill="#e7fbff"/>' +
+    '<polygon points="40,44 160,44 100,96" fill="#f7f3ff"/>' +
+    '<polygon points="40,148 160,148 100,96" fill="#ffe8f6"/>' +
+    '<polygon points="40,148 100,176 160,148" fill="#efe6ff"/>' +
+    '<polygon points="78,62 122,62 100,84" fill="#fff"/>' +
+    "</svg></i>"
+  );
+}
+function cutEmerald() {
+  return (
+    '<i class="cut emerald"><svg viewBox="0 0 200 210" aria-hidden="true">' +
+    '<polygon points="46,58 154,58 170,74 170,126 154,142 46,142 30,126 30,74" fill="#f3f9ff"/>' +
+    '<polygon points="58,72 142,72 154,86 154,116 142,130 58,130 46,116 46,86" fill="#ffffff"/>' +
+    '<polygon points="72,86 128,86 136,96 136,112 128,122 72,122 64,112 64,96" fill="#e7f8ff"/>' +
+    '<polygon points="30,126 46,142 100,192" fill="#efe4ff"/>' +
+    '<polygon points="170,126 154,142 100,192" fill="#d8f4ff"/>' +
+    '<polygon points="46,142 154,142 100,192" fill="#ffffff"/>' +
+    '<polygon points="90,96 110,96 100,108" fill="#fff"/>' +
+    "</svg></i>"
+  );
+}
+function cutMarquise() {
+  return (
+    '<i class="cut marquise"><svg viewBox="0 0 200 210" aria-hidden="true">' +
+    '<polygon points="16,108 100,58 184,108 100,168" fill="#f7fbff"/>' +
+    '<polygon points="16,108 100,58 100,108" fill="#ffffff"/>' +
+    '<polygon points="100,58 184,108 100,108" fill="#efe6ff"/>' +
+    '<polygon points="16,108 100,168 100,108" fill="#e5f8ff"/>' +
+    '<polygon points="184,108 100,168 100,108" fill="#ffffff"/>' +
+    '<polygon points="40,108 100,78 160,108 100,148" fill="#fff" opacity="0.7"/>' +
+    '<polygon points="92,96 108,96 100,112" fill="#fff"/>' +
+    "</svg></i>"
+  );
+}
+
 // The scenery behind a card, for a look: layers css/app.css paints (fs-<look> .l1 .l2 .l3). retro has the
-// sunset scene views.js already draws, so it gets nothing here.
+// sunset scene views.js already draws, so it gets nothing here. Crystal Signal draws its own pieces.
 export function familyScene(look) {
   if (!look || look === "retro") return "";
+  if (look === "crystalsignal") return crystalScene();
   return '<div class="fscene fs-' + look + '" aria-hidden="true"><i class="l1"></i><i class="l2"></i><i class="l3"></i></div>';
 }

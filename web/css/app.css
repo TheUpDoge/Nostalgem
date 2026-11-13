@@ -895,6 +895,11 @@ body {
 .card-tuning {
   animation: card-in 0.35s ease-out;
 }
+.card-tuning.card-leave {
+  animation: none;
+  opacity: 0;
+  transition: opacity 0.45s ease;
+}
 @keyframes card-in {
   from {
     opacity: 0;
@@ -1730,6 +1735,705 @@ body {
 .fam-radio {
   --fam: #e9c46a;
 }
+
+/* ---- theme: neonrain ----
+   Neon Rain: a rain-soaked neon megacity. Static paint only. No film title, logo, or lines. */
+.fs-neonrain {
+  background: linear-gradient(180deg, rgba(255, 43, 214, 0.16), rgba(0, 0, 0, 0) 26%), linear-gradient(180deg, #05060f 0%, #0c1830 36%, #1a1030 56%, #07060c 70%, #030208 100%);
+}
+.fs-neonrain .l1 {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 62%;
+  background-color: #07060f;
+  background-image: radial-gradient(circle, rgba(255, 214, 140, 0.92) 0.22vh, transparent 0.38vh), radial-gradient(circle, rgba(130, 230, 255, 0.75) 0.16vh, transparent 0.3vh);
+  background-size: 2.5vh 3.1vh, 3.4vh 4.1vh;
+  background-position: 0 0, 1.2vh 1.6vh;
+  clip-path: polygon(
+    0% 100%,
+    2% 100%,
+    2% 58%,
+    7% 58%,
+    7% 100%,
+    10% 100%,
+    10% 34%,
+    13.2% 34%,
+    13.2% 18%,
+    14.4% 18%,
+    14.4% 34%,
+    18% 34%,
+    18% 100%,
+    22% 100%,
+    22% 46%,
+    29% 46%,
+    29% 100%,
+    33% 100%,
+    33% 28%,
+    39% 28%,
+    39% 16%,
+    40.3% 16%,
+    40.3% 28%,
+    45% 28%,
+    45% 100%,
+    49% 100%,
+    49% 42%,
+    56% 42%,
+    56% 100%,
+    60% 100%,
+    60% 30%,
+    67% 30%,
+    67% 100%,
+    71% 100%,
+    71% 48%,
+    78% 48%,
+    78% 100%,
+    82% 100%,
+    82% 26%,
+    83.3% 26%,
+    83.3% 14%,
+    84.5% 14%,
+    84.5% 26%,
+    89% 26%,
+    89% 100%,
+    93% 100%,
+    93% 52%,
+    99% 52%,
+    99% 100%
+  );
+}
+.fs-neonrain .l2 {
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(#ff2bd6, #ff2bd6) 7% 28% / 12vh 0.55vh no-repeat, linear-gradient(rgba(255, 43, 214, 0.4), rgba(255, 43, 214, 0.4)) 7% 28% / 13vh 1.7vh no-repeat,
+    linear-gradient(#7ee0ff, #7ee0ff) 7% 32% / 8vh 0.4vh no-repeat, linear-gradient(rgba(126, 224, 255, 0.35), rgba(126, 224, 255, 0.35)) 7% 32% / 9vh 1.3vh no-repeat,
+    linear-gradient(#ffb703, #ffb703) 63% 24% / 10vh 0.55vh no-repeat, linear-gradient(rgba(255, 183, 3, 0.4), rgba(255, 183, 3, 0.4)) 63% 24% / 11vh 1.6vh no-repeat,
+    linear-gradient(#ff2bd6, #ff2bd6) 63% 28% / 6vh 0.4vh no-repeat, linear-gradient(#7ee0ff, #7ee0ff) 80% 36% / 0.4vh 18vh no-repeat,
+    linear-gradient(rgba(126, 224, 255, 0.35), rgba(126, 224, 255, 0.35)) 80% 36% / 1.3vh 18vh no-repeat, linear-gradient(#ff2bd6, #ff2bd6) 27% 20% / 0.4vh 16vh no-repeat,
+    linear-gradient(rgba(255, 43, 214, 0.35), rgba(255, 43, 214, 0.35)) 27% 20% / 1.2vh 16vh no-repeat,
+    linear-gradient(90deg, transparent, rgba(255, 43, 214, 0.4), rgba(126, 224, 255, 0.22), transparent) center 63% / 100% 12vh no-repeat;
+}
+.fs-neonrain .l3 {
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, transparent 66%, rgba(255, 43, 214, 0.16) 78%, rgba(126, 224, 255, 0.1) 86%, rgba(0, 0, 0, 0.78) 100%),
+    repeating-linear-gradient(104deg, transparent 0 2.5vh, rgba(190, 226, 255, 0.2) 2.5vh 2.65vh);
+}
+.fam-neonrain {
+  --fam: #7ee0ff;
+}
+.fam-neonrain .card-panel {
+  background: rgba(6, 8, 16, 0.84);
+  border: 0.14rem solid #ff2bd6;
+  border-radius: 0.35rem;
+  box-shadow: 0 0 0 0.12rem rgba(126, 224, 255, 0.75), 0 0 2.6rem rgba(255, 43, 214, 0.4);
+}
+.fam-neonrain .card-kicker {
+  color: #7ee0ff;
+  letter-spacing: 0.32em;
+  text-shadow: 0 0 0.5em rgba(126, 224, 255, 0.85);
+}
+.fam-neonrain .card-title {
+  color: #f3fbff;
+  text-shadow: 0 0 0.45em rgba(255, 43, 214, 0.8);
+}
+.fam-neonrain .card-sub,
+.fam-neonrain .card-countlabel {
+  color: #cbb8d6;
+}
+.fam-neonrain .card-count,
+.fam-neonrain .card-dots {
+  color: #ff4ad8;
+  text-shadow: 0 0 0.35em rgba(255, 43, 214, 0.85);
+}
+/* ---- /theme: neonrain ---- */
+
+/* ---- theme: hardchrome ----
+   Hard Chrome: yellow and cyan glitch HUD. Static slices and a hazard band, no loop.
+   Not a game's logo, wordmark, or city. */
+.fs-hardchrome {
+  background: radial-gradient(circle at 0% 0%, rgba(230, 255, 0, 0.16), transparent 34%), radial-gradient(circle at 100% 100%, rgba(0, 229, 255, 0.14), transparent 38%), #070707;
+}
+.fs-hardchrome .l1 {
+  top: 2.4vh;
+  left: 2.4vh;
+  right: 2.4vh;
+  bottom: 2.4vh;
+  background: linear-gradient(#e6ff00, #e6ff00) left top / 10vh 0.45vh no-repeat, linear-gradient(#e6ff00, #e6ff00) left top / 0.45vh 10vh no-repeat,
+    linear-gradient(#e6ff00, #e6ff00) right top / 10vh 0.45vh no-repeat, linear-gradient(#e6ff00, #e6ff00) right top / 0.45vh 10vh no-repeat,
+    linear-gradient(#00e5ff, #00e5ff) left bottom / 10vh 0.45vh no-repeat, linear-gradient(#00e5ff, #00e5ff) left bottom / 0.45vh 10vh no-repeat,
+    linear-gradient(#00e5ff, #00e5ff) right bottom / 10vh 0.45vh no-repeat, linear-gradient(#00e5ff, #00e5ff) right bottom / 0.45vh 10vh no-repeat,
+    linear-gradient(#e6ff00, #e6ff00) center 7% / 16vh 0.28vh no-repeat, linear-gradient(#00e5ff, #00e5ff) center 7% / 0.28vh 3.4vh no-repeat;
+}
+.fs-hardchrome .l2 {
+  left: -16%;
+  right: -16%;
+  bottom: 0;
+  height: 24%;
+  background: repeating-linear-gradient(-45deg, #e6ff00 0 1.45vh, #101010 1.45vh 2.9vh);
+  -webkit-mask: linear-gradient(180deg, transparent, #000 55%);
+  mask: linear-gradient(180deg, transparent, #000 55%);
+}
+.fs-hardchrome .l3 {
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent 0 4%, #00e5ff 4% 4.4%, transparent 4.4% 36%, #e6ff00 36% 58%, transparent 58%) 0 16% / 100% 1vh no-repeat,
+    linear-gradient(90deg, #e6ff00 0 18%, transparent 18% 64%, #00e5ff 64% 68%, transparent 68%) 0 78% / 100% 0.5vh no-repeat, linear-gradient(#ff3355, #ff3355) 0 48% / 100% 0.2vh no-repeat,
+    linear-gradient(90deg, transparent 70%, rgba(0, 229, 255, 0.9) 70% 77%, transparent 77%) 0 29% / 100% 0.65vh no-repeat;
+}
+.fam-hardchrome {
+  --fam: #e6ff00;
+}
+.fam-hardchrome .card-panel {
+  background: rgba(0, 0, 0, 0.9);
+  border: 0.2rem solid #e6ff00;
+  border-radius: 0;
+  box-shadow: 0.55rem 0.55rem 0 #00e5ff;
+}
+.fam-hardchrome .card-kicker {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: 1.5rem;
+  color: #e6ff00;
+  letter-spacing: 0.14em;
+  text-shadow: none;
+}
+.fam-hardchrome .card-title {
+  color: #fff;
+  text-shadow: 0.12rem 0 #00e5ff, -0.12rem 0 #e6ff00;
+}
+.fam-hardchrome .card-sub,
+.fam-hardchrome .card-countlabel {
+  font-family: var(--font-mono);
+  color: #b6f7ff;
+  letter-spacing: 0.06em;
+}
+.fam-hardchrome .card-count,
+.fam-hardchrome .card-dots {
+  color: #00e5ff;
+  text-shadow: 0.08rem 0 #e6ff00;
+}
+/* ---- /theme: hardchrome ---- */
+
+/* ---- theme: polygon ----
+   Polygon Hour: early-90s virtual room, purple void, green wireframe. Static. No film title. */
+.fs-polygon {
+  background: linear-gradient(#39ff14, #39ff14) center 57% / 100% 0.28vh no-repeat, repeating-linear-gradient(180deg, transparent 0 3px, rgba(57, 255, 20, 0.045) 3px 4px),
+    radial-gradient(ellipse at 50% 26%, #3a1468 0%, #160424 54%, #07010e 100%);
+}
+.fs-polygon .l1 {
+  left: -55%;
+  right: -55%;
+  top: 57%;
+  bottom: -48%;
+  background-image: linear-gradient(rgba(57, 255, 20, 0.7) 0.22vh, transparent 0.22vh), linear-gradient(90deg, rgba(57, 255, 20, 0.7) 0.22vh, transparent 0.22vh);
+  background-size: 7.5vh 7.5vh;
+  transform: perspective(30vh) rotateX(68deg);
+  transform-origin: center top;
+}
+.fs-polygon .l2 {
+  left: 8%;
+  top: 11%;
+  width: 30vh;
+  height: 30vh;
+  border: 0.34vh solid #39ff14;
+  transform: rotate(45deg);
+  box-shadow: 0 0 2vh rgba(57, 255, 20, 0.8);
+  background: linear-gradient(#c84bff, #c84bff) center / 100% 0.28vh no-repeat, linear-gradient(#c84bff, #c84bff) center / 0.28vh 100% no-repeat;
+}
+.fs-polygon .l3 {
+  right: 7%;
+  left: auto;
+  top: 16%;
+  width: 20vh;
+  height: 20vh;
+  border: 0.28vh solid #d58bff;
+  transform: rotate(45deg);
+  box-shadow: 0 0 1.6vh rgba(200, 75, 255, 0.85);
+  background: linear-gradient(#39ff14, #39ff14) center / 100% 0.22vh no-repeat, linear-gradient(#39ff14, #39ff14) center / 0.22vh 100% no-repeat;
+}
+.fam-polygon {
+  --fam: #39ff14;
+}
+.fam-polygon .card-panel {
+  background: rgba(10, 0, 24, 0.86);
+  border: 0.16rem solid #39ff14;
+  border-radius: 0;
+  box-shadow: 0 0 2.2rem rgba(57, 255, 20, 0.3), inset 0 0 2.4rem rgba(160, 40, 255, 0.3);
+}
+.fam-polygon .card-kicker,
+.fam-polygon .card-title,
+.fam-polygon .card-sub,
+.fam-polygon .card-countlabel,
+.fam-polygon .card-count {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  text-shadow: 0 0 0.35em rgba(57, 255, 20, 0.4);
+}
+.fam-polygon .card-kicker {
+  color: #e0a6ff;
+  letter-spacing: 0.1em;
+  font-size: 1.55rem;
+}
+.fam-polygon .card-title {
+  color: #d8ffc8;
+  font-size: 3.15rem;
+}
+.fam-polygon .card-sub,
+.fam-polygon .card-countlabel {
+  color: #c9f5c0;
+}
+.fam-polygon .card-count,
+.fam-polygon .card-dots {
+  color: #39ff14;
+  text-shadow: 0 0 0.4em rgba(57, 255, 20, 0.75);
+}
+/* ---- /theme: polygon ---- */
+
+/* ---- theme: glowcircuit ----
+   Glow Circuit: a black room ruled in cyan, with orange light lines. Static. No film logo or lines. */
+.fs-glowcircuit {
+  background: #000;
+}
+.fs-glowcircuit .l1 {
+  left: 7%;
+  right: 7%;
+  top: 4%;
+  height: 46%;
+  background-image: linear-gradient(rgba(0, 229, 255, 0.5) 0.18vh, transparent 0.18vh), linear-gradient(90deg, rgba(0, 229, 255, 0.5) 0.18vh, transparent 0.18vh);
+  background-size: 5.2vh 5.2vh;
+  box-shadow: inset 0 0 5vh rgba(0, 229, 255, 0.22);
+}
+.fs-glowcircuit .l2 {
+  left: -40%;
+  right: -40%;
+  top: 50%;
+  bottom: -36%;
+  background-image: linear-gradient(rgba(0, 229, 255, 0.8) 0.2vh, transparent 0.2vh), linear-gradient(90deg, rgba(0, 229, 255, 0.8) 0.2vh, transparent 0.2vh);
+  background-size: 6.2vh 6.2vh;
+  transform: perspective(24vh) rotateX(66deg);
+  transform-origin: center top;
+}
+.fs-glowcircuit .l3 {
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(rgba(255, 122, 24, 0.38), rgba(255, 122, 24, 0.38)) 16% 0 / 1.5vh 52% no-repeat, linear-gradient(#ff7a18, #ff7a18) 16% 0 / 0.28vh 52% no-repeat,
+    linear-gradient(rgba(255, 122, 24, 0.4), rgba(255, 122, 24, 0.4)) center 50% / 100% 1.15vh no-repeat, linear-gradient(#ff7a18, #ff7a18) center 50% / 100% 0.3vh no-repeat,
+    linear-gradient(rgba(0, 229, 255, 0.35), rgba(0, 229, 255, 0.35)) 78% 7% / 1.15vh 38% no-repeat, linear-gradient(#00e5ff, #00e5ff) 78% 7% / 0.22vh 38% no-repeat;
+}
+.fam-glowcircuit {
+  --fam: #00e5ff;
+}
+.fam-glowcircuit .card-panel {
+  background: rgba(0, 0, 0, 0.84);
+  border: 0.14rem solid #00e5ff;
+  border-radius: 0;
+  box-shadow: 0 0 2rem rgba(0, 229, 255, 0.38), inset 0 0 0 0.14rem rgba(255, 122, 24, 0.7);
+}
+.fam-glowcircuit .card-kicker {
+  color: #ff7a18;
+  letter-spacing: 0.34em;
+  text-shadow: 0 0 0.45em rgba(255, 122, 24, 0.8);
+}
+.fam-glowcircuit .card-title {
+  color: #e9fbff;
+  text-shadow: 0 0 0.4em rgba(0, 229, 255, 0.75);
+}
+.fam-glowcircuit .card-sub,
+.fam-glowcircuit .card-countlabel {
+  color: #9ad7e0;
+}
+.fam-glowcircuit .card-count,
+.fam-glowcircuit .card-dots {
+  color: #00e5ff;
+  text-shadow: 0 0 0.35em rgba(0, 229, 255, 0.85);
+}
+/* ---- /theme: glowcircuit ---- */
+
+/* ---- theme: crystalsignal ----
+   Crystal Signal: a broadcast ident. The gem sits in the upper field; the caption is a lower third,
+   so the stone's point never crosses the type. Motion is transform and opacity on a fixed set of
+   layers (one ray disc, the gem, a shine, two sweeps, 16 sparkles). It runs only while the card is
+   shown. prefers-reduced-motion keeps a still frame: rays, facets and glints, no sweep bar.
+   Cost while a card is up: those layers, one static 6px blur on the ray texture, one static
+   drop-shadow on the stone. Hidden card: animations are removed. No drawing surface, no script loop. */
+.fs-crystalsignal {
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.015) 0 1px, transparent 1px 3px), repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.03) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at 0% 50%, rgba(255, 42, 180, 0.38), transparent 42%), radial-gradient(ellipse at 100% 46%, rgba(5, 217, 232, 0.32), transparent 42%),
+    linear-gradient(180deg, #100318 0%, #2a0a3a 14%, #5c1848 28%, #a8326c 40%, #e85a48 50%, #ff9a4a 57%, #ffd27a 63%, #6a2870 72%, #1a0824 86%, #07010e 100%);
+  box-shadow: inset 0 0 0 1.15vh #070707, inset 0 0 18vh rgba(0, 0, 0, 0.35);
+}
+.fs-crystalsignal b,
+.fs-crystalsignal .cut,
+.fs-crystalsignal .tint,
+.fs-crystalsignal .body,
+.fs-crystalsignal .shine,
+.fs-crystalsignal .sheath,
+.fs-crystalsignal .sweep {
+  position: absolute;
+  display: block;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+.fs-crystalsignal .rays {
+  left: 50%;
+  top: 26vh;
+  width: 78vh;
+  height: 78vh;
+  margin: -39vh 0 0 -39vh;
+  mix-blend-mode: screen;
+  opacity: 0.55;
+  animation: cs-spin 36s linear infinite;
+  will-change: transform;
+}
+.fs-crystalsignal .rays b {
+  background: repeating-conic-gradient(from 0deg, rgba(255, 255, 255, 0) 0deg 7deg, rgba(255, 214, 250, 0.55) 9deg 11deg, rgba(255, 255, 255, 0) 13deg 24deg);
+  -webkit-mask: radial-gradient(circle, rgba(0, 0, 0, 0.15) 0 8%, #000 18%, transparent 62%);
+  mask: radial-gradient(circle, rgba(0, 0, 0, 0.15) 0 8%, #000 18%, transparent 62%);
+  filter: blur(6px);
+}
+@supports (mix-blend-mode: plus-lighter) {
+  .fs-crystalsignal .rays {
+    mix-blend-mode: plus-lighter;
+  }
+}
+.fs-crystalsignal .gem {
+  left: 50%;
+  top: 6.5vh;
+  width: 32vh;
+  height: 34vh;
+  margin-left: -16vh;
+  animation: cs-tilt 9s ease-in-out infinite alternate;
+  will-change: transform;
+}
+.fs-crystalsignal .body {
+  filter: drop-shadow(0 0 1.1vh rgba(255, 42, 212, 0.75)) drop-shadow(0 0 2vh rgba(5, 217, 232, 0.35));
+}
+.fs-crystalsignal .cut {
+  opacity: 0;
+}
+.fs-crystalsignal .cut.round {
+  opacity: 1;
+}
+.fs-crystalsignal .cut svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.fs-crystalsignal .tint {
+  opacity: 0;
+  mix-blend-mode: multiply;
+}
+.fs-crystalsignal .tint.ice {
+  background: rgba(236, 248, 255, 0.55);
+  clip-path: polygon(50% 24%, 88% 47%, 50% 90%, 12% 47%);
+}
+.fs-crystalsignal .tint.pink {
+  background: rgba(255, 70, 160, 0.55);
+  clip-path: polygon(20% 21%, 80% 21%, 80% 70%, 50% 84%, 20% 70%);
+}
+.fs-crystalsignal .tint.violet {
+  background: rgba(150, 70, 255, 0.52);
+  clip-path: polygon(23% 28%, 77% 28%, 85% 35%, 85% 60%, 77% 68%, 50% 92%, 23% 68%, 15% 60%, 15% 35%);
+}
+.fs-crystalsignal .tint.cyan {
+  background: rgba(40, 220, 240, 0.5);
+  clip-path: polygon(8% 51%, 50% 28%, 92% 51%, 50% 80%);
+}
+.card-tuning.fam-crystalsignal .cut,
+.card-tuning.fam-crystalsignal .tint {
+  animation: cs-cut 8s linear infinite;
+}
+.card-tuning.fam-crystalsignal .cut.round,
+.card-tuning.fam-crystalsignal .tint.ice {
+  animation-delay: 0s;
+}
+.card-tuning.fam-crystalsignal .cut.princess,
+.card-tuning.fam-crystalsignal .tint.pink {
+  animation-delay: -6s;
+}
+.card-tuning.fam-crystalsignal .cut.emerald,
+.card-tuning.fam-crystalsignal .tint.violet {
+  animation-delay: -4s;
+}
+.card-tuning.fam-crystalsignal .cut.marquise,
+.card-tuning.fam-crystalsignal .tint.cyan {
+  animation-delay: -2s;
+}
+.fs-crystalsignal .shine {
+  background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.9) 50%, transparent 60%);
+  clip-path: polygon(50% 14%, 86% 46%, 50% 90%, 14% 46%);
+  mix-blend-mode: screen;
+  opacity: 0.45;
+}
+.card-tuning.fam-crystalsignal .shine {
+  animation: cs-glint 8s linear infinite;
+}
+.fs-crystalsignal .sheath {
+  overflow: hidden;
+  clip-path: polygon(50% 14%, 86% 46%, 50% 90%, 14% 46%);
+}
+.fs-crystalsignal .sweep {
+  width: 28%;
+  right: auto;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.92), transparent);
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: cs-sweep 2.6s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+.fs-crystalsignal .reflect {
+  left: 50%;
+  top: 41vh;
+  width: 22vh;
+  height: 5vh;
+  margin-left: -11vh;
+  background: linear-gradient(180deg, rgba(255, 190, 245, 0.45), transparent);
+  clip-path: polygon(18% 0%, 82% 0%, 50% 100%);
+  opacity: 0.4;
+}
+.fs-crystalsignal .sp {
+  width: 1.5vh;
+  height: 1.5vh;
+  left: var(--x);
+  top: var(--y);
+  margin: -0.75vh 0 0 -0.75vh;
+  background: linear-gradient(#fff, #fff) center / 100% 0.16vh no-repeat, linear-gradient(#fff, #fff) center / 0.16vh 100% no-repeat;
+  opacity: 0.85;
+  animation: cs-tw 2.2s ease-in-out infinite;
+  animation-delay: var(--d);
+  will-change: transform, opacity;
+}
+.fs-crystalsignal .sp.on {
+  width: 1.15vh;
+  height: 1.15vh;
+  margin: -0.57vh 0 0 -0.57vh;
+}
+.fs-crystalsignal .sp:not(.on) {
+  animation-name: cs-drift;
+  animation-duration: 5.5s;
+}
+.card.fam-crystalsignal {
+  justify-content: flex-end;
+  padding-bottom: 6.5vh;
+}
+.fam-crystalsignal {
+  --fam: #ff7ad9;
+}
+.fam-crystalsignal .card-panel {
+  margin-top: 0;
+  background: rgba(8, 2, 16, 0.84);
+  border: 0.12rem solid #ff4ec8;
+  border-radius: 0.45rem;
+  box-shadow: 0 0 0 0.1rem rgba(5, 217, 232, 0.65), 0 0 2.2rem rgba(255, 42, 180, 0.35);
+  padding: 1.15rem 2.2rem 1.25rem;
+}
+.fam-crystalsignal .card-kicker {
+  color: #7af0ff;
+  letter-spacing: 0.32em;
+  font-size: 0.78rem;
+  text-shadow: 0 0 0.45em rgba(5, 217, 232, 0.75);
+}
+.fam-crystalsignal .card-title {
+  position: relative;
+  overflow: hidden;
+  display: block;
+  margin: 0.35rem 0 0.3rem;
+  font-size: 2.35rem;
+  letter-spacing: 0.03em;
+  background: linear-gradient(180deg, #ffffff 0%, #d9fbff 28%, #c4b4ff 46%, #ff7ad9 56%, #ffffff 74%, #f4fdff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 0.14em rgba(255, 42, 212, 0.7));
+}
+.fam-crystalsignal .card-title::after {
+  content: "";
+  position: absolute;
+  top: -20%;
+  left: 0;
+  width: 36%;
+  height: 140%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent);
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: cs-titlesweep 2.6s ease-in-out 0.16s infinite;
+  will-change: transform, opacity;
+}
+.fam-crystalsignal .card-sub,
+.fam-crystalsignal .card-countlabel {
+  color: #f0c6e4;
+}
+.fam-crystalsignal .card-sub {
+  font-size: 1.05rem;
+  letter-spacing: 0.03em;
+}
+.fam-crystalsignal .card-countlabel {
+  margin-top: 0.55rem;
+  letter-spacing: 0.34em;
+  font-size: 0.72rem;
+}
+.fam-crystalsignal .card-count,
+.fam-crystalsignal .card-dots {
+  color: #ff7ad9;
+  text-shadow: 0 0 0.35em rgba(255, 42, 212, 0.8);
+}
+.fam-crystalsignal .card-count {
+  margin-top: 0.1rem;
+  font-size: 2.5rem;
+}
+.card-adbreak.fam-crystalsignal {
+  justify-content: flex-end;
+}
+.card-adbreak.fam-crystalsignal .fscene {
+  opacity: 0.92;
+}
+.card-adbreak.fam-crystalsignal .ad-box {
+  margin-bottom: 2vh;
+  max-width: 40rem;
+  text-align: center;
+  background: rgba(8, 2, 16, 0.62);
+  border: 0.1rem solid rgba(255, 78, 200, 0.65);
+  border-radius: 0.4rem;
+  padding: 1.15rem 1.6rem 1.2rem;
+  box-shadow: 0 0 0 0.08rem rgba(5, 217, 232, 0.4);
+}
+.card[hidden] .fs-crystalsignal,
+.card[hidden] .fs-crystalsignal i,
+.card[hidden] .fs-crystalsignal b,
+.card[hidden].fam-crystalsignal .card-title::after {
+  animation: none;
+}
+@keyframes cs-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes cs-tilt {
+  from {
+    transform: rotate(-6deg);
+  }
+  to {
+    transform: rotate(6deg);
+  }
+}
+@keyframes cs-cut {
+  0%,
+  18% {
+    opacity: 1;
+  }
+  25%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes cs-glint {
+  0%,
+  25%,
+  50%,
+  75% {
+    opacity: 1;
+  }
+  8%,
+  33%,
+  58%,
+  83%,
+  100% {
+    opacity: 0.28;
+  }
+}
+@keyframes cs-sweep {
+  0% {
+    transform: translate3d(-170%, 0, 0) rotate(20deg);
+    opacity: 0;
+  }
+  14% {
+    opacity: 0.95;
+  }
+  38% {
+    transform: translate3d(280%, 0, 0) rotate(20deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translate3d(280%, 0, 0) rotate(20deg);
+    opacity: 0;
+  }
+}
+@keyframes cs-titlesweep {
+  0% {
+    transform: translate3d(-180%, 0, 0);
+    opacity: 0;
+  }
+  16% {
+    opacity: 0.55;
+  }
+  40% {
+    transform: translate3d(320%, 0, 0);
+    opacity: 0;
+  }
+  100% {
+    transform: translate3d(320%, 0, 0);
+    opacity: 0;
+  }
+}
+@keyframes cs-tw {
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: scale(0.45);
+  }
+  46% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes cs-drift {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 1.5vh, 0) scale(0.4);
+  }
+  30% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -7vh, 0) scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fs-crystalsignal .rays,
+  .fs-crystalsignal .gem,
+  .fs-crystalsignal .cut,
+  .fs-crystalsignal .tint,
+  .fs-crystalsignal .shine,
+  .fs-crystalsignal .sweep,
+  .fs-crystalsignal .sp,
+  .fam-crystalsignal .card-title::after {
+    animation: none;
+  }
+  .fs-crystalsignal .rays {
+    transform: rotate(18deg);
+  }
+  .fs-crystalsignal .shine {
+    opacity: 0.6;
+  }
+  .fs-crystalsignal .sp {
+    opacity: 0.8;
+    transform: none;
+  }
+}
+/* ---- /theme: crystalsignal ---- */
+
 .ad-box {
   max-width: 52rem;
   text-align: left;

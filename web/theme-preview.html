@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NostalGem theme preview</title>
+    <link rel="stylesheet" href="css/app.css" />
+    <style>
+      /* Local preview only. Not a channel, and not loaded by the TV app. */
+      body.sheet {
+        overflow: auto;
+        height: auto;
+        background: #12081c;
+      }
+      .sheet-head {
+        font-family: var(--font-display);
+        color: #fff;
+        padding: 1.2rem 1.4rem 0.3rem;
+        letter-spacing: 0.14em;
+        font-size: 1.1rem;
+      }
+      .sheet-note {
+        font-family: var(--font-body);
+        color: #c3b5ea;
+        padding: 0 1.4rem 1rem;
+        font-size: 16px;
+        max-width: 70rem;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 9rem repeat(3, 640px);
+        gap: 14px 12px;
+        padding: 0 1.2rem 2rem;
+        align-items: center;
+      }
+      .colhead,
+      .rowhead {
+        font-family: var(--font-display);
+        color: #fffb96;
+        font-size: 13px;
+        letter-spacing: 0.12em;
+      }
+      .cell {
+        width: 640px;
+        height: 360px;
+        background: #000;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+      }
+      .cell iframe {
+        width: 640px;
+        height: 360px;
+        border: 0;
+        display: block;
+      }
+      .nav {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 20;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem 0.8rem;
+        padding: 0.45rem 0.8rem;
+        background: rgba(0, 0, 0, 0.78);
+        font-family: var(--font-mono);
+        font-size: 1.15rem;
+      }
+      .nav a {
+        color: #7ee0ff;
+      }
+      body.shot .nav {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="theme-preview.js"></script>
+  </body>
+</html>
