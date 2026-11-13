@@ -3,9 +3,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { shelfQuery, bookSearchUrl, parseBookSearch, authorName, yearOf, bookFromMetadata, isManga, volumeTitle, naturalCompare, pageUrl, pageNumbersUrl, parsePageNumbers, scandataUrl, parseScandata, pickWidth, viewStart, viewPages, nextView, prevView, pageName, pageForNumber, parseShelves } from "../web/js/books.js";
+import { shelfQuery, bookSearchUrl, parseBookSearch, authorName, yearOf, bookFromMetadata, isManga, volumeTitle, naturalCompare, pageUrl, pageNumbersUrl, parsePageNumbers, scandataUrl, parseScandata, pickWidth, viewStart, viewPages, nextView, prevView, pageName, pageForNumber, parseShelves, groupStackShelves } from "../web/js/books.js";
 import { emptyLibrary, issueCard, borrowBook, returnBook, bookLoan, overdueBooks, setMark, markFor, cancelCard, cleanLibrary, checkOut, MAX_BOOKS, BOOK_DAYS } from "../web/js/library.js";
-import { bookBoxHtml, dueSlipHtml, stampDate } from "../web/js/ui/stacks.js";
+import { bookBoxHtml, dueSlipHtml, stampDate, readingRoomHtml, emptyShelfHtml, bookSpineHtml } from "../web/js/ui/stacks.js";
 
 const T0 = Date.parse("2026-11-08T20:00:00Z");
 
@@ -167,6 +167,13 @@ test("a book's box and the stamped due date", () => {
   const loan = { id: "a", t: "A", due: T0 + 9 * 86400000 };
   assert.match(dueSlipHtml(loan, T0), /DATE DUE/);
   assert.match(dueSlipHtml(loan, T0), /due back in 9 days/);
+  assert.match(dueSlipHtml(loan, T0), /THREE BOOKS · TWO WEEKS/);
+  assert.match(readingRoomHtml(), /READING ROOM/);
+  assert.match(readingRoomHtml(), /THREE BOOKS · TWO WEEKS/);
+  assert.match(emptyShelfHtml("Public-domain manga", "No verifiably <b>public-domain</b> manga"), /No verifiably &lt;b&gt;public-domain&lt;\/b&gt; manga/);
+  assert.match(bookSpineHtml([{ id: "oz", t: "<i>Oz</i>" }], "What's on the shelf"), /What&#39;s on the shelf/);
+  assert.doesNotMatch(bookSpineHtml([{ id: "oz", t: "<i>Oz</i>" }], "Shelf"), /<i>Oz<\/i>/);
+  assert.equal(bookSpineHtml([], ""), "");
   const book = bookFromMetadata({ metadata: { identifier: "a", title: "MANGA: Tom & Jerry", collection: "manga_library" }, files: [{ name: "A v1_jp2.zip" }, { name: "A v2_jp2.zip" }] });
   const html = bookBoxHtml({ id: "a", t: "A" }, book, loan, { v: 1, p: 9 }, T0);
   assert.match(html, /services\/img\/a/);
@@ -246,4 +253,37 @@ test("a catalog entry that isn't right is left off its shelf", async () => {
   assert.deepEqual(shelves.map((s) => s.books.map((b) => b.id)), [["ok_book"], ["ok_comic"], []]);
   assert.equal(shelves[2].note, "None found.");
   assert.deepEqual(parseCatalog(null).map((s) => s.books.length), [0, 0, 0]);
+});
+
+test("the catalog shelves stay one list per kind, in title order", async () => {
+  const { parseCatalog } = await import("../web/js/books.js");
+  const { readFile } = await import("node:fs/promises");
+  const json = JSON.parse(await readFile(new URL("../web/data/library-catalog.json", import.meta.url), "utf8"));
+  const books = parseCatalog(json)[0].books;
+  assert.equal(books.length, 59);
+  const titles = books.map((b) => b.t.toLowerCase().replace(/^(the|a|an)\s+/, ""));
+  const sorted = titles.slice().sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+  assert.deepEqual(titles, sorted);
+  const html = bookBoxHtml({ id: "christmascar00dick", t: "A Christmas carol" }, null, null, null, T0);
+  assert.match(html, /On 111 Pearly Gates/);
+  assert.match(html, /A Christmas Carol/);
+  assert.match(emptyShelfHtml("Public-domain manga", "No verifiably <b>public-domain</b> manga", "No verifiably public-domain manga — here's why"), /No verifiably public-domain manga/);
+  assert.match(emptyShelfHtml("Public-domain manga", "No verifiably <b>public-domain</b> manga", "No verifiably public-domain manga — here's why"), /&lt;b&gt;/);
+});
+
+test("the Archive's stacks follow a shelf plan, and a shelf it doesn't name still shows", () => {
+  const shelves = [
+    { id: "classics", name: "Classic novels" },
+    { id: "manga", name: "Manga" },
+    { id: "pulps", name: "Pulps" },
+    { id: "new-one", name: "New" },
+  ];
+  const aisles = groupStackShelves(shelves);
+  assert.deepEqual(
+    aisles.map((a) => a.id),
+    ["pictures", "magazines", "novels", "more"]
+  );
+  assert.equal(aisles[0].shelves[0].id, "manga");
+  assert.equal(aisles[3].shelves[0].id, "new-one");
+  assert.equal(groupStackShelves(null).length, 0);
 });

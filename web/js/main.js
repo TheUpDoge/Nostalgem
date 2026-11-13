@@ -14,8 +14,8 @@ import { LINK_CHANNELS, isLinkChannel, isGuideVisible, linkCardName, linkUrl, op
 import { createGamepad } from "./gamepad.js";
 import { LOOKS, asciiMask, comboCss, lookById, lookCss, lookYtCss, looksSvg, mixable, nextLook } from "./looks.js";
 import { FrameWatch } from "./framewatch.js";
-import { MAX_TAPES, LOAN_HOURS, MAX_BOOKS, BOOK_DAYS, cleanLibrary, issueCard, cancelCard, loanFor, checkOut, setPosition, setSafeCut, isRewound, rewind, returnTape, overdue, storeShelves, staffPicks, searchStore, bookLoan, borrowBook, returnBook, overdueBooks, setMark, markFor } from "./library.js";
-import { bookSearchUrl, parseBookSearch, bookFromMetadata, pageNumbersUrl, parsePageNumbers, scandataUrl, parseScandata, parseShelves, parseCatalog } from "./books.js";
+import { MAX_TAPES, LOAN_HOURS, MAX_BOOKS, BOOK_DAYS, cleanLibrary, issueCard, cancelCard, loanFor, checkOut, setPosition, setSafeCut, isRewound, rewind, returnTape, overdue, storeShelves, staffPicks, searchStore, groupAisles, aisleFilms, bookLoan, borrowBook, returnBook, overdueBooks, setMark, markFor } from "./library.js";
+import { bookSearchUrl, parseBookSearch, bookFromMetadata, pageNumbersUrl, parsePageNumbers, scandataUrl, parseScandata, parseShelves, parseCatalog, groupStackShelves } from "./books.js";
 import { Reader } from "./ui/reader.js";
 import * as Stacks from "./ui/stacks.js";
 import * as Club from "./ui/club.js";
@@ -1215,6 +1215,11 @@ function openClub() {
 function clubPage() {
   return {
     title: "📼 Video Club",
+    wide: true,
+    place: "club",
+    banner: function () {
+      return Club.storefrontHtml();
+    },
     sub: function () {
       return lib.card
         ? lib.card.name + " · " + lib.loans.length + " of " + MAX_TAPES + " tapes out · " + LOAN_HOURS / 24 + "-day rentals"
@@ -1247,6 +1252,7 @@ function clubPage() {
         list.push({
           label: "📼 " + loan.t,
           sub: true,
+          swatch: Club.spineColor(loan.key),
           value: function () {
             return Club.tapeState(loan, now);
           },
@@ -1256,15 +1262,16 @@ function clubPage() {
           },
         });
       });
-      list.push({ head: true, label: "Shelves" });
       const shelves = clubShelves();
-      const picks = staffPicks(shelves, Math.floor(now / (7 * 86400000)), 12);
+      const week = Math.floor(now / (7 * 86400000));
+      const picks = staffPicks(shelves, week, 12);
+      list.push({ head: true, label: "The front rack" });
       list.push({
         label: "🆕 New this week",
         sub: true,
         value: picks.length + " tapes",
         ok: function () {
-          menu.push(shelfPage("🆕 New this week", picks));
+          menu.push(shelfPage("🆕 New this week", picks, { kicker: "Staff picks · the same tapes all week" }));
         },
       });
       list.push({
@@ -1274,13 +1281,14 @@ function clubPage() {
           openStoreSearch();
         },
       });
-      shelves.forEach(function (sh) {
+      list.push({ head: true, label: "Rows" });
+      groupAisles(shelves).forEach(function (aisle) {
         list.push({
-          label: (sh.ch.icon || "📼") + " " + sh.ch.name,
+          label: aisle.icon + " " + aisle.name,
           sub: true,
-          value: sh.films.length + (sh.films.length === 1 ? " tape" : " tapes"),
+          value: aisle.count + (aisle.count === 1 ? " tape" : " tapes"),
           ok: function () {
-            menu.push(shelfPage((sh.ch.icon || "📼") + " " + sh.ch.name, sh.films));
+            menu.push(aislePage(aisle));
           },
         });
       });
@@ -1296,14 +1304,60 @@ function clubPage() {
   };
 }
 
-function shelfPage(title, films) {
+// One channel family: its shelves, and everything on them in one browse.
+function aislePage(aisle) {
+  const films = aisleFilms(aisle);
+  return {
+    title: aisle.icon + " " + aisle.name,
+    wide: true,
+    place: "club",
+    banner: function () {
+      return Club.spineRowHtml(films, "What's on the shelf");
+    },
+    sub: aisle.blurb || films.length + " tapes",
+    items: function () {
+      const list = [];
+      if (aisle.shelves.length > 1) {
+        list.push({
+          label: "Browse everything on this row",
+          sub: true,
+          value: films.length + (films.length === 1 ? " tape" : " tapes"),
+          ok: function () {
+            menu.push(shelfPage(aisle.icon + " " + aisle.name, films, { kicker: "What's on the shelf · " + aisle.name }));
+          },
+        });
+      }
+      aisle.shelves.forEach(function (sh) {
+        list.push({
+          label: (sh.ch.icon || "📼") + " " + sh.ch.name,
+          sub: true,
+          swatch: sh.ch.color || "",
+          value: sh.films.length + (sh.films.length === 1 ? " tape" : " tapes"),
+          ok: function () {
+            menu.push(shelfPage((sh.ch.icon || "📼") + " " + sh.ch.name, sh.films, { kicker: "What's on the shelf · " + sh.ch.name }));
+          },
+        });
+      });
+      return list;
+    },
+  };
+}
+
+function shelfPage(title, films, opts) {
+  const o = opts || {};
   return {
     title: title,
-    sub: films.length + (films.length === 1 ? " tape" : " tapes") + " · OK to look at the box",
+    wide: true,
+    place: "club",
+    banner: function () {
+      return Club.spineRowHtml(films, o.kicker || "What's on the shelf");
+    },
+    sub: films.length + (films.length === 1 ? " tape" : " tapes") + " · what's on the shelf · OK to look at the box",
     items: function () {
       return films.map(function (f) {
         return {
           label: f.item.t,
+          swatch: Club.spineColor(f.key),
           value: function () {
             const out = loanFor(lib, f.key);
             return (out ? "📼 YOURS · " : "") + (f.item.y ? String(f.item.y) : "");
@@ -1334,7 +1388,7 @@ function openStoreSearch() {
           }
           d.close();
           if (!menu.isOpen) menu.open(rootPage());
-          menu.push(shelfPage("🔎 " + text, found));
+          menu.push(shelfPage("🔎 " + text, found, { kicker: "What's on the shelf · " + text }));
         },
       },
       {
@@ -1882,6 +1936,11 @@ function stacksPage() {
   });
   return {
     title: "📚 Reading Room",
+    wide: true,
+    place: "room",
+    banner: function () {
+      return Stacks.readingRoomHtml();
+    },
     sub: function () {
       return lib.card
         ? lib.card.name + " · " + (lib.books || []).length + " of " + MAX_BOOKS + " books out · " + BOOK_DAYS + "-day loans"
@@ -1916,6 +1975,7 @@ function stacksPage() {
         list.push({
           label: "📖 " + b.t,
           sub: true,
+          swatch: Stacks.clothColor(b.id),
           value: function () {
             return (m ? "p. " + (m.p + 1) + " · " : "") + Stacks.dueSlipText(b, now);
           },
@@ -1924,7 +1984,7 @@ function stacksPage() {
           },
         });
       });
-      list.push({ head: true, label: "Shelves" });
+      list.push({ head: true, label: "The desk" });
       list.push({
         label: "🔎 Search the stacks",
         sub: true,
@@ -1954,13 +2014,16 @@ function stacksPage() {
         });
         list.push({ head: true, label: "The Archive's stacks" });
       }
-      (shelvesCacheList || []).forEach(function (sh) {
-        list.push({
-          label: sh.icon + " " + sh.name,
-          sub: true,
-          ok: function () {
-            menu.push(bookShelfPage(sh));
-          },
+      groupStackShelves(shelvesCacheList || []).forEach(function (aisle) {
+        list.push({ head: true, label: aisle.icon + " " + aisle.name });
+        aisle.shelves.forEach(function (sh) {
+          list.push({
+            label: sh.icon + " " + sh.name,
+            sub: true,
+            ok: function () {
+              menu.push(bookShelfPage(sh));
+            },
+          });
         });
       });
       list.push({
@@ -1983,11 +2046,17 @@ bookShelves().then(function (list) {
 function catalogShelfPage(sh) {
   return {
     title: sh.icon + " " + sh.name,
-    sub: "Checked public domain · " + sh.books.length + " on the shelf · OK to look at one",
+    wide: true,
+    place: "room",
+    banner: function () {
+      return Stacks.bookSpineHtml(sh.books, "What's on the shelf · title order");
+    },
+    sub: "Checked public domain · " + sh.books.length + " on the shelf, title order · OK to look at one",
     items: function () {
       return sh.books.map(function (b) {
         return {
           label: b.t,
+          swatch: Stacks.clothColor(b.id),
           value: function () {
             return (bookLoan(lib, b.id) ? "📚 YOURS · " : "") + (b.y ? String(b.y) : "");
           },
@@ -2004,7 +2073,7 @@ function catalogShelfPage(sh) {
 function showCatalogNote(sh) {
   dialog.open({
     title: sh.icon + " " + sh.name + " · checked public domain",
-    html: esc(sh.note || "Nothing on this shelf yet."),
+    html: Stacks.emptyShelfHtml(sh.name, sh.note, sh.id === "pd-manga" ? "No verifiably public-domain manga — here's why" : ""),
     buttons: [
       {
         label: "OK",
@@ -2020,6 +2089,12 @@ function bookShelfPage(shelf) {
   loadShelf(shelf);
   return {
     title: shelf.icon + " " + shelf.name,
+    wide: true,
+    place: "room",
+    banner: function () {
+      const st = shelfState[shelf.id];
+      return Stacks.bookSpineHtml((st && st.books) || [], "What's on the shelf · " + shelf.name);
+    },
     sub: function () {
       const st = shelfState[shelf.id];
       return st && st.books.length ? st.books.length + " on the shelf · OK to look at one" : "From the Internet Archive";
@@ -2029,6 +2104,7 @@ function bookShelfPage(shelf) {
       const list = st.books.map(function (b) {
         return {
           label: b.t,
+          swatch: Stacks.clothColor(b.id),
           value: function () {
             return (bookLoan(lib, b.id) ? "📚 YOURS · " : "") + (b.y ? String(b.y) : "");
           },
