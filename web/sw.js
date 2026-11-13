@@ -33,6 +33,7 @@ const SHELL = [
   "js/crystal-chime.js",
   "js/loadhold.js",
   "js/gamepad.js",
+  "js/intro.js",
   "js/arcade.js",
   "js/southpark.js",
   "js/linkout.js",
