@@ -432,6 +432,8 @@ const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gestur
   check(!lc.hidden && /card-tuning/.test(lc.cls) && !/fam-/.test(lc.cls) && lc.house && !lc.fam && /FROM YOUR PHONE/.test(lc.text) && /The Sent Film/.test(lc.text) && !/HIGH NOON/.test(lc.text), `a sent film slow to load gets NostalGem's own card, not the channel family's (${lc.cls}): ${lc.text.slice(0, 70)}`);
   slowMedia = 0;
   await tvPlays("The Sent Film", 20000);
+  // The card stays through its minimum and a short grace after the picture is really up (loadhold.js), then leaves.
+  await tv.waitForFunction(() => document.getElementById("card").hidden, null, { timeout: 12000 }).catch(() => {});
   check((await st()).program === "The Sent Film" && (await tv.evaluate(() => document.getElementById("card").hidden)), "…and it goes when the picture comes");
   await tv.evaluate(() => window.NP.back());
   await tvLive();
