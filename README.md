@@ -155,6 +155,12 @@ YouTube's player) and rebuilt daily:
   to move through it, and the dock becomes ▲ ▼ ◀ ▶ OK BACK (hold an arrow to keep going).
 - **What's new**: after an update, a page says what changed since the version you last saw (a welcome
   on a first start); Menu ▸ 📰 What's new shows it again, with the version number.
+- **A five-second start-up card.** The crystal TV from the logo switches on, NOSTALGEM spells itself
+  out, the credit slides in and the tagline's colors lock, while the channel is already tuning
+  underneath. Any key or tap skips it (Back only skips), mute and *Channel static* keep it quiet, and
+  reduced motion shows it standing still. It doesn't play again when you change channel. There is an
+  alternate to try: `?boot=treasure` digs up a chest that spills the name in coins and gems
+  (`?boot=crt` forces the title card). Both keep to the 4:3 box.
 - **📼 Video Club**: the Archive's feature films, checked out like tapes from a neighborhood video store.
   Sign up for a free **library card** (three short pages: how the club works, what the Internet Archive
   is, and the fine print, signed with your name), then take up to **two tapes** at a time for **three
@@ -162,7 +168,11 @@ YouTube's player) and rebuilt daily:
   and **⏏ return** it. A tape still out when it's due goes back by itself, with no late fees. The card
   lives on that TV only: it isn't an archive.org account and doesn't borrow from the Archive's own
   lending library. Any channel that's all feature films becomes a shelf of its own in the club, so
-  any film on it can be checked out like a tape. A film with a **clean cut** (below) has a *Play TV-safe
+  any film on it can be checked out like a tape. The floor is laid out in **rows** by family (Western,
+  Horror, Sci-Fi, Noir, Comedy, Silent, Space and World; the 80s, 90s and Anime rows appear when those
+  packs are loaded), with *The rest of the store* for every other shelf and a front rack of this
+  week's picks. A film made from a book on the Reading Room's shelves is tagged **From the book**, and
+  the book **On film**. A film with a **clean cut** (below) has a *Play TV-safe
   cut* switch on its tape. Menu ▸ 📼 Video Club.
 - **📚 Reading Room**: the Archive's scanned books, comics, manga and magazines, read like a book open on a
   desk under a reading lamp. On a TV it shows two pages side by side (the cover on its own); **manga reads

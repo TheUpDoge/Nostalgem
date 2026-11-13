@@ -4,6 +4,15 @@
 
 export const CHANGES = [
   {
+    v: "1.18.0",
+    title: "A new start-up, and the Video Club in rows",
+    items: [
+      "A five-second start-up card: the crystal TV from the logo switches on, NOSTALGEM spells itself out, and your channel is already tuning underneath. Any button skips it. The crystal TV is the app's icon now too.",
+      "📼 The Video Club is laid out in rows: Western, Horror, Sci-Fi, Noir, Comedy, Silent, Space and World, a shelf for each channel. A film made from a book on the Reading Room's shelves says From the book, and the book says On film.",
+      "Five more looks for station cards, for a channel you add with one of these names: Neon Rain, Hard Chrome, Polygon Hour, Glow Circuit, Crystal Signal. And the card while a channel loads now stays until the picture is really there.",
+    ],
+  },
+  {
     v: "1.17.0",
     title: "Send to TV",
     items: [

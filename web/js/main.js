@@ -46,7 +46,7 @@ import { parseSent, archivePlan, whyNot, QUEUE_MAX } from "./sendto.js";
 import { playlistIds } from "./youtube.js";
 import { escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder, numberText } from "./util.js";
 
-const VERSION = "1.17.0";
+const VERSION = "1.18.0";
 const NAME = "NostalGem";
 const params = new URLSearchParams(window.location.search);
 const ANDROID = params.get("tv") === "android";
