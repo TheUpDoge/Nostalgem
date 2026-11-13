@@ -137,9 +137,9 @@ YouTube's player) and rebuilt daily:
 - **📺 Screen shape: 4:3 for old CRT TVs** (Menu ▸ Picture & sound). A set plugged into an old 4:3 TV
   (through an HDMI-to-AV adapter, say) shows the whole app in a 4:3 box in the middle of the picture,
   black at the sides, so nothing is cut off or stretched: the guide, menus, the banner and the filters all
-  fit inside it, and 4:3 films fill it. Off unless you turn it on; Widescreen puts it back. In a browser
-  the phone remote's pointer keeps to the box as well. In the TV app, the pointer the app draws and a
-  link-out station's site still use the whole screen. In the
+  fit inside it, and 4:3 films fill it. Off unless you turn it on; Widescreen puts it back. The phone
+  remote's pointer keeps to the box as well, and in the TV app (the newest one: the page tells it the
+  shape) so do the sites the link-out stations open, 777's arcade included. In the
   stylesheet, anything sized to the screen's width uses `var(--vw)` instead of `vw` so it follows the box.
 - **It keeps going** when the Archive doesn't. A program that won't play is skipped on that TV for a
   day. If several fail in a row, it shows colour bars and *PLEASE STAND BY* and retries by itself.

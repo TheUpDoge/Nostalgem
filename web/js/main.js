@@ -2420,6 +2420,7 @@ function applyShape() {
   canvasLook.set(null);
   applyLook();
   if (guide.isOpen) guide.render();
+  tellAppShape();
 }
 
 // Called twice a second: watch while a heavy filter is on a playing picture, and nothing else is going on.
@@ -3958,6 +3959,12 @@ function sendApp(m) {
     return false;
   }
 }
+// The TV app has two pieces of its own on the screen: the pointer it draws, and a link-out station's site.
+// A newer app (it says "box") is told the screen's shape, at start-up and when the setting changes, so
+// with 4:3 on both keep to the box as well.
+function tellAppShape() {
+  if (appCan("box")) sendApp({ t: "shape", s: s.shape === "43" ? "43" : "wide" });
+}
 function pointerMessage(m) {
   // The pointer's own mouse and touch events aren't a hand on the screen: no touch buttons for them.
   app.ptrAt = Date.now();
@@ -4870,6 +4877,7 @@ function askApp() {
         .slice(0, 10);
       // A link-out card on screen now says it opens right here.
       if (app.state === "on" && isLinkChannel(current())) showLinkCard(current());
+      tellAppShape();
     }
   };
   try {

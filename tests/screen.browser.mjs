@@ -2,6 +2,9 @@
 // the middle, black at the sides; the picture, the guide, menus, dialogs, the banner and the canvas filters all
 // stay inside it, nothing cut off and nothing stretched; it's remembered; Widescreen puts it back. On a screen
 // that's already 4:3, nothing changes.
+// In the TV app, the app draws the phone's pointer and opens the link-out stations' sites in a view of its
+// own, so the page tells it the shape (a stand-in for the app's side here): at start-up, when the setting
+// changes, and again after a restart. An older app, which doesn't say "box", is told nothing.
 //
 //   npm install --no-save playwright && node tests/screen.browser.mjs
 
@@ -167,6 +170,71 @@ await page.setViewportSize({ width: 390, height: 844 });
 await page.waitForTimeout(400);
 tv = await rect("#tv");
 check(tv.w === 390 && tv.x === 0, `…and a phone held upright is left alone (${tv.w})`);
+
+// ---------- in the TV app: the page tells the app the shape ----------
+// can: what the app says it can do. -> the page, and what it has sent the app since the last look.
+async function tvApp(can, settings) {
+  const c = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  await c.addInitScript(
+    (a) => {
+      window.NostalGemRelayBrokers = [];
+      localStorage.setItem("nostalgem:seenVersion", JSON.stringify("999.0.0"));
+      if (a.settings && !localStorage.getItem("nostalgem:settings")) localStorage.setItem("nostalgem:settings", JSON.stringify(a.settings));
+      window.__toApp = [];
+      window.NostalGemTV = {
+        postMessage(msg) {
+          if (msg === "hello") {
+            setTimeout(() => window.NostalGemTV.onmessage && window.NostalGemTV.onmessage({ data: JSON.stringify({ lan: [], app: "1.0.99", can: a.can }) }), 20);
+            return;
+          }
+          window.__toApp.push(JSON.parse(msg));
+        },
+      };
+    },
+    { can: can, settings: settings || null }
+  );
+  await c.route(/^https:\/\/archive\.org\//, (r) => {
+    const u = new URL(r.request().url());
+    if (u.pathname.startsWith("/download/")) return r.fulfill({ status: 302, headers: { location: base + "__media/test.mp4" } });
+    return r.fulfill({ status: 404, body: "" });
+  });
+  await c.route(/^https?:\/\/(?!127\.0\.0\.1)(?!archive\.org)/, (r) => r.abort());
+  const p = await c.newPage();
+  p.on("pageerror", (e) => errors.push("TV app: " + e.message));
+  await p.clock.setFixedTime(new Date(Date.parse(lineup.epoch) + 3000));
+  const start = async () => {
+    await p.waitForFunction(() => window.NP && window.NP.state().app === "on" && window.NP.state().tvApp, null, { timeout: 15000 }).catch(() => {});
+    await p.waitForTimeout(300);
+  };
+  await p.goto(base + "?tv=android&ch=1");
+  await start();
+  const sent = async () => (await p.evaluate(() => window.__toApp.splice(0))).filter((m) => m.t === "shape").map((m) => m.s).join(",");
+  return { page: p, start: start, sent: sent, close: () => c.close() };
+}
+{
+  const app = await tvApp(["open", "overlay", "pointer", "box"]);
+  let told = await app.sent();
+  check(told === "wide", `in the TV app, the page tells the app the screen's shape at start-up (${told || "nothing"})`);
+  // Menu ▸ Screen shape ▸ 4:3, with the page's own keys
+  await app.page.keyboard.press("ArrowRight");
+  await app.page.waitForFunction(() => window.NP.state().overlay === "menu", null, { timeout: 5000 }).catch(() => {});
+  await app.page.locator("#menu .m-item", { hasText: "Screen shape" }).first().click();
+  await app.page.waitForTimeout(300);
+  told = await app.sent();
+  const boxed = await app.page.evaluate(() => Math.round(document.getElementById("tv").getBoundingClientRect().width));
+  check(told === "43" && boxed === 960, `…and when the setting changes to 4:3, so the app's pointer and the link-out sites keep to the box (${told || "nothing"}; the set is ${boxed} wide)`);
+  await app.page.reload();
+  await app.start();
+  told = await app.sent();
+  check(told === "43", `…and again after a restart, when the app has forgotten (${told || "nothing"})`);
+  await app.close();
+
+  const old = await tvApp(["open", "overlay", "pointer"], { shape: "43" });
+  told = await old.sent();
+  const oldBox = await old.page.evaluate(() => Math.round(document.getElementById("tv").getBoundingClientRect().width));
+  check(told === "" && oldBox === 960, `an older TV app, which doesn't keep to the box, is told nothing; the page is still in its box (${told || "nothing"}; ${oldBox} wide)`);
+  await old.close();
+}
 
 check(!errors.length, "no page errors " + errors.join(" | "));
 await browser.close();

@@ -32,6 +32,7 @@ export const CHANGES = [
     title: "4:3 for old TVs",
     items: [
       "Watching on an old CRT TV? Menu ▸ Picture & sound ▸ Screen shape ▸ 4:3 for old CRT TVs puts the whole set in a 4:3 box, black at the sides: nothing cut off, nothing stretched, and 4:3 films fill the screen.",
+      "The phone's pointer keeps to the box too, and in the newest TV app so do 777's arcade and the other sites that open on the TV.",
     ],
   },
   {

@@ -17,6 +17,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.view.Gravity
 import android.view.InputDevice
 import android.view.KeyCharacterMap
 import android.view.KeyEvent
@@ -60,6 +61,10 @@ import java.net.NetworkInterface
  * a pointer over whatever is on screen and presses there for real — a touch for a click, a mouse hovering
  * for a move, the wheel for a scroll, a keyboard's keys and letters — on NostalGem, the YouTube player
  * or a link-out station's site alike.
+ *
+ * Screen shape 4:3 (Menu ▸ Picture & sound, for an old CRT TV): the page puts NostalGem in a 4:3 box in the
+ * middle of the screen and tells this activity, which keeps its own two pieces in the same box: the
+ * pointer, and a link-out station's site.
  */
 class MainActivity : Activity() {
 
@@ -67,6 +72,7 @@ class MainActivity : Activity() {
     private lateinit var web: WebView
     private lateinit var pointer: PointerView
     private var away: WebView? = null
+    private var box43 = false // Screen shape 4:3: the set is a 4:3 box in the middle of the screen
     private var pageReply: JavaScriptReplyProxy? = null
     private val main = Handler(Looper.getMainLooper())
     private var usingBundled = false
@@ -177,9 +183,10 @@ class MainActivity : Activity() {
         web.loadUrl(BUNDLED_URL)
     }
 
-    /** {"lan":["192.168.1.23"],"app":"1.0.21","can":["open","overlay","pointer"]}: this TV's IPv4 addresses on
-     * the local network, the app's version, and what it can do for the page ("open": link-out sites right
-     * here; "overlay": over NostalGem, which keeps running; "pointer": the phone's Mouse page). */
+    /** {"lan":["192.168.1.23"],"app":"1.0.21","can":["open","overlay","pointer","box"]}: this TV's IPv4
+     * addresses on the local network, the app's version, and what it can do for the page ("open": link-out
+     * sites right here; "overlay": over NostalGem, which keeps running; "pointer": the phone's Mouse page;
+     * "box": it keeps its pointer and those sites to the 4:3 box when the page says the shape is 4:3). */
     private fun hello(): String {
         val ips = lanAddresses().joinToString(",") { "\"" + it + "\"" }
         val version = try {
@@ -187,7 +194,7 @@ class MainActivity : Activity() {
         } catch (e: Exception) {
             ""
         }
-        return "{\"lan\":[" + ips + "],\"app\":\"" + version.replace("\"", "") + "\",\"can\":[\"open\",\"overlay\",\"pointer\"]}"
+        return "{\"lan\":[" + ips + "],\"app\":\"" + version.replace("\"", "") + "\",\"can\":[\"open\",\"overlay\",\"pointer\",\"box\"]}"
     }
 
     // ---------- what the page asks for ----------
@@ -212,6 +219,7 @@ class MainActivity : Activity() {
             "scroll" -> scroll(m.optDouble("dx", 0.0), m.optDouble("dy", 0.0))
             "kbd" -> kbd(m.optString("key"), if (!m.has("down") || m.isNull("down")) null else m.optBoolean("down"))
             "text" -> type(m.optString("s").take(200))
+            "shape" -> setShape(m.optString("s") == "43")
         }
     }
 
@@ -220,6 +228,42 @@ class MainActivity : Activity() {
             pageReply?.postMessage(json)
         } catch (e: Exception) {
             // the page is reloading; it asks again when it's back
+        }
+    }
+
+    // ---------- Screen shape 4:3: the box in the middle of the screen ----------
+    /** How wide the set is: the whole screen, or with 4:3 on a box as wide as four thirds of the screen's
+     * height (the same box the page draws NostalGem in: css/app.css, html.shape-43). A screen that is
+     * already 4:3 or narrower is all set. */
+    private fun boxWidth(): Int {
+        val w = stage.width
+        val h = stage.height
+        if (!box43 || w <= 0 || h <= 0) return w
+        return minOf(w, Math.round(h * 4f / 3f))
+    }
+
+    private fun boxLeft(): Int = (stage.width - boxWidth()) / 2
+
+    /** Where a link-out station's site goes: the whole screen, or the box. */
+    private fun awayLayout(): FrameLayout.LayoutParams {
+        val bw = boxWidth()
+        return if (bw > 0 && bw < stage.width) {
+            FrameLayout.LayoutParams(bw, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.CENTER_HORIZONTAL)
+        } else {
+            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        }
+    }
+
+    /** The page says which shape the screen is set to (at start-up, and when the setting changes). */
+    private fun setShape(on: Boolean) {
+        if (box43 == on) return
+        letGo()
+        box43 = on
+        away?.layoutParams = awayLayout()
+        if (pointer.px >= 0f) {
+            val left = boxLeft().toFloat()
+            pointer.px = pointer.px.coerceIn(left, maxOf(left, left + boxWidth() - 1f))
+            pointer.invalidate()
         }
     }
 
@@ -255,7 +299,7 @@ class MainActivity : Activity() {
             webChromeClient = quietPosters()
         }
         away = v
-        stage.addView(v, stage.indexOfChild(pointer), FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        stage.addView(v, stage.indexOfChild(pointer), awayLayout())
         v.loadUrl(uri.toString())
         v.requestFocus()
         tellPage("{\"t\":\"away\"}")
@@ -310,9 +354,12 @@ class MainActivity : Activity() {
         val h = stage.height.toFloat()
         if (w <= 0f || h <= 0f) return
         showPointer()
-        // Fractions of the TV's width both ways, so a swipe goes as far up as across.
-        pointer.px = (pointer.px + (dx.coerceIn(-1.0, 1.0) * w).toFloat()).coerceIn(0f, w - 1f)
-        pointer.py = (pointer.py + (dy.coerceIn(-1.0, 1.0) * w).toFloat()).coerceIn(0f, h - 1f)
+        // Fractions of the set's width both ways, so a swipe goes as far up as across. With 4:3 on, the set
+        // is the box, and the pointer stays in it: an old TV doesn't show the black at the sides.
+        val bw = boxWidth().toFloat()
+        val left = boxLeft().toFloat()
+        pointer.px = (pointer.px + (dx.coerceIn(-1.0, 1.0) * bw).toFloat()).coerceIn(left, maxOf(left, left + bw - 1f))
+        pointer.py = (pointer.py + (dy.coerceIn(-1.0, 1.0) * bw).toFloat()).coerceIn(0f, h - 1f)
         pointer.invalidate()
         if (pressing) touch(MotionEvent.ACTION_MOVE) else hover()
     }
@@ -330,9 +377,12 @@ class MainActivity : Activity() {
             id = 0
             toolType = MotionEvent.TOOL_TYPE_MOUSE
         })
+        val to = front()
         val coords = arrayOf(MotionEvent.PointerCoords().apply {
-            x = pointer.px
-            y = pointer.py
+            // where the pointer is, counted from the front view's own corner (a site in the 4:3 box starts
+            // in from the screen's edge)
+            x = pointer.px - to.left
+            y = pointer.py - to.top
             pressure = 0f
             size = 1f
             setAxisValue(MotionEvent.AXIS_VSCROLL, vscroll)
@@ -352,14 +402,15 @@ class MainActivity : Activity() {
             id = 0
             toolType = MotionEvent.TOOL_TYPE_FINGER
         })
+        val to = front()
         val coords = arrayOf(MotionEvent.PointerCoords().apply {
-            x = pointer.px
-            y = pointer.py
+            x = pointer.px - to.left
+            y = pointer.py - to.top
             pressure = 1f
             size = 1f
         })
         val ev = MotionEvent.obtain(pressDownAt, now, action, 1, props, coords, 0, 0, 1f, 1f, 0, 0, InputDevice.SOURCE_TOUCHSCREEN, 0)
-        front().dispatchTouchEvent(ev)
+        to.dispatchTouchEvent(ev)
         ev.recycle()
     }
 
@@ -385,7 +436,7 @@ class MainActivity : Activity() {
     // The wheel. Down the page is negative on Android's scroll axis.
     private fun scroll(dx: Double, dy: Double) {
         showPointer()
-        val w = stage.width.toDouble()
+        val w = boxWidth().toDouble()
         val notch = if (Build.VERSION.SDK_INT >= 26) ViewConfiguration.get(this).scaledVerticalScrollFactor.toDouble() else 64.0 * resources.displayMetrics.density
         if (w <= 0.0 || notch <= 0.0) return
         val v = (-dy.coerceIn(-2.0, 2.0) * w / notch).toFloat()
