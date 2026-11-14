@@ -418,7 +418,9 @@ app pick it up.
 
 A channel pack is a small JSON file that adds channels on your own TV, without touching
 the shipped lineup. From the Menu: **Load a channel pack**, then choose a `.json` file, or a
-`.zip` holding several packs, or paste its text. Pack channels land on CH 30–49, in the
+`.zip` holding several packs, or paste its text. In the TV app, *Choose a file* opens the TV's own
+file picker (the newest app). A TV with no file picker says so, and points to the phone remote's
+**Channels** page ▸ **📦 Send a pack to the TV**, which works on any TV. Pack channels land on CH 30–49, in the
 hundreds (CH 100–199), or on CH 200–299 and are saved on that TV only, like channels you add by search.
 
 A pack defines one or more channels — a name, a number (30–49, 100–199, or 200–299), and an Archive source:
