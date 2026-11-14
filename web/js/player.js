@@ -489,6 +489,9 @@ export class Player {
         /* already empty */
       }
     }
+    // Nothing is playing now: back to as-made speed, so 666's slow-and-low doesn't hang about on a station
+    // break or a stand-by card (the next film sets its own speed as it loads).
+    if (v === this.video) this.setSpeed(v, 1);
   }
 
   // Read-only, for the loading card (loadhold.js). Whether a frame is really on the way.

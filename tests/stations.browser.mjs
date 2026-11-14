@@ -10,7 +10,7 @@ import { readFile, mkdir } from "node:fs/promises";
 import { join, extname, normalize, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
-import { makeTimeline } from "../web/js/schedule.js";
+import { makeTimeline, slotAt } from "../web/js/schedule.js";
 import { BBC_CHANNEL, DEAD_AIR_CHANNEL, PEARLY_GATES_CHANNEL } from "../web/js/secrets.js";
 
 const require = createRequire(import.meta.url);
@@ -182,7 +182,20 @@ const playing = (page) => page.waitForFunction(() => window.NP.state().mode === 
   for (const d of "12") await page.keyboard.press(d);
   await page.waitForTimeout(2600);
   s = await st(page);
-  check(s.channel === 12 && s.look.id === s.look.setting && s.look.station === "" && (await page.evaluate(() => document.getElementById("screen").playbackRate)) === 1, `other channels keep the viewer's filter and normal speed (CH ${s.channel}, ${s.look.id})`);
+  check(s.channel === 12 && s.look.id === s.look.setting && s.look.station === "" && (await page.evaluate(() => document.getElementById("screen").playbackRate)) === 1, `other channels keep the viewer's filter and normal speed (CH ${s.channel}, ${s.mode}, ${s.look.id})`);
+  // The same from 666 straight into another channel's station break, where nothing loads to set the speed
+  // (which one CH 12 lands on used to depend on the time of day the test ran).
+  for (const d of "666") await page.keyboard.press(d);
+  await page.waitForTimeout(2600);
+  const ch12 = lineup.channels.find((c) => c.number === 12);
+  const now = await page.evaluate(() => Date.now());
+  const brk = slotAt(makeTimeline(ch12, { gap: lineup.gap, epoch: Date.parse(lineup.epoch) }), now).endMs + 1500;
+  await page.evaluate((t) => window.__setNow(t), brk);
+  for (const d of "12") await page.keyboard.press(d);
+  await page.waitForTimeout(2600);
+  s = await st(page);
+  const sp = await page.evaluate(() => ({ rate: document.getElementById("screen").playbackRate, pitch: document.getElementById("screen").preservesPitch }));
+  check(s.channel === 12 && s.mode === "gap" && sp.rate === 1 && sp.pitch !== false, `…and from 666 into CH 12's station break, nothing is left at half speed (${s.mode}, rate ${sp.rate})`);
   check(!errors.length, "no page errors " + errors.join(" | "));
   await ctx.close();
 }
