@@ -1,7 +1,7 @@
 // Gamepad support: the button mapping and the press/repeat logic, on fake pads.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { actionForButton, newPadState, padStep } from "../web/js/gamepad.js";
+import { actionForButton, newPadState, padStep, samePress } from "../web/js/gamepad.js";
 
 function snap(pressed, axes) {
   var buttons = [];
@@ -58,4 +58,31 @@ test("no pad, no actions", () => {
   var state = newPadState();
   assert.deepEqual(padStep(state, null, 1000), []);
   assert.deepEqual(padStep(state, { buttons: [], axes: [] }, 1100), []);
+});
+
+// One press from a controller on Android TV arrives twice: as a key and from the Gamepad API.
+test("a press is dropped only as the other source's copy", () => {
+  var last = { key: {}, pad: {} };
+  // The key's copy of a controller press, a moment later, and the other way round.
+  assert.equal(samePress(last, "pad", "ok", 5000), false);
+  assert.equal(samePress(last, "key", "ok", 5040), true);
+  assert.equal(samePress(last, "key", "down", 6000), false);
+  assert.equal(samePress(last, "pad", "down", 6200), true);
+  // Later than a moment: a press of its own.
+  assert.equal(samePress(last, "pad", "ok", 9000), false);
+  assert.equal(samePress(last, "key", "ok", 9300), false);
+  // Another button isn't a copy of this one.
+  assert.equal(samePress(last, "key", "up", 9310), false);
+});
+
+test("the first press on a page that has only just started is not dropped", () => {
+  // The clock starts at 0 with the page. A key 120 ms in has no controller press to be a copy of.
+  var last = { key: {}, pad: {} };
+  assert.equal(samePress(last, "key", "ok", 120), false);
+  assert.equal(samePress(last, "key", "right", 180), false);
+  assert.equal(samePress(last, "pad", "up", 60), false);
+  // A press at time 0 itself still counts for the other source's copy.
+  var early = { key: {}, pad: {} };
+  assert.equal(samePress(early, "pad", "ok", 0), false);
+  assert.equal(samePress(early, "key", "ok", 30), true);
 });

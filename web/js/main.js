@@ -11,7 +11,7 @@ import { archiveAboutHtml } from "./about.js";
 import { asPack, buildItemsChannel, packChannelDef, packFilesFromZip, packSkipLists, parsePack, validatePack } from "./packs.js";
 import { channelForDigits, moreToType, packNumberFor, typedLabel } from "./dial.js";
 import { LINK_CHANNELS, isLinkChannel, isGuideVisible, linkCardName, linkUrl, openLinkChannel } from "./linkout.js";
-import { createGamepad } from "./gamepad.js";
+import { createGamepad, samePress } from "./gamepad.js";
 import { LOOKS, asciiMask, comboCss, lookById, lookCss, lookYtCss, looksSvg, mixable, nextLook } from "./looks.js";
 import { FrameWatch } from "./framewatch.js";
 import { MAX_TAPES, LOAN_HOURS, MAX_BOOKS, BOOK_DAYS, cleanLibrary, issueCard, cancelCard, loanFor, checkOut, setPosition, setSafeCut, isRewound, rewind, returnTape, overdue, storeShelves, staffPicks, searchStore, bookLoan, borrowBook, returnBook, overdueBooks, setMark, markFor } from "./library.js";
@@ -4505,13 +4505,12 @@ document.addEventListener("keydown", function (e) {
 });
 
 // On Android TV a controller's D-pad and A button also arrive as key presses, so one press can come in
-// twice: once as a key, once from the Gamepad API. The second copy within a moment is dropped.
+// twice: once as a key, once from the Gamepad API. The second copy within a moment is dropped
+// (gamepad.js, samePress).
 const lastInputFrom = { key: {}, pad: {} };
 function fromInput(source, a) {
   const now = typeof performance !== "undefined" ? performance.now() : Date.now();
-  lastInputFrom[source][a.type] = now;
-  const other = lastInputFrom[source === "key" ? "pad" : "key"][a.type] || 0;
-  if (now - other < 250) return;
+  if (samePress(lastInputFrom, source, a.type, now)) return;
   handleAction(a);
 }
 
