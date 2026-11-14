@@ -1,6 +1,9 @@
 // The page inside the Android TV app, with a stand-in for the app's side of the conversation: the
 // link-out stations open their sites right on the TV when the app can, and say to update it when it can't.
 //
+// Also: Menu ▸ Load a channel pack ▸ Choose a file opens a file window, or says why it can't and what to
+// do instead (an older TV app, a TV with no picker, OK from the phone).
+//
 //   npm install --no-save playwright && node tests/tvapp.browser.mjs
 
 import { createServer } from "node:http";
@@ -77,6 +80,97 @@ for (const [label, can] of [
   await ctx.close();
 }
 
+// ---------- Menu ▸ Load a channel pack ▸ Choose a file: a file window, or why not ----------
+// The TV app opens the TV's file picker for a page's file field (a newer app says "files"). An older app
+// doesn't, so the page says so; a TV with no picker at all is told by the app ("nofiles"); and a browser opens
+// its file window only for a press on the device itself, so OK from the phone gets the reason, not nothing.
+// Autoplay allowed, as in the TV app: the first press here should be the one being tested, not the one that
+// starts a picture that's waiting for a press.
+const playing = await chromium.launch({ args: ["--autoplay-policy=no-user-gesture-required"] });
+async function packPicker(tvApp, can) {
+  const c = await playing.newContext({ viewport: { width: 1280, height: 720 } });
+  await c.addInitScript((a) => {
+    window.NostalGemRelayBrokers = [];
+    localStorage.setItem("nostalgem:seenVersion", JSON.stringify("999.0.0"));
+    if (!a.tvApp) return;
+    window.NostalGemTV = {
+      postMessage(msg) {
+        if (msg !== "hello") return;
+        setTimeout(() => window.NostalGemTV.onmessage && window.NostalGemTV.onmessage({ data: JSON.stringify({ lan: [], app: "1.0.99", can: a.can }) }), 20);
+      },
+    };
+    window.__appSays = (m) => window.NostalGemTV.onmessage({ data: JSON.stringify(m) });
+  }, { tvApp: tvApp, can: can || [] });
+  await c.route(/^https?:\/\/(?!127\.0\.0\.1)/, (r) => r.abort());
+  const page = await c.newPage();
+  // Listening for file windows from the start: Playwright only catches one once it has asked the browser to
+  // hand them over, which takes a moment after the first listener.
+  const choosers = [];
+  page.on("filechooser", (fc) => choosers.push(fc));
+  await page.goto(base + (tvApp ? "?tv=android&ch=1" : "?ch=1"));
+  await page.waitForFunction(() => window.NP && window.NP.state().app === "on", null, { timeout: 15000 });
+  await page.waitForTimeout(tvApp ? 600 : 300);
+  // To the Choose-a-file row: with this screen's own keys, or (keys false) the way the phone's buttons arrive,
+  // which isn't a press on this device. Playwright's own page calls count as one, so that way goes through
+  // the browser's debugging channel instead, after the last of them has worn off (about five seconds).
+  const cdp = await c.newCDPSession(page);
+  const ev = async (expr) => (await cdp.send("Runtime.evaluate", { expression: expr, returnByValue: true, awaitPromise: true, userGesture: false })).result.value;
+  const choose = async (keys) => {
+    const run = keys ? (expr) => page.evaluate(expr) : ev;
+    const press = (k) => (keys ? page.keyboard.press({ right: "ArrowRight", down: "ArrowDown", ok: "Enter" }[k]) : ev("window.NP.remote(" + JSON.stringify(k) + ")"));
+    const focused = () => run('(document.querySelector("#menu .m-item.focus") || {}).textContent || ""');
+    const overlay = () => run("window.NP.state().overlay");
+    if (!keys) await page.waitForTimeout(5500);
+    for (let i = 0; i < 6 && (await overlay()); i++) await ev('window.NP.remote("back")');
+    await press("right");
+    for (let i = 0; i < 20 && (await overlay()) !== "menu"; i++) await new Promise((ok) => setTimeout(ok, 100));
+    for (let i = 0; i < 80 && !/Load a channel pack/.test(await focused()); i++) await press("down");
+    await press("ok");
+    await new Promise((ok) => setTimeout(ok, 250));
+    const row = await focused();
+    const before = choosers.length;
+    await press("ok");
+    for (let i = 0; i < 20 && choosers.length === before; i++) await new Promise((ok) => setTimeout(ok, 100));
+    const chooser = choosers.length > before ? choosers[choosers.length - 1] : null;
+    await new Promise((ok) => setTimeout(ok, 250));
+    const dialog = await run('window.NP.state().overlay === "dialog" ? document.getElementById("dialog").textContent : ""');
+    return { row: row, chooser: chooser, dialog: dialog };
+  };
+  return { page: page, choose: choose, close: () => c.close() };
+}
+{
+  let b = await packPicker(false);
+  let r = await b.choose(true);
+  check(/Choose a \.json or \.zip file/.test(r.row) && !!r.chooser && !r.dialog, `in a browser, OK on this screen's own keys opens the file window for a pack (${r.row.trim()})`);
+  await b.close();
+  b = await packPicker(false);
+  r = await b.choose(false);
+  const why = r.dialog;
+  check(/Choose a \.json or \.zip file/.test(r.row) && !r.chooser && /only for a key or a click on this screen/.test(why) && /Send a pack to the TV/.test(why), "…OK from the phone can't open it, and the TV says why and what to do: " + why.slice(0, 120));
+  await b.close();
+}
+{
+  const b = await packPicker(true, ["open", "overlay", "pointer", "box"]);
+  const r = await b.choose(true);
+  const why = r.dialog;
+  check(!r.chooser && /can't open a file window yet/.test(why) && /Send a pack to the TV/.test(why), "an older TV app: no file window, and the page says to update the app or send it from the phone: " + why.slice(0, 110));
+  await b.close();
+}
+{
+  const b = await packPicker(true, ["open", "overlay", "pointer", "box", "files"]);
+  const r = await b.choose(true);
+  check(!!r.chooser && !r.dialog, "a TV app that opens files: the page asks for the file (the app shows the TV's picker)");
+  await b.page.evaluate(() => window.__appSays({ t: "nofiles" }));
+  await b.page.waitForTimeout(250);
+  const why = await b.page.evaluate(() => (window.NP.state().overlay === "dialog" ? document.getElementById("dialog").textContent : ""));
+  check(/no app for choosing files/.test(why) && /Paste pack JSON/.test(why), "…and when the TV has no picker at all, the app says so and the page offers the phone and pasting: " + why.slice(0, 100));
+  await b.page.locator("#dialog .d-btn", { hasText: "Paste pack JSON" }).first().click();
+  await b.page.waitForTimeout(250);
+  check(/Paste pack JSON/.test(await b.page.textContent("#dialog")) && (await b.page.isVisible("#dialog textarea, #dialog input")), "…Paste pack JSON there opens the paste box");
+  await b.close();
+}
+
+await playing.close();
 await browser.close();
 site.close();
 console.log(failures ? failures + " check(s) failed" : "TV APP: ALL GOOD");

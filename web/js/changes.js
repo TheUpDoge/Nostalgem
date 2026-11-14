@@ -4,6 +4,14 @@
 
 export const CHANGES = [
   {
+    v: "1.18.1",
+    title: "Channel packs from a file",
+    items: [
+      "Menu ▸ Load a channel pack ▸ Choose a file opens the TV's own file picker now, in the newest TV app (update it the same way you installed it). Before, nothing happened.",
+      "A TV with no file picker says so, instead of doing nothing: send the pack from your phone (the phone remote's Channels page ▸ Send a pack to the TV), or paste it.",
+    ],
+  },
+  {
     v: "1.18.0",
     title: "A new start-up, and the Video Club in rows",
     items: [

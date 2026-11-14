@@ -46,7 +46,7 @@ import { parseSent, archivePlan, whyNot, QUEUE_MAX } from "./sendto.js";
 import { playlistIds } from "./youtube.js";
 import { escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder, numberText } from "./util.js";
 
-const VERSION = "1.18.0";
+const VERSION = "1.18.1";
 const NAME = "NostalGem";
 const params = new URLSearchParams(window.location.search);
 const ANDROID = params.get("tv") === "android";
@@ -3599,7 +3599,48 @@ function showPackErrors(label, errors, report) {
   });
 }
 
+// Why no file window opened, with the other ways in: the phone remote (it has the file anyway), or pasting.
+// why: "app" (an older TV app, which can't open one), "none" (this TV has no app for choosing files),
+// "press" (the browser opens one only for a press on this device itself: not the phone, not a controller).
+function noFilePicker(why) {
+  const head =
+    why === "app"
+      ? "This TV app can't open a file window yet. The newest one can: update it the same way you installed it."
+      : why === "none"
+        ? "This TV has no app for choosing files."
+        : ANDROID
+          ? "The TV opens its file window only for OK on its own remote, not for one from the phone."
+          : "The browser opens its file window only for a key or a click on this screen itself, not one from the phone or a controller.";
+  dialog.open({
+    title: "Load a channel pack",
+    html:
+      esc(head) +
+      "<br><br>Send it from your phone instead: the phone remote's <b>Channels</b> page ▸ <b>📦 Send a pack to the TV</b>. " +
+      "Or paste the pack's text here with <b>Paste pack JSON</b>.",
+    buttons: [
+      {
+        label: "Paste pack JSON",
+        action: function (d) {
+          d.close();
+          openPackPaste();
+        },
+      },
+      {
+        label: "OK",
+        action: function (d) {
+          d.close();
+        },
+      },
+    ],
+  });
+}
+
 function pickPackFile() {
+  // An older TV app ignores a page's file field: say so, instead of nothing happening.
+  if (ANDROID && native.app && !appCan("files")) return noFilePicker("app");
+  // No press on this device just now (the phone's OK, a controller): the browser won't open the window.
+  const ua = navigator.userActivation;
+  if (ua && typeof ua.isActive === "boolean" && !ua.isActive) return noFilePicker("press");
   const input = document.createElement("input");
   input.type = "file";
   input.accept = ".json,.zip,application/json,application/zip,application/x-zip-compressed";
@@ -5162,6 +5203,8 @@ function askApp() {
     if (!m || typeof m !== "object") return;
     // A link-out station's site was closed (BACK, or held Select): back to the program.
     if (m.t === "home") return cameHome();
+    // A channel pack's file window: this TV has nothing to show one with.
+    if (m.t === "nofiles") return noFilePicker("none");
     if (m.t) return;
     if (Array.isArray(m.lan)) native.lan = m.lan.filter(isIPv4).slice(0, 4);
     if (typeof m.app === "string") native.app = m.app.slice(0, 20);

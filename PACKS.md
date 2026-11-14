@@ -4,6 +4,10 @@ A channel pack is a small JSON file that adds channels on your own TV, without t
 the shipped lineup. From the Menu: **Load a channel pack**, then choose a `.json` file (or a
 `.zip` of them) or paste its text. Everything happens on your TV — no upload, no server.
 
+In the TV app, *Choose a .json or .zip file* opens the TV's own file picker (the newest app; update it
+the way you installed it). Many TVs have no file picker at all, and the TV then says so. A browser opens its
+file window only for a press on that screen itself, so OK from the phone remote gets the same note.
+
 On a TV with no file picker, send it from your phone: the phone remote's **Channels** page has
 **📦 Send a pack to the TV**. The file goes straight to the TV over the remote's own link and
 through the same checks and the same **Load these packs?** screen; the phone shows what the TV

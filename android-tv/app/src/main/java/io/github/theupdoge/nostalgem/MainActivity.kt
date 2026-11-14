@@ -2,7 +2,9 @@ package io.github.theupdoge.nostalgem
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -30,6 +32,7 @@ import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
+import android.webkit.ValueCallback
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -73,6 +76,8 @@ class MainActivity : Activity() {
     private lateinit var pointer: PointerView
     private var away: WebView? = null
     private var box43 = false // Screen shape 4:3: the set is a 4:3 box in the middle of the screen
+    private var fileCallback: ValueCallback<Array<Uri>>? = null // a page waiting on a file (a channel pack)
+    private var pickStartedAt = 0L
     private var pageReply: JavaScriptReplyProxy? = null
     private val main = Handler(Looper.getMainLooper())
     private var usingBundled = false
@@ -162,6 +167,51 @@ class MainActivity : Activity() {
     private fun quietPosters() = object : WebChromeClient() {
         // Without this, WebView paints a grey play-button poster before every program starts.
         override fun getDefaultVideoPoster(): Bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+
+        // A page's file field (Menu ▸ Load a channel pack ▸ Choose a file): WebView does nothing with it unless
+        // the app opens a picker. This opens the TV's own, for any file (a pack can come as .json or .zip, and
+        // a TV's file manager often doesn't know what a .json is); the page checks what comes back.
+        override fun onShowFileChooser(view: WebView, callback: ValueCallback<Array<Uri>>, params: FileChooserParams): Boolean =
+            pickFile(callback)
+    }
+
+    private fun pickFile(callback: ValueCallback<Array<Uri>>): Boolean {
+        fileCallback?.onReceiveValue(null) // one at a time: an earlier one still open gets nothing
+        fileCallback = callback
+        val asks = listOf(
+            Intent(Intent.ACTION_GET_CONTENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"),
+            Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"),
+        )
+        for (ask in asks) {
+            try {
+                startActivityForResult(ask, PICK_FILE)
+                pickStartedAt = SystemClock.uptimeMillis()
+                return true
+            } catch (e: ActivityNotFoundException) {
+                // try the next way of asking
+            } catch (e: SecurityException) {
+                // try the next way of asking
+            }
+        }
+        // Many TVs have no app for choosing files at all: say so on the page, which points to the phone remote.
+        fileCallback = null
+        callback.onReceiveValue(null)
+        tellPage("{\"t\":\"nofiles\"}")
+        return true
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == PICK_FILE) {
+            val callback = fileCallback ?: return
+            fileCallback = null
+            val picked = WebChromeClient.FileChooserParams.parseResult(resultCode, data)
+            callback.onReceiveValue(picked)
+            // Back again before anyone could have looked: a TV whose "file picker" can't actually pick (some
+            // only answer, and say no). Tell the page, as if there were none.
+            if (picked == null && SystemClock.uptimeMillis() - pickStartedAt < QUICK_NO_MS) tellPage("{\"t\":\"nofiles\"}")
+            return
+        }
+        super.onActivityResult(requestCode, resultCode, data)
     }
 
     private fun isOurs(url: Uri): Boolean =
@@ -186,7 +236,8 @@ class MainActivity : Activity() {
     /** {"lan":["192.168.1.23"],"app":"1.0.21","can":["open","overlay","pointer","box"]}: this TV's IPv4
      * addresses on the local network, the app's version, and what it can do for the page ("open": link-out
      * sites right here; "overlay": over NostalGem, which keeps running; "pointer": the phone's Mouse page;
-     * "box": it keeps its pointer and those sites to the 4:3 box when the page says the shape is 4:3). */
+     * "box": it keeps its pointer and those sites to the 4:3 box when the page says the shape is 4:3;
+     * "files": a page's file field opens the TV's file picker, for a channel pack). */
     private fun hello(): String {
         val ips = lanAddresses().joinToString(",") { "\"" + it + "\"" }
         val version = try {
@@ -194,7 +245,7 @@ class MainActivity : Activity() {
         } catch (e: Exception) {
             ""
         }
-        return "{\"lan\":[" + ips + "],\"app\":\"" + version.replace("\"", "") + "\",\"can\":[\"open\",\"overlay\",\"pointer\",\"box\"]}"
+        return "{\"lan\":[" + ips + "],\"app\":\"" + version.replace("\"", "") + "\",\"can\":[\"open\",\"overlay\",\"pointer\",\"box\",\"files\"]}"
     }
 
     // ---------- what the page asks for ----------
@@ -744,6 +795,8 @@ class MainActivity : Activity() {
         const val SITE_TIMEOUT_MS = 15000L
         const val SELECT_HOLD_MS = 1500L
         const val POINTER_HIDE_MS = 4000L
+        const val PICK_FILE = 41
+        const val QUICK_NO_MS = 1000L
         const val CLICK_MS = 40L
         const val HOLD_LIMIT_MS = 8000L
         const val REPEAT_DELAY_MS = 400L
