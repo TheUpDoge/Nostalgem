@@ -253,6 +253,21 @@ try {
   check(await page.isVisible("#bug"), "the channel logo shows while watching");
   await key("Enter", 300);
   check(await page.isVisible("#banner"), "OK shows it again");
+  // A key in the page's first quarter second does its job. (The tuner starts with the start-up card now,
+  // so a press can land that early; it used to be dropped as a controller's double press.) The page's
+  // clock reads 120 ms for this one key.
+  await page.evaluate(() => {
+    const real = performance.now;
+    performance.now = () => 120;
+    try {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", keyCode: 39, bubbles: true, cancelable: true }));
+    } finally {
+      performance.now = real;
+    }
+  });
+  await page.waitForTimeout(300);
+  check((await state()).overlay === "menu", "a key pressed in the page's first quarter second is not dropped (▶ opens the menu)");
+  await key("Escape", 300);
 
   // Channel up, then number entry.
   await key("ArrowUp", 900);

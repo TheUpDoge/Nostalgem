@@ -10,6 +10,18 @@ export const REPEAT_DELAY_MS = 500; // hold a direction this long before it star
 export const REPEAT_MS = 350; // then repeat this often while held
 export const STICK_DEAD_ZONE = 0.5; // ignore a stick barely off centre
 
+// On Android TV a controller's D-pad and A button also arrive as key presses, so one press can come in
+// twice: once as a key, once from the Gamepad API. The second copy within a moment is dropped.
+// last: { key: { type: ms }, pad: { type: ms } }, kept by the caller; source: "key" or "pad".
+// Returns true when this press is the other source's copy. A type the other source has never sent is
+// never a copy: counting "never" as time 0 dropped every first press in the page's first quarter second.
+export const SAME_PRESS_MS = 250;
+export function samePress(last, source, type, now) {
+  last[source][type] = now;
+  const other = last[source === "key" ? "pad" : "key"][type];
+  return typeof other === "number" && now - other < SAME_PRESS_MS;
+}
+
 export function actionForButton(i) {
   switch (i) {
     case 0:
