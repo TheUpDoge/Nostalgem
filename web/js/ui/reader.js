@@ -131,6 +131,7 @@ export class Reader {
     this.el.hidden = false;
     this.el.innerHTML =
       '<div class="rd-room">' +
+      '<div class="rd-lamp" aria-hidden="true"><i class="rd-shade"></i><i class="rd-glow"></i></div>' +
       '<div class="rd-stage"><div class="rd-pages"></div></div>' +
       '<div class="rd-head"><span class="rd-title"></span><span class="rd-badge"></span></div>' +
       '<div class="rd-folio"></div>' +
@@ -226,8 +227,9 @@ export class Reader {
     root.className = "rd-room paper-" + this.paper + " mode-" + this.mode + (two ? " two" : "") + (this.rtl ? " rtl" : "");
     box.className = "rd-pages" + (view.length === 2 ? " spread" : "") + (dir ? " turn-" + dir : "");
     let html = "";
-    order.forEach(function (k) {
-      html += '<figure class="rd-page" data-k="' + k + '"><span class="rd-sheet"><img alt="" src="' + esc(self.url(k)) + '"></span><figcaption>turning to page ' + esc(pageName(k)) + "…</figcaption></figure>";
+    order.forEach(function (k, i) {
+      const ribbon = i === order.length - 1 ? '<span class="rd-ribbon" aria-hidden="true"></span>' : "";
+      html += '<figure class="rd-page" data-k="' + k + '"><span class="rd-sheet">' + ribbon + '<img alt="" src="' + esc(self.url(k)) + '"></span><figcaption>turning to page ' + esc(pageName(k)) + "…</figcaption></figure>";
     });
     box.innerHTML = html;
     Array.prototype.forEach.call(box.querySelectorAll(".rd-page"), function (fig) {

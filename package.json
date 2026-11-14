@@ -13,6 +13,12 @@
     "test:tvapp": "node tests/tvapp.browser.mjs",
     "test:stations": "node tests/stations.browser.mjs",
     "test:cuts": "node tests/cuts.browser.mjs",
+    "test:mouse": "node tests/mouse.browser.mjs",
+    "test:screen": "node tests/screen.browser.mjs",
+    "test:tvlimits": "node tests/tvlimits.browser.mjs",
+    "perf": "node tests/perf.mjs",
+    "test:cards": "node tests/cards.browser.mjs",
+    "test:sendto": "node tests/sendto.browser.mjs",
     "lineup": "node tools/build-lineup.mjs"
   },
   "devDependencies": {

@@ -6,6 +6,7 @@ import { SOUTH_PARK_CHANNEL, SOUTH_PARK_URL } from "../southpark.js";
 import { CITY_WIRE_CHANNEL, CITY_WIRE_URL } from "../citywire.js";
 import { standbyText } from "../problems.js";
 import { bumperForSlot } from "../bumpers.js";
+import { breakKicker, countLabel, familyOf, familyScene, loadingLine } from "../cards.js";
 
 export function $(id) {
   return document.getElementById(id);
@@ -72,7 +73,9 @@ export function programMeta(item) {
   const parts = [];
   if (item.e) parts.push(item.e);
   if (item.y) parts.push(String(item.y));
-  parts.push(item.live ? "● LIVE" : fmtRuntime(item.d));
+  // A length that isn't known yet (a YouTube video sent from a phone, before it plays) is left out.
+  if (item.live) parts.push("● LIVE");
+  else if (item.d > 0) parts.push(fmtRuntime(item.d));
   return parts.join(" · ");
 }
 
@@ -101,10 +104,13 @@ export function bannerHtml(d) {
   if (d.fav) badges.push('<span class="badge warn">★ FAV</span>');
   if (d.sleepLeft) badges.push('<span class="badge warn">SLEEP ' + Math.ceil(d.sleepLeft / 60000) + "m</span>");
   if (d.cut) badges.push('<span class="badge">✂ TV-SAFE CUT</span>');
+  if (item && item.sent) badges.push('<span class="badge">📲 FROM YOUR PHONE</span>');
 
   let main;
   if (item) {
-    const pct = d.pos ? Math.max(0, Math.min(100, (d.pos.at / d.pos.d) * 100)) : 0;
+    // known: the program's length is known (a sent YouTube video's isn't until it plays).
+    const known = d.pos ? d.pos.d > 0 : item.d > 0;
+    const pct = d.pos && known ? Math.max(0, Math.min(100, (d.pos.at / d.pos.d) * 100)) : 0;
     // Time left on the clock: a channel playing slower (666) takes longer than the film's own length.
     const left = d.pos ? (d.pos.d - d.pos.at) / (d.pos.rate || 1) : item.d;
     main =
@@ -118,9 +124,9 @@ export function bannerHtml(d) {
       pct.toFixed(1) +
       '%"></i></div>' +
       '<div class="b-times"><span>' +
-      (d.pos ? fmtDuration(d.pos.at) + " / " + fmtDuration(d.pos.d) : "") +
+      (d.pos ? fmtDuration(d.pos.at) + (known ? " / " + fmtDuration(d.pos.d) : "") : "") +
       "</span><span>" +
-      fmtLeft(left) +
+      (known ? fmtLeft(left) : "") +
       "</span></div>" +
       (d.desc ? '<div class="b-desc">' + esc(d.desc) + "</div>" : "");
   } else {
@@ -180,9 +186,10 @@ function panel(kicker, title, sub, extra) {
   );
 }
 
-export function showCard(kind, html) {
+// cls: the channel family's look (cards.js cardClass), for the cards that have one.
+export function showCard(kind, html, cls) {
   const c = $("card");
-  c.className = "card card-" + kind;
+  c.className = "card card-" + kind + (cls ? " " + cls : "");
   c.innerHTML = html;
   c.hidden = false;
 }
@@ -192,24 +199,47 @@ export function hideCard() {
   c.innerHTML = "";
 }
 
-// A station break (or a file that ended early): the next program starts when this slot ends.
-// About one break in three (every break on Commercial Break) shows a house bumper instead:
-// a station ID card that still counts down and still says what's up next.
-export function gapCard(ch, slot, clock24, bumpers) {
+// The scenery behind a card: the channel family's (cards.js), or NostalGem's own sunset.
+function sceneFor(ch) {
+  const look = familyOf(ch).look;
+  return look === "retro" ? SCENE : familyScene(look);
+}
+
+// A station break (or a file that ended early): the next program starts when this slot ends, and the card
+// is in the channel family's look and voice (cards.js; the words in data/cards.json, picked from the clock).
+// About one break in three (every break on Commercial Break) shows a house bumper instead: a station ID
+// card that still counts down and still says what's up next.
+export function gapCard(ch, slot, clock24, bumpers, cards) {
   const b = bumperForSlot(bumpers, slot, ch);
   if (b && slot.next) return bumperCard(ch, slot, clock24, b);
   const n = slot.next;
   const startMs = slot.slotEndMs;
   const left = gapSecondsLeft(slot);
+  const time = fmtClock(new Date(startMs), clock24);
+  const breakStart = slot.startMs + (slot.item && slot.item.d > 0 ? slot.item.d * 1000 : 0);
+  const label = countLabel(cards, ch);
   return (
-    SCENE +
+    sceneFor(ch) +
     panel(
-      "UP NEXT ON CH " + chLabel(ch) + " · " + ch.name.toUpperCase(),
+      breakKicker(cards, ch, breakStart, chLabel(ch), time),
       n.t,
-      programMeta(n) + " · " + fmtClock(new Date(startMs), clock24),
-      '<div class="card-count">' + fmtDuration(left) + "</div>"
+      programMeta(n) + " · " + time,
+      (label ? '<div class="card-countlabel">' + esc(label) + "</div>" : "") + '<div class="card-count">' + fmtDuration(left) + "</div>"
     )
   );
+}
+
+// A channel's program is taking a moment to load (player mode "tuning"): a card in the family's look, with
+// one of its lines, until the picture comes. startMs: when it was tuned (the line is picked from it).
+export function loadingCard(ch, cards, startMs) {
+  return sceneFor(ch) + panel("CH " + chLabel(ch) + " · " + ch.name.toUpperCase(), loadingLine(cards, ch, startMs), "", '<div class="card-dots"><i></i><i></i><i></i></div>');
+}
+
+// Something a phone sent (Send to TV) is taking a moment to load: NostalGem's own card, not the channel's,
+// saying whose it is. A YouTube video has no title until it plays.
+export function sentLoadingCard(item) {
+  const title = item && !item.untitled ? item.t + (item.e ? " · " + item.e : "") : "";
+  return SCENE + panel("📲 FROM YOUR PHONE", "ONE MOMENT PLEASE", title, '<div class="card-dots"><i></i><i></i><i></i></div>');
 }
 
 // A house bumper: same sunset scene and panel, same countdown and up-next line
@@ -302,13 +332,17 @@ export const AD_QUIPS = [
   "your show is fashionably late. very fashionably.",
 ];
 
-export function adQuip(i) {
-  const n = AD_QUIPS.length;
-  return AD_QUIPS[(((Math.floor(i) || 0) % n) + n) % n];
+// The i-th quip, from the general ones and the channel family's (cards.js familyAdQuips), in turn.
+export function adQuip(i, extra) {
+  const list = AD_QUIPS.concat(extra || []);
+  const n = list.length;
+  return list[(((Math.floor(i) || 0) % n) + n) % n];
 }
 
-export function adBreakCard(quip) {
+// ch: the channel, for its family's scenery (cards.js), turned right down behind the words.
+export function adBreakCard(quip, ch) {
   return (
+    (ch && familyOf(ch).look !== "retro" ? familyScene(familyOf(ch).look) : "") +
     '<div class="ad-box">' +
     '<div class="ad-quip">' +
     esc(quip || AD_QUIPS[0]) +
@@ -335,7 +369,7 @@ export function cutCardHtml(text) {
 
 // The secret arcade station: a card, not a program. No iframe —
 // just a link out to the arcade, opened with OK or a tap.
-export function arcadeCard(ch, inApp, here) {
+export function arcadeCard(ch, inApp, here, mouse) {
   return (
     SCENE +
     panel(
@@ -345,7 +379,7 @@ export function arcadeCard(ch, inApp, here) {
       '<div class="arcade-coin blink">INSERT COIN</div>' +
         linkRow(ARCADE_URL, '<a class="arcade-go" href="' + esc(ARCADE_URL) + '" target="_blank" rel="noopener">▶ PLAY AT RETROGAMES.CC</a>') +
         '<div class="arcade-hint">' +
-        linkHint(inApp, "the arcade", here, true) +
+        linkHint(inApp, "the arcade", here, true, mouse) +
         "</div>"
     )
   );
@@ -353,7 +387,7 @@ export function arcadeCard(ch, inApp, here) {
 
 // The secret South Park station: a card, not a program. No iframe — the official
 // site only allows framing from its own origin — just a link out, opened with OK or a tap.
-export function southParkCard(ch, inApp, here) {
+export function southParkCard(ch, inApp, here, mouse) {
   return (
     SCENE +
     panel(
@@ -363,14 +397,14 @@ export function southParkCard(ch, inApp, here) {
       '<div class="southpark-tag blink">RESPECT MY AUTHORITAH</div>' +
         linkRow(SOUTH_PARK_URL, '<a class="southpark-go" href="' + esc(SOUTH_PARK_URL) + '" target="_blank" rel="noopener">▶ WATCH AT SOUTHPARK.CC.COM</a>') +
         '<div class="southpark-hint">' +
-        linkHint(inApp, "South Park", here) +
+        linkHint(inApp, "South Park", here, false, mouse) +
         "</div>"
     )
   );
 }
 
 // The secret City Wire station (555): a link out to ASCII City, a city drawn in text.
-export function cityWireCard(ch, inApp, here) {
+export function cityWireCard(ch, inApp, here, mouse) {
   return (
     SCENE +
     panel(
@@ -380,7 +414,7 @@ export function cityWireCard(ch, inApp, here) {
       '<div class="citywire-tag blink">ALL THE WORLD\'S A TERMINAL</div>' +
         linkRow(CITY_WIRE_URL, '<a class="citywire-go" href="' + esc(CITY_WIRE_URL) + '" target="_blank" rel="noopener">▶ VISIT ASCIICITY.COM</a>') +
         '<div class="southpark-hint">' +
-        linkHint(inApp, "ASCII City", here) +
+        linkHint(inApp, "ASCII City", here, false, mouse) +
         "</div>"
     )
   );
@@ -388,21 +422,25 @@ export function cityWireCard(ch, inApp, here) {
 
 // A link-out station's card. inApp: the Android TV app. here: it can open the site right on the TV
 // (newer apps); an older app can't, so the phone opens it (main.js draws the QR code into .link-qr).
-export function linkCard(ch, inApp, here) {
-  if (ch && ch.slug === SOUTH_PARK_CHANNEL.slug) return southParkCard(ch, inApp, here);
-  if (ch && ch.slug === CITY_WIRE_CHANNEL.slug) return cityWireCard(ch, inApp, here);
-  return arcadeCard(ch, inApp, here);
+// mouse: the TV app takes the phone remote's Mouse page there too.
+export function linkCard(ch, inApp, here, mouse) {
+  if (ch && ch.slug === SOUTH_PARK_CHANNEL.slug) return southParkCard(ch, inApp, here, mouse);
+  if (ch && ch.slug === CITY_WIRE_CHANNEL.slug) return cityWireCard(ch, inApp, here, mouse);
+  return arcadeCard(ch, inApp, here, mouse);
 }
 
 function linkRow(url, button) {
   return '<div class="link-row"><div class="link-qr" data-url="' + esc(url) + '"></div>' + button + "</div>";
 }
 
-function linkHint(inApp, what, here, games) {
+function linkHint(inApp, what, here, games, mouse) {
   if (inApp && here) {
-    return games
-      ? "Press OK (or A on a controller) to play on this TV · BACK on the remote, or hold Select on the controller, comes back"
-      : "Press OK to open " + what + " on this TV · BACK on the remote comes back";
+    return (
+      (games
+        ? "Press OK (or A on a controller) to play on this TV · BACK on the remote, or hold Select on the controller, comes back"
+        : "Press OK to open " + what + " on this TV · BACK on the remote comes back") +
+      (mouse ? " · the phone remote's 🖱 Mouse page points, clicks and types there" : "")
+    );
   }
   return inApp
     ? "Scan the code with your phone to open " + what + " there · update the NostalGem TV app to open it right here"

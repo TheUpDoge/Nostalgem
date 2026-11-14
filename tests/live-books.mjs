@@ -59,7 +59,10 @@ for (const s of shelves) {
 }
 
 // 2. Details, page lists and page images, from a browser on another site.
-const browser = await chromium.launch();
+// Autoplay allowed, as in the other live checks: the tuner starts the moment the lineup is in (the start-up
+// card plays over it), and a browser that hasn't seen a press yet would leave the picture waiting for one.
+// This check is about books, and its first key should open the menu, not start the picture.
+const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gesture-required"] });
 const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
 await ctx.addInitScript(() => {
   window.NostalGemRelayBrokers = [];

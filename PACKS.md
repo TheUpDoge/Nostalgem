@@ -4,8 +4,15 @@ A channel pack is a small JSON file that adds channels on your own TV, without t
 the shipped lineup. From the Menu: **Load a channel pack**, then choose a `.json` file (or a
 `.zip` of them) or paste its text. Everything happens on your TV — no upload, no server.
 
-Pack channels land on **CH 30–49** and are saved on that TV only, exactly like channels
-you add by search (Menu ▸ Add a channel). Loading a pack never changes
+On a TV with no file picker, send it from your phone: the phone remote's **Channels** page has
+**📦 Send a pack to the TV**. The file goes straight to the TV over the remote's own link and
+through the same checks and the same **Load these packs?** screen; the phone shows what the TV
+found, packs left out and why included.
+
+Pack channels land on **CH 30–49**, in the hundreds **CH 100–199**, or on **CH 200–299**, and are saved on that
+TV only, exactly like channels you add by search (Menu ▸ Add a channel). Every built-in channel
+stays under 99 (built-ins 1–29, viewer-added 30–49, YouTube sub-channels 50–90), so the
+hundreds and the 200s are for packs. Loading a pack never changes
 [`web/data/lineup.json`](web/data/lineup.json), and re-loading the same pack skips the
 channels that are already on the TV.
 
@@ -48,9 +55,16 @@ work, then delete the channel from Menu ▸ Channel lineup if you don't want it.
 ### Channel fields
 
 - `name` — shown on the dial. Required. Over 24 characters it is trimmed (with a warning).
-- `number` — the channel number, a whole number from **30 to 49** (the viewer-added range).
+- `number` — the channel number, a whole number from **30 to 49**, **100 to 199**, or **200 to 299**.
   Required, and each number may appear once per pack. If the number is already taken on the
-  TV, the channel takes the next free number in 30–49 instead.
+  TV, the channel takes the next free number after it in the same range (then the other ranges)
+  instead, and the TV says so. Taken includes what typing a number reaches: **111** is a secret
+  station, and **152** and **172** are how CH 15-2 and CH 17-2 are typed, so a pack asking for one
+  of those moves along too. **200–209 are not taken by CH 20's sub-channels.** CH 20-2 (The Witching
+  Hour) is typed 2 0 2, but a pack that asks for 202 lands on 202. Typing 2 0 2 tunes that pack;
+  with no pack on that number, it still tunes CH 20-2. Channel up and down still reach the
+  sub-channel either way. A three-digit channel reads as itself on the TV: typing 1 0 1 shows
+  **CH 101**, and 2 0 2 shows **CH 202** when a pack owns it.
 - `kind` — `"video"` (MP4) or `"audio"` (MP3, shown as radio). Default `"video"`.
 - `tagline`, `icon`, `color` — as in `web/data/channels.json`. `color` should look like `#ff9f1c`.
 - `minMinutes`, `maxMinutes` — programs shorter or longer than these are left out.
@@ -83,7 +97,7 @@ Each channel lists at least one source. A source is either a search or an item l
 
 Packs point at the Internet Archive and nothing else. The loader rejects a pack that has:
 
-- a number outside 30–49, a duplicate number, or a missing name;
+- a number outside 30–49, 100–199 and 200–299, a duplicate number, or a missing name;
 - a source that is a link (`http://…`, `https://…`), a YouTube or other video-site address,
   or a `url` / `youtube` / `playlist` field;
 - an item ID with spaces, slashes or anything that isn't an Archive identifier.

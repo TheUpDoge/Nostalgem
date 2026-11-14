@@ -11,7 +11,7 @@ export function searchUrl(q, opts) {
   const o = opts || {};
   const p = new URLSearchParams();
   p.set("q", q);
-  ["identifier", "title", "year", "date", "downloads", "subject"].forEach(function (f) {
+  ["identifier", "title", "year", "date", "downloads", "subject"].concat(o.fields || []).forEach(function (f) {
     p.append("fl[]", f);
   });
   p.append("sort[]", o.sort || "downloads desc");

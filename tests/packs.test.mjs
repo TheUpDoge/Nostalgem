@@ -71,13 +71,40 @@ test("validatePack: name, version and channels are required", () => {
   assert.match(validatePack(pack([channel()], { channels: "nope" })).errors.join(" "), /at least one channel/);
 });
 
-test("validatePack: numbers stay in the viewer-added range", () => {
-  for (const bad of [12, 29, 50, 99, 30.5, "30", null]) {
+test("validatePack: numbers stay in the pack ranges", () => {
+  for (const bad of [12, 29, 50, 99, 300, 30.5, "30", null]) {
     const v = validatePack(pack([channel({ number: bad })]));
     assert.equal(v.ok, false, "number " + JSON.stringify(bad) + " should fail");
-    assert.match(v.errors.join(" "), /30.*49/);
+    assert.match(v.errors.join(" "), /number must be a whole number from 30 to 49, 100 to 199, or 200 to 299/);
   }
-  assert.equal(validatePack(pack([channel({ number: 30 }), channel({ number: 49 })])).ok, true);
+  assert.equal(validatePack(pack([channel({ number: 30 }), channel({ number: 49 }), channel({ number: 100 }), channel({ number: 299 })])).ok, true);
+});
+
+test("validatePack: a pack on CH 200–206, including 202, loads clean", () => {
+  const channels = [];
+  for (let n = 200; n <= 206; n++) {
+    channels.push(
+      channel({
+        name: n === 202 ? "Computer Chronicles" : "Late " + n,
+        number: n,
+        sources: [{ items: ["computerchronicles", "Night.Of.The.Living.Dead_1080p"] }],
+      })
+    );
+  }
+  const text = JSON.stringify(pack(channels, { pack: "Two hundreds" }));
+  const parsed = parsePack(text);
+  assert.equal(parsed.ok, true);
+  const v = validatePack(parsed.pack);
+  assert.equal(v.ok, true);
+  assert.deepEqual(v.errors, [], v.errors.join(" | "));
+  const at202 = parsed.pack.channels.filter((c) => c.number === 202);
+  assert.equal(at202.length, 1);
+  assert.equal(at202[0].name, "Computer Chronicles");
+  parsed.pack.channels.forEach((ch) => {
+    const def = packChannelDef(parsed.pack.pack, ch);
+    assert.equal(def.slug, "p-two-hundreds-" + ch.number);
+    assert.deepEqual(def.items, ["computerchronicles", "Night.Of.The.Living.Dead_1080p"]);
+  });
 });
 
 test("validatePack: non-Archive sources are rejected", () => {

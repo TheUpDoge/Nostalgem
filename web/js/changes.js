@@ -4,6 +4,67 @@
 
 export const CHANGES = [
   {
+    v: "1.18.0",
+    title: "A new start-up, and the Video Club in rows",
+    items: [
+      "A five-second start-up card: the crystal TV from the logo switches on, NOSTALGEM spells itself out, and your channel is already tuning underneath. Any button skips it. The crystal TV is the app's icon now too.",
+      "📼 The Video Club is laid out in rows: Western, Horror, Sci-Fi, Noir, Comedy, Silent, Space and World, a shelf for each channel. A film made from a book on the Reading Room's shelves says From the book, and the book says On film.",
+      "Five more looks for station cards, for a channel you add with one of these names: Neon Rain, Hard Chrome, Polygon Hour, Glow Circuit, Crystal Signal. And the card while a channel loads now stays until the picture is really there.",
+    ],
+  },
+  {
+    v: "1.17.0",
+    title: "Send to TV",
+    items: [
+      "Send a video from your phone to the TV. On the phone remote's Search page, paste a YouTube or archive.org link and tap ▶ Play on TV. It plays right away, with your picture filter and subtitles. BACK goes back to the channel.",
+      "While it plays, the phone has a bar to drag through it, ⏪ and ⏩, and ⏮ ⏭ for an Archive item in parts or a YouTube playlist, which play one after the other.",
+      "🌐 Search the Archive on the phone lists films and recordings: tap one to play it on the TV. On Android, the installed remote is in the Share menu, so a video shared from YouTube lands in the box.",
+    ],
+  },
+  {
+    v: "1.16.0",
+    title: "Cards with character",
+    items: [
+      "The up-next cards between programs, and the card while a channel loads, now come in the channel's own style: a sundown for the westerns, venetian blinds for noir, a full moon for horror, a countdown leader for the newsreels, title cards for the silent era, a terminal for the computer channels, and more. Every TV in the same break sees the same card.",
+      "YouTube's ad card keeps its late-night deadpan, now over the channel's scenery turned right down, with a line in the channel's voice now and then. The words are in data/cards.json, for anyone to edit.",
+    ],
+  },
+  {
+    v: "1.15.0",
+    title: "Lighter on the TV",
+    items: [
+      "Filters cost a TV less: ASCII has 80 characters across and a new picture ten times a second (it ran the TV flat out before), and Sin City, the tints and the other whole-screen filters start on their light version on a TV. Menu ▸ Filter quality ▸ Full brings the full ones back. Nothing changes on a computer.",
+    ],
+  },
+  {
+    v: "1.14.0",
+    title: "4:3 for old TVs",
+    items: [
+      "Watching on an old CRT TV? Menu ▸ Picture & sound ▸ Screen shape ▸ 4:3 for old CRT TVs puts the whole set in a 4:3 box, black at the sides: nothing cut off, nothing stretched, and 4:3 films fill the screen.",
+      "The phone's pointer keeps to the box too, and in the newest TV app so do 777's arcade and the other sites that open on the TV.",
+    ],
+  },
+  {
+    v: "1.13.0",
+    title: "A mouse and keyboard on your phone",
+    items: [
+      "The phone remote has a Mouse page: drag on it and a pointer moves on the TV, tap to click, two fingers to scroll. Keys for Esc, Enter, the arrows, space and games, and a keyboard that types on the TV.",
+      "In the TV app, the pointer works everywhere: on 777's arcade, ASCII City and the YouTube player too. Those sites now open over NostalGem, so the phone stays linked while you play. Needs the newest TV app.",
+      "Send a channel pack from your phone: the phone remote's Channels page ▸ Send a pack to the TV. The TV checks it and asks before loading, and the phone shows what it found.",
+    ],
+  },
+  {
+    v: "1.12.0",
+    title: "Packs in the hundreds",
+    items: [
+      "Channel packs can use CH 100–199 and CH 200–299, as well as 30–49. Type 1 0 1 for CH 101, or 2 0 2 for CH 202: it reads the channel while it tunes.",
+      "A pack asking for a number that's taken moves to the next free one, past the secret stations and the numbers sub-channels use.",
+      "CH 202 can be a pack channel. The Witching Hour stays on CH 20-2, and channel up and down still find it.",
+      "A one-digit channel's sub-channel can be typed the way the guide writes it: 0 3 2 for 03-2.",
+      "The TV guide no longer squeezes a long channel name over its number.",
+    ],
+  },
+  {
     v: "1.11.0",
     title: "The club's catalog, and clean cuts",
     items: [

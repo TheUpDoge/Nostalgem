@@ -330,3 +330,50 @@ export function parseCatalog(json) {
     return { id: sh.id, icon: sh.icon, name: sh.name, books: books, note: typeof gaps[sh.type] === "string" ? cleanText(gaps[sh.type], 700) : "" };
   });
 }
+
+// The Archive's stacks (web/data/books.json), gathered into aisles. The club's catalog stays three
+// shelves by kind, in title order (parseCatalog); these are the Archive search shelves beside it.
+// A shelf id the plan doesn't name still shows, under "More stacks".
+//   { id, name, icon, blurb, ids: ["manga", ...] }
+export const STACK_PLAN = [
+  { id: "pictures", name: "Comics & manga", icon: "🦸", blurb: "Pictures, panels and the manga shelf.", ids: ["manga", "golden-age", "comics"] },
+  { id: "magazines", name: "The magazine rack", icon: "🗞️", blurb: "Pulps, the fan magazines, games and computers.", ids: ["pulps", "movie-mags", "game-mags", "computer-mags"] },
+  { id: "novels", name: "The novel wall", icon: "📚", blurb: "Classic novels and the children's shelf.", ids: ["classics", "children"] },
+];
+
+// shelves from parseShelves(). Returns [{ id, name, icon, blurb, shelves }].
+export function groupStackShelves(shelves, plan) {
+  const rules = plan || STACK_PLAN;
+  const aisles = rules.map(function (r) {
+    return { id: r.id, name: r.name, icon: r.icon || "📚", blurb: r.blurb || "", shelves: [] };
+  });
+  const byId = {};
+  aisles.forEach(function (a) {
+    byId[a.id] = a;
+  });
+  const shelfAisle = {};
+  rules.forEach(function (r) {
+    (r.ids || []).forEach(function (id) {
+      if (id && !shelfAisle[id]) shelfAisle[id] = r.id;
+    });
+  });
+  const rest = { id: "more", name: "More stacks", icon: "📚", blurb: "Shelves the plan hasn't named yet.", shelves: [] };
+  (shelves || []).forEach(function (sh) {
+    const aisle = sh && byId[shelfAisle[sh.id]];
+    if (aisle) aisle.shelves.push(sh);
+    else rest.shelves.push(sh);
+  });
+  aisles.forEach(function (a, i) {
+    const order = rules[i].ids || [];
+    a.shelves.sort(function (x, y) {
+      const ix = order.indexOf(x.id);
+      const iy = order.indexOf(y.id);
+      return (ix < 0 ? order.length : ix) - (iy < 0 ? order.length : iy);
+    });
+  });
+  const out = aisles.filter(function (a) {
+    return a.shelves.length;
+  });
+  if (rest.shelves.length) out.push(rest);
+  return out;
+}

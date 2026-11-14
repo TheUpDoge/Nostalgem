@@ -38,6 +38,16 @@ jobs:
         run: npm run test:stations
       - name: Clean cuts (card live, skip on a tape), the Reading Room's catalog shelves, and packs in a .zip
         run: npm run test:cuts
+      - name: The phone's Mouse page (pointer, keys, typing) and packs sent from the phone, in a browser, the TV app and through the relay
+        run: npm run test:mouse
+      - name: Screen shape, 4:3 for old CRT TVs (everything inside the box, nothing stretched)
+        run: npm run test:screen
+      - name: The TV path's limits on the filters (ASCII, glass, light SVG looks), and a computer left as it is
+        run: npm run test:tvlimits
+      - name: Station cards in the channel family's look (a western's break, a horror channel's, and the card while a channel loads)
+        run: npm run test:cards
+      - name: Send to TV (a link from the phone plays on demand; the seek bar, parts, playlists, Share, the relay)
+        run: npm run test:sendto
 
   # Publishes web/ to GitHub Pages from main. One-time setup: Settings → Pages → Source: GitHub Actions.
   deploy:

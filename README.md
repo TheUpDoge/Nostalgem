@@ -77,6 +77,23 @@ YouTube's player) and rebuilt daily:
 
 - **Live, synchronized schedule.** Every TV agrees on what's on, with no server involved: the schedule
   is worked out from the clock. Programs have an 8-second station break between them with an "up next" card.
+- **Cards with character.** The up-next card in a station break, and the card while a channel's program
+  loads, come in the channel family's own look and voice: a sundown for the westerns, venetian blinds and
+  rain for noir, a full moon for horror, a starfield for science fiction, T-minus for Mission Control, a
+  comic panel for the cartoons, speed lines for anime, a curtain for comedy, equalizer bars for music,
+  title cards between sprocket holes for the silent era, a countdown leader for the newsreels and serials,
+  a green terminal for the computer channels, marquee bulbs for the game shows, a lower third for talk
+  and news, a dial for radio. Every TV in the same break sees the same card. Which channel is in which
+  family is in `web/js/cards.js` (viewer-added channels go by their words); the words are in
+  [`web/data/cards.json`](web/data/cards.json), for anyone to edit. The YouTube sponsor card keeps its
+  late-night deadpan and works as before, with the channel family's scenery turned right down behind it
+  and a line in the channel's voice now and then.
+- **Five more card looks, not on the dial.** Neon Rain (rain and neon towers), Hard Chrome (yellow and
+  cyan HUD), Polygon Hour (a purple wireframe room), Glow Circuit (a black room ruled in cyan and
+  orange), and Crystal Signal (a faceted gem on a glitter sunset, chrome type). A viewer-added channel
+  with that name gets the card. To put one on a real channel, map its slug in `EXTRA_SLUGS` in
+  `web/js/cards.js` — that map ships empty, so the lineup is unchanged. Preview them from
+  `theme-preview.html` (`npm start`, then open `/theme-preview.html`).
 - **House bumpers.** About one station break in three (every break on Commercial Break) shows a station
   ID card instead of the plain up-next card — short original bumpers from `web/data/bumpers.json`,
   picked from the clock so every TV in the same break sees the same one.
@@ -97,7 +114,12 @@ YouTube's player) and rebuilt daily:
   color of one pixel of a tiny copy), so they run at full speed on a TV; on YouTube they get
   lighter stand-ins, since YouTube's player can't be drawn. **Filter quality** (Auto, Full, Light): on
   Auto, a filter that makes the picture choppy on your TV switches itself to its light version (run on
-  a small copy of the picture), and says so.
+  a small copy of the picture), and says so. **On a TV** (the TV app, or a TV's own browser) the filters
+  keep to a TV's means: ASCII has 80 characters across and a new picture ten times a second, stained
+  glass eight times a second, and the filters drawn by the graphics chip over the whole screen (Sin
+  City, the tints, VHS, Colorized and the other Wild ones) start on their light version, which a TV's
+  slow processor can keep up with; **Filter quality ▸ Full** gets the full ones back. A computer is left
+  as it is. Measured, not guessed: see the TV performance pull request.
 - **YouTube ads**: when YouTube puts an ad before a show, a late-night "word from our sponsors" card
   covers it with the sound off, and the show starts by itself when the ad is over. OK never restarts it.
 - **Ambience**: lo-fi vinyl crackle, a rainy window, or tape hiss under the program (Menu ▸ Picture & sound).
@@ -118,6 +140,13 @@ YouTube's player) and rebuilt daily:
 - **"Are you still watching?"** after four quiet hours, to save the Archive's bandwidth.
 - **CRT effect** (off, light or heavy scanlines), **picture** (fit, fill or stretch), clock (12 or 24 hour),
   and a corner channel logo you can switch off.
+- **📺 Screen shape: 4:3 for old CRT TVs** (Menu ▸ Picture & sound). A set plugged into an old 4:3 TV
+  (through an HDMI-to-AV adapter, say) shows the whole app in a 4:3 box in the middle of the picture,
+  black at the sides, so nothing is cut off or stretched: the guide, menus, the banner and the filters all
+  fit inside it, and 4:3 films fill it. Off unless you turn it on; Widescreen puts it back. The phone
+  remote's pointer keeps to the box as well, and in the TV app (the newest one: the page tells it the
+  shape) so do the sites the link-out stations open, 777's arcade included. In the
+  stylesheet, anything sized to the screen's width uses `var(--vw)` instead of `vw` so it follows the box.
 - **It keeps going** when the Archive doesn't. A program that won't play is skipped on that TV for a
   day. If several fail in a row, it shows colour bars and *PLEASE STAND BY* and retries by itself.
 - Sized for a TV across the room, inside overscan margins. It also works with a mouse, a keyboard,
@@ -126,6 +155,12 @@ YouTube's player) and rebuilt daily:
   to move through it, and the dock becomes ▲ ▼ ◀ ▶ OK BACK (hold an arrow to keep going).
 - **What's new**: after an update, a page says what changed since the version you last saw (a welcome
   on a first start); Menu ▸ 📰 What's new shows it again, with the version number.
+- **A five-second start-up card.** The crystal TV from the logo switches on, NOSTALGEM spells itself
+  out, the credit slides in and the tagline's colors lock, while the channel is already tuning
+  underneath. Any key or tap skips it (Back only skips), mute and *Channel static* keep it quiet, and
+  reduced motion shows it standing still. It doesn't play again when you change channel. There is an
+  alternate to try: `?boot=treasure` digs up a chest that spills the name in coins and gems
+  (`?boot=crt` forces the title card). Both keep to the 4:3 box.
 - **📼 Video Club**: the Archive's feature films, checked out like tapes from a neighborhood video store.
   Sign up for a free **library card** (three short pages: how the club works, what the Internet Archive
   is, and the fine print, signed with your name), then take up to **two tapes** at a time for **three
@@ -133,7 +168,11 @@ YouTube's player) and rebuilt daily:
   and **⏏ return** it. A tape still out when it's due goes back by itself, with no late fees. The card
   lives on that TV only: it isn't an archive.org account and doesn't borrow from the Archive's own
   lending library. Any channel that's all feature films becomes a shelf of its own in the club, so
-  any film on it can be checked out like a tape. A film with a **clean cut** (below) has a *Play TV-safe
+  any film on it can be checked out like a tape. The floor is laid out in **rows** by family (Western,
+  Horror, Sci-Fi, Noir, Comedy, Silent, Space and World; the 80s, 90s and Anime rows appear when those
+  packs are loaded), with *The rest of the store* for every other shelf and a front rack of this
+  week's picks. A film made from a book on the Reading Room's shelves is tagged **From the book**, and
+  the book **On film**. A film with a **clean cut** (below) has a *Play TV-safe
   cut* switch on its tape. Menu ▸ 📼 Video Club.
 - **📚 Reading Room**: the Archive's scanned books, comics, manga and magazines, read like a book open on a
   desk under a reading lamp. On a TV it shows two pages side by side (the cover on its own); **manga reads
@@ -156,7 +195,12 @@ YouTube's player) and rebuilt daily:
   `web/data/skip-lists.json` is empty, and a pack can carry its own (see [PACKS.md](PACKS.md)).
 - **📱 Phone remote**: Menu ▸ Phone remote shows a QR code; the phone opens it and becomes a
   remote for that TV — channels, volume, guide — over a direct connection. The pairing code is
-  kept, so a paired phone reconnects after the TV restarts.
+  kept, so a paired phone reconnects after the TV restarts. Its **Mouse** page is a trackpad and
+  keyboard for the TV (777's arcade, ASCII City, the YouTube player), and its **Channels** page sends a
+  channel pack to the TV.
+- **📲 Send to TV**: paste a YouTube or archive.org link on the phone remote (or share it to the remote on
+  Android) and the TV plays it right away, in NostalGem. The phone moves through it, and BACK goes back to
+  the channel. See [Send to TV](#-send-to-tv).
 - **Search the Archive** builds a channel from words, Archive search terms, or a pasted archive.org link
   (one item or a whole collection). A channel number typed there just tunes that channel.
 
@@ -188,8 +232,8 @@ channel, play/pause, info, guide and coloured buttons.
 
 The app runs the published site, so new channels and fixes reach the TV as soon as they're on GitHub
 Pages, with no reinstall. Stations that are another site (777's arcade and the like) open right on the
-TV in the app: press OK, play with the remote or a controller, and press BACK on the remote (or hold
-Select on the controller) to come back. Reinstall only when the app itself changes: run the workflow again and use
+TV in the app: press OK, play with the remote, a controller or the phone remote's Mouse page, and press
+BACK on the remote (or hold Select on the controller) to come back. Reinstall only when the app itself changes: run the workflow again and use
 the same link. Your favorites and settings are kept.
 
 > The APK is signed with a key kept in this repo (`android-tv/keystore/`), so new builds install over
@@ -279,6 +323,58 @@ real keyboard for **Search the Archive**.
   the same dialog disconnects every phone paired before; **Turn off** stops listening.
 - The QR code points at the GitHub Pages copy, so turn on Pages first: Settings ▸ Pages ▸ Source: **GitHub Actions**.
 
+**🖱 Mouse: a trackpad and keyboard for the TV.** For the sites some stations open (777's arcade, ASCII
+City) and anything else that wants a mouse or a keyboard:
+
+- Drag on the trackpad and a pointer moves on the TV; tap to click. Two fingers scroll (over the guide
+  or a menu, a row at a time). Hold still a moment, then move, to drag (a slider, a game).
+- Keys: Esc, Tab, ⌫, Enter, the arrows, space, and Z X A S for games. Held keys stay down (and the
+  arrows and ⌫ repeat) until you let go.
+- **⌨ Keyboard** drops down a text field: what you type goes to the TV as you type it, corrections too.
+- **In the TV app** (updated once for this: run the workflow, then the same Downloader link) the app draws the pointer over whatever is on the screen
+  and presses there for real: NostalGem, the YouTube player, and the link-out stations' sites, which open
+  over NostalGem so the phone stays linked. While a site is up, the phone's arrows and OK go to it, BACK
+  steps back through it and then home, and CH, Guide or Menu come home and do what they say.
+- **In a browser** the TV page draws the pointer and works its own screen: menus, the guide, buttons and
+  text fields. A browser doesn't let one page press buttons in another, so it can't reach into the
+  YouTube player or a link-out site (those open in their own tab).
+
+**📦 Send a pack to the TV** (the phone's Channels page): pick a channel pack, a `.json` or a `.zip` of
+them, from the phone's files. It goes to the TV over the same link (direct or relay), and the TV checks
+it with its own pack loader and asks **Load these packs?**; a pack that doesn't check out is listed and
+left out, and the phone shows the same list. OK on the remote loads them, and the phone says what went
+on the air.
+
+### 📲 Send to TV
+
+Found something on your phone? Send it to the TV. On the phone remote, open **Search**, paste a link in
+**Send to TV** and tap **▶ Play on TV**. The TV plays it right away, inside NostalGem, with your picture
+filter and subtitles, on the channel it was on. The banner says **ON DEMAND · 📲 FROM YOUR PHONE**.
+**BACK** (or LIVE, or changing channel) goes back to the schedule. Live channels aren't touched: every
+other TV still sees the shared clock.
+
+- **What it takes:** a YouTube video or playlist, and an archive.org film or recording
+  (`archive.org/details/…`, or a link to one file of it). An item in parts, or a playlist, plays one after
+  the other. A link with a time in it (`?t=90`) starts there.
+- **From the phone** you can drag the bar to move through it, tap ⏪ 15 and 30 ⏩, step between parts with
+  ⏮ ⏭, and pause. The bar is there for anything on demand: a Video Club tape and "watch from the start" too.
+- **🌐 Search the Archive**, on the same page, looks up films and recordings by title from the phone. Tap
+  one and the TV plays it.
+- **If a link-out station's site is open** over NostalGem in the TV app (777's arcade, say), it closes when
+  you send a link, and when you tap a channel on the phone.
+- **Android: the Share menu.** With the remote added to the home screen (Chrome ▸ Add to Home Screen),
+  **NG Remote** appears in other apps' Share menus. Share a video from YouTube or a page from archive.org
+  and it lands in the Send to TV box; one tap plays it. It never plays by itself, so a link somebody else
+  made can't put something on your TV. iPhones have no share targets for web apps, so there you paste the link.
+- **What it won't play:** a YouTube video whose owner doesn't allow it outside YouTube; an Archive item
+  that's only for signed-in members; adult material (the sexual words Search the Archive leaves out, and
+  nothing else from that list); an item with no MP4 and no MP3. The phone says which. A whole archive.org
+  collection or search isn't one program, so the phone offers **📡 New TV channel** for it instead.
+- **Nothing new to set up.** It goes over the link the remote already has (direct, or the encrypted
+  relay), with no accounts and nothing from Google's Cast. It isn't screen mirroring: to show the phone's
+  whole screen, use the phone's own (Android: Quick Settings ▸ Cast or Screen cast; iPhone: Screen
+  Mirroring). [CASTING.md](CASTING.md) has the reasons.
+
 ## Make it yours
 
 ### Add or change channels
@@ -295,8 +391,10 @@ Internet Archive [advanced search](https://archive.org/advancedsearch.php) plus 
 }
 ```
 
-- `number` and `sub`: CH 1–29 are all taken, so a new channel goes on as a sub-channel of the one it
-  fits with (`"number": 1, "sub": 2` is CH 1-2). CH 30–49 are left for channels viewers add.
+- `number` and `sub`: every built-in channel stays under 99. CH 1–29 are all taken, so a new channel
+  goes on as a sub-channel of the one it fits with (`"number": 1, "sub": 2` is CH 1-2, typed 0 1 2).
+  CH 30–49 are left for channels viewers add, 50–90 hold the YouTube sub-channels, and
+  100–199 and 200–299 are for channel packs.
 - `kind`: `video` (MP4) or `audio` (MP3, shown as radio).
 - `filesPerItem`: how many episodes one Archive item (a whole series, or a collection) may add.
 - `maxYear`: skip anything dated later. The default is 1977, because public-domain films are mostly
@@ -320,10 +418,10 @@ app pick it up.
 
 A channel pack is a small JSON file that adds channels on your own TV, without touching
 the shipped lineup. From the Menu: **Load a channel pack**, then choose a `.json` file, or a
-`.zip` holding several packs, or paste its text. Pack channels land on CH 30–49 and are saved
-on that TV only, like channels you add by search.
+`.zip` holding several packs, or paste its text. Pack channels land on CH 30–49, in the
+hundreds (CH 100–199), or on CH 200–299 and are saved on that TV only, like channels you add by search.
 
-A pack defines one or more channels — a name, a number (30–49), and an Archive source:
+A pack defines one or more channels — a name, a number (30–49, 100–199, or 200–299), and an Archive source:
 a collection search or explicit Archive item IDs. Nothing else is allowed: no YouTube, no
 other sites, no direct video links. The full format is in [PACKS.md](PACKS.md), with an
 example in [packs/example-pack.json](packs/example-pack.json) (a western-features channel
@@ -364,7 +462,10 @@ sources instead of Archive `sources`:
 Channels can share a number as **sub-channels**, like digital TV: give them the same `number` and a
 `sub` (1, 2, …) and they show as 50-1, 50-2. On the remote, 5 0 1 tunes 50-1; 5 0 on its own goes to
 the first one after a moment. Sub-channels can go past 9: 6 0 1 0 tunes 60-10, and where there is one,
-6 0 1 waits a moment for the 0 before tuning 60-1.
+6 0 1 waits a moment for the 0 before tuning 60-1. A one-digit channel's sub-channel is typed with its 0,
+as the guide writes it: 0 3 2 tunes 03-2 (and 3 2 still does, unless a CH 32 is on the dial). Three-digit
+channels (packs on 100–299) are typed and shown as themselves: 1 0 1 is CH 101. 2 0 2 is CH 202 when a
+pack owns it, and CH 20-2 when it doesn't. Channel up and down still reach CH 20-2 either way.
 
 Only public, embeddable videos that aren't age-restricted, live, Shorts or blocked in the US go on the
 air. Building them needs a YouTube Data API key: add it as the repository secret `YOUTUBE_API_KEY`
@@ -381,6 +482,12 @@ npm i --no-save playwright@1.63.0 peer@1.0.2 && npx playwright install chromium
 npm run test:browser      # drives the app in Chromium with remote keys; SHOTS=1 saves screenshots
 npm run test:lan          # the phone remote over real WebRTC, through a local PeerJS broker
 npm run test:relay        # the phone remote through the relay with WebRTC blocked (local MQTT broker)
+npm run test:mouse        # the phone's Mouse page and packs from the phone: in a browser, in the TV app, and through the relay
+npm run test:screen       # Screen shape: 4:3 for old CRT TVs, everything inside the box
+npm run test:tvlimits     # the TV path's limits on the filters, and nothing different on a computer
+npm run perf              # not a test: measures what filters and channel switching cost on a TV-sized, slowed screen
+npm run test:cards        # station cards in the channel family's look: a break, and a slow load
+npm run test:sendto       # Send to TV: links from the phone played on demand, the seek bar, parts, Share
 ```
 
 The browser test needs no network. Small local clips stand in for the Archive, and it checks
@@ -397,7 +504,9 @@ web/
   js/archive.js                Internet Archive client: search, pick the best MP4/MP3, subtitles, filters
   js/remote.js                 keys from keyboards, TV browsers (webOS/Tizen codes) and the Android app
   js/link.js                   phone remote pairing and messages (TV and phone side)
+  js/pointer.js                the phone's Mouse page on the TV: a pointer, clicks, scrolling, keys and typing
   js/relay.js                  the encrypted relay the phone remote falls back on
+  js/sendto.js                 Send to TV: which links a phone may send, and what the TV makes of an Archive item
   js/ui/numpad.js              the on-screen number pad
   remote.html, js/phone.js     the phone remote page (an installable PWA)
   vendor/                      PeerJS and a QR code generator, both MIT (see vendor/README.md)
@@ -409,6 +518,7 @@ web/
   js/cuts.js                   clean cuts: skip lists checked, and how a program plays with one (card or skip)
   js/framewatch.js             notices a filter making the picture choppy (Filter quality: Auto)
   js/library.js, js/ui/club.js the Video Club: library card, checkout rules, the store's shelves and screens
+  js/cards.js, data/cards.json the station cards' families, looks and words (up next, loading, the ad card's quips)
   js/changes.js                What's new: the changes in each version
   js/ui/drag.js                touch: a finger dragged over the guide or a menu moves through it
   js/books.js, js/ui/reader.js the Reading Room: Archive books as page images, and the reader
@@ -450,7 +560,12 @@ tests/                         node:test unit tests + a Playwright smoke test
   of home Wi-Fi (and any Android app that doesn't ask for multicast) never answers. So the TV app hands
   the page its real Wi-Fi address (`window.NostalGemTV`, offered only to this site's pages), and the
   TV sends the phone each hidden address twice: as the browser wrote it, and with the real one. The phone sends the same actions a
-  key press makes; the TV sends back what's on. Only whitelisted actions are accepted.
+  key press makes; the TV sends back what's on. Only whitelisted actions are accepted. The Mouse page
+  sends pointer moves (fractions of the TV's width), clicks, scrolls, keys and text; in the TV app the page
+  hands them to the app (`MainActivity.kt`), which draws the pointer and injects real touches, mouse
+  hovers, wheel scrolls and key presses into whatever view is in front. A pack sent from the phone goes
+  in 12,000-character pieces, each answered, and the TV puts it through the same loader as a file picked
+  on the TV.
 - **The relay** (`js/relay.js`) runs alongside, for networks where the two can't reach each other. Both
   sides connect out over secure WebSockets to public MQTT brokers (EMQX, HiveMQ, Eclipse); the TV
   listens on all of them, the phone uses the first where the TV answers. The topic is a hash of the code

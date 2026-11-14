@@ -1,0 +1,556 @@
+/* Alternate boot (?boot=treasure, or BOOT_STYLE in boot-treasure.js).
+   Five seconds, one shot: dig, creak, spill, glint, then two credit styles.
+   Transform and opacity only. Nothing here repeats. Scoped so the CRT card is unchanged. */
+
+html.boot-style-treasure .boot-world,
+html.boot-style-treasure .boot-tube,
+html.boot-style-treasure .boot-scan,
+html.boot-style-treasure .boot-titles {
+  display: none;
+}
+html.boot-style-treasure .boot {
+  background: #07010f;
+}
+
+.boot-treasure {
+  background: #07010f;
+}
+.tg-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.tg-sky {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(1.4px 1.4px at 8% 16%, #fff, transparent), radial-gradient(1px 1px at 18% 8%, #ffd6ff, transparent),
+    radial-gradient(1.6px 1.6px at 27% 22%, #fff, transparent), radial-gradient(1px 1px at 41% 11%, #c8f7ff, transparent),
+    radial-gradient(1.5px 1.5px at 56% 18%, #fff, transparent), radial-gradient(1px 1px at 69% 7%, #ffe6ff, transparent),
+    radial-gradient(1.8px 1.8px at 84% 14%, #fff, transparent), radial-gradient(1px 1px at 93% 26%, #fff, transparent),
+    radial-gradient(1px 1px at 14% 34%, #fff, transparent), radial-gradient(1.3px 1.3px at 48% 30%, #e7d6ff, transparent),
+    linear-gradient(180deg, #07010f 0%, #120828 46%, #241038 68%, #1a0c14 78%, #120a08 100%);
+}
+.tg-moon {
+  position: absolute;
+  top: 7%;
+  right: 11%;
+  width: 4.2rem;
+  height: 4.2rem;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 32%, #fffaf0, #f3e2b8 48%, #c9b48e 82%);
+  box-shadow: 0 0 2.2rem rgba(255, 230, 180, 0.28);
+  opacity: 0.42;
+}
+.tg-glow {
+  position: absolute;
+  left: 50%;
+  top: 18%;
+  width: calc(76 * var(--vw));
+  height: 28vh;
+  margin-left: calc(-38 * var(--vw));
+  background: radial-gradient(ellipse at center, rgba(185, 103, 255, 0.2), rgba(255, 42, 109, 0.07) 42%, transparent 72%);
+  pointer-events: none;
+}
+.tg-ground {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 27%;
+  background: linear-gradient(180deg, rgba(92, 58, 32, 0) 0%, #4a3018 16%, #2c1a0e 48%, #140c08 100%);
+}
+.tg-mound {
+  position: absolute;
+  left: 50%;
+  bottom: 18%;
+  width: 28rem;
+  height: 7.2rem;
+  margin-left: -14rem;
+  background: radial-gradient(ellipse at center, #6e4a28 0%, #4a3018 58%, transparent 72%);
+  transform-origin: center bottom;
+  animation: tg-mound 0.8s ease-out 0.05s both;
+}
+.tg-hole {
+  position: absolute;
+  left: 50%;
+  bottom: 8%;
+  width: 18rem;
+  height: 4.2rem;
+  margin-left: -9rem;
+  background: radial-gradient(ellipse at center, #120904 0%, #3a2414 46%, transparent 72%);
+}
+.tg-dirt {
+  position: absolute;
+  left: 50%;
+  bottom: 18%;
+  margin-left: -0.4rem;
+  border-radius: 45%;
+  opacity: 0;
+  z-index: 4;
+  animation: tg-dirt 0.95s ease-out var(--delay) forwards;
+}
+.tg-chest {
+  position: absolute;
+  left: 50%;
+  bottom: 10vh;
+  width: 18rem;
+  height: 10rem;
+  margin-left: -9rem;
+  z-index: 3;
+  perspective: 32rem;
+  animation: tg-rise 0.88s cubic-bezier(0.16, 0.84, 0.3, 1) 0.06s both;
+}
+.tg-box {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 58%;
+  background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 0.12rem, transparent 0.12rem 0.72rem),
+    linear-gradient(180deg, #a56b2c 0%, #6b3e16 28%, #3d2412 70%, #24160c 100%);
+  border: 0.16rem solid #f0c14a;
+  border-radius: 0.25rem 0.25rem 0.45rem 0.45rem;
+  box-shadow: inset 0 0.35rem 0 #e8b84a, inset 0 -0.45rem 0 #1a0d06;
+}
+.tg-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0.55rem;
+  background: linear-gradient(90deg, #7a5a18, #fff6c8 46%, #e0b044 72%, #8a6420);
+}
+.tg-band-l {
+  left: 18%;
+}
+.tg-band-r {
+  right: 18%;
+}
+.tg-lock {
+  position: absolute;
+  left: 50%;
+  top: -0.35rem;
+  width: 1.45rem;
+  height: 1.7rem;
+  margin-left: -0.72rem;
+  border-radius: 0.2rem 0.2rem 0.35rem 0.35rem;
+  background: radial-gradient(circle at 38% 30%, #fff8d8, #e8c15a 42%, #a97820 80%);
+  box-shadow: inset 0 0 0 0.08rem rgba(255, 246, 210, 0.7);
+}
+.tg-lock::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  width: 0.32rem;
+  height: 0.32rem;
+  margin-left: -0.16rem;
+  border-radius: 50%;
+  background: #3a2410;
+}
+.tg-lid {
+  position: absolute;
+  left: -2%;
+  right: -2%;
+  bottom: 56%;
+  height: 46%;
+  transform-origin: 50% 100%;
+  animation: tg-lid 0.72s cubic-bezier(0.45, 0.05, 0.2, 1) 0.62s both;
+}
+.tg-lid-face {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, #f6dc8e 0%, #d7a441 28%, #8a5520 100%);
+  border: 0.16rem solid #ffe9a0;
+  border-bottom: none;
+  border-radius: 2.4rem 2.4rem 0.2rem 0.2rem;
+  box-shadow: inset 0 0.4rem 0 rgba(255, 250, 220, 0.65);
+}
+.tg-lid-band {
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  top: 42%;
+  height: 0.48rem;
+  background: linear-gradient(180deg, #fff6c8, #c4922a);
+  border-radius: 0.1rem;
+}
+.tg-mouth {
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  top: 22%;
+  height: 30%;
+  z-index: 2;
+  border-radius: 40%;
+  background: radial-gradient(ellipse at center, #5a320c 0%, #2a1608 55%, #120904 100%);
+  box-shadow: inset 0 0 1.4rem rgba(255, 210, 90, 0.85), 0 0 0.6rem rgba(255, 186, 60, 0.35);
+  opacity: 0;
+  animation: tg-fadein 0.28s linear 1.05s forwards;
+}
+.tg-burst {
+  position: absolute;
+  left: 50%;
+  top: 28%;
+  width: 9rem;
+  height: 9rem;
+  margin: -4.5rem 0 0 -4.5rem;
+  background: radial-gradient(circle, rgba(255, 252, 240, 0.95) 0%, rgba(255, 214, 90, 0.55) 28%, rgba(255, 80, 170, 0) 70%);
+  opacity: 0;
+  animation: tg-burst 0.75s ease-out 1.02s forwards;
+}
+.tg-spark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0.7rem;
+  height: 0.7rem;
+  margin: -0.35rem 0 0 -0.35rem;
+  border-radius: 50%;
+  opacity: 0;
+  animation: tg-spark 0.85s ease-out var(--delay) forwards;
+}
+.tg-spark-gold {
+  background: radial-gradient(circle at 35% 32%, #fff8dc, #f0b429 60%, #8a5a12);
+}
+.tg-spark-magenta {
+  background: radial-gradient(circle at 35% 32%, #fff, #ff8ad4 32%, #ff2a6d 74%, #6a1460);
+}
+.tg-spark-cyan {
+  background: radial-gradient(circle at 35% 32%, #fff, #bff7ff 30%, #05d9e8 72%, #0a6a78);
+}
+.tg-spark-violet {
+  background: radial-gradient(circle at 35% 32%, #fff, #e4c6ff 30%, #b967ff 72%, #5a2ea8);
+}
+
+.tg-word {
+  position: absolute;
+  left: 50%;
+  top: 8vh;
+  z-index: 6;
+  display: flex;
+  align-items: flex-end;
+  height: 6.8em;
+  font-size: 1rem;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.tg-word::after {
+  content: "";
+  position: absolute;
+  top: -8%;
+  bottom: -8%;
+  left: 0;
+  width: 24%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.8), transparent);
+  opacity: 0;
+  transform: translate3d(-160%, 0, 0);
+  pointer-events: none;
+}
+.tg-play .tg-word::after {
+  animation: tg-glint 0.65s ease-in-out 2.8s forwards;
+}
+.tg-let {
+  position: relative;
+  height: 6.8em;
+  margin-right: 0.55em;
+  flex: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.tg-let:last-child {
+  margin-right: 0;
+}
+.tg-fill,
+.tg-gem-letter {
+  font-family: var(--font-display);
+  font-weight: 900;
+  line-height: 0.82;
+  display: block;
+  color: #f0c14d;
+}
+.tg-fill-cap {
+  font-size: 6.5em;
+}
+.tg-fill-low {
+  font-size: 5em;
+}
+.tg-gem-letter {
+  font-size: 5.35em;
+}
+.tg-fill {
+  position: relative;
+  z-index: 2;
+  opacity: 0;
+  text-shadow: 0 0.07em 0 #5c380c;
+}
+.tg-play .tg-fill {
+  animation: tg-mint 0.36s ease-out var(--mint) forwards;
+}
+.tg-gem-letter,
+.tg-stone {
+  opacity: 0;
+}
+.tg-stone {
+  display: block;
+  width: 4.7em;
+  height: 4.7em;
+  margin-bottom: 0.28em;
+}
+.tg-stone svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .tg-fill {
+    background-image: linear-gradient(180deg, #fff8dc 0%, #ffe9a8 24%, #f5c14d 52%, #e09a1a 78%, #a86b12 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .tg-gem-letter {
+    background-image: linear-gradient(118deg, #ffffff 0% 9%, #ffb4ea 9% 24%, #ff2a8a 24% 42%, #ffffff 42% 47%, #c084ff 47% 64%, #05d9e8 64% 74%, #ff71ce 74% 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+.tg-coin {
+  position: absolute;
+  width: var(--s, 1.3em);
+  height: var(--s, 1.3em);
+  margin-left: calc(var(--s, 1.3em) / -2);
+  margin-top: calc(var(--s, 1.3em) / -2);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 32%, #fff8dc 0%, #ffe08a 26%, #f0b429 58%, #b6791a 82%, #6e4a10 100%);
+  box-shadow: inset 0 0 0 0.1rem rgba(255, 246, 210, 0.75), inset 0 0 0 0.18rem rgba(122, 74, 16, 0.45);
+  opacity: 0;
+  z-index: 1;
+}
+.tg-play .tg-coin,
+.tg-play .tg-stone,
+.tg-play .tg-gem-letter {
+  animation: tg-fly 0.82s cubic-bezier(0.16, 0.75, 0.22, 1) var(--delay) forwards;
+}
+
+.tg-credit {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 31vh;
+  z-index: 6;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 2.15rem;
+  letter-spacing: 0.16em;
+  color: #ffe7a3;
+  text-shadow: 0 0.08em 0 #8a5a12, 0 0 0.4em rgba(240, 180, 60, 0.35);
+  opacity: 0;
+  animation: tg-stamp 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) 3.35s forwards;
+}
+.tg-tag {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 39vh;
+  z-index: 6;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 2.3rem;
+  letter-spacing: 0.12em;
+}
+.tg-tag span {
+  display: inline-block;
+  margin: 0 0.35rem;
+  opacity: 0;
+}
+.tg-tag span:nth-child(1) {
+  color: #7ef6ff;
+  text-shadow: 0 0 0.45em rgba(5, 217, 232, 0.75);
+  animation: tg-pop 0.4s cubic-bezier(0.2, 0.9, 0.2, 1) 3.7s forwards;
+}
+.tg-tag span:nth-child(2) {
+  color: #ff8ad4;
+  text-shadow: 0 0 0.45em rgba(255, 42, 109, 0.7);
+  animation: tg-pop 0.4s cubic-bezier(0.2, 0.9, 0.2, 1) 3.92s forwards;
+}
+.tg-tag span:nth-child(3) {
+  color: #ffe08a;
+  text-shadow: 0 0 0.45em rgba(255, 210, 80, 0.65);
+  animation: tg-pop 0.4s cubic-bezier(0.2, 0.9, 0.2, 1) 4.14s forwards;
+}
+.boot-treasure .boot-hint {
+  bottom: 1.6vh;
+  color: #ffe7a3;
+  text-shadow: 0 0 0.4em rgba(255, 210, 80, 0.4);
+  animation: tg-fadein 0.3s linear 4.4s forwards;
+  z-index: 8;
+}
+.boot-treasure .boot-version {
+  color: #eadcff;
+  animation: tg-fadein 0.3s linear 4.45s forwards;
+  z-index: 8;
+}
+.boot-treasure .boot-wait {
+  z-index: 8;
+}
+
+@keyframes tg-rise {
+  0% { transform: translate3d(0, 62%, 0) rotate(0deg); }
+  42% { transform: translate3d(0, 16%, 0) rotate(-1.4deg); }
+  72% { transform: translate3d(0, 3%, 0) rotate(0.8deg); }
+  100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+}
+@keyframes tg-mound {
+  0% { transform: scale(1.12, 1.18); }
+  100% { transform: none; }
+}
+@keyframes tg-dirt {
+  0% { opacity: 0; transform: translate3d(0, 0, 0) rotate(0deg); }
+  22% { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(var(--dx), var(--dy), 0) rotate(var(--rot)); }
+}
+@keyframes tg-lid {
+  0% { transform: translate3d(0, 0, 0) rotateX(0deg); }
+  65% { transform: translate3d(0, -2.1rem, 0) rotateX(-48deg); }
+  100% { transform: translate3d(0, -1.5rem, 0) rotateX(-38deg); }
+}
+@keyframes tg-burst {
+  0% { opacity: 0; transform: scale(0.2); }
+  32% { opacity: 1; transform: scale(1.35); }
+  100% { opacity: 0; transform: scale(2.15); }
+}
+@keyframes tg-spark {
+  0% { opacity: 0; transform: translate3d(0, 0, 0) scale(0.4) rotate(0deg); }
+  28% { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(var(--ex), var(--ey), 0) scale(0.55) rotate(var(--spin)); }
+}
+@keyframes tg-fly {
+  0% { opacity: 0; transform: translate3d(var(--sx), var(--sy), 0) rotate(0deg) scale(0.4); }
+  10% { opacity: 1; transform: translate3d(var(--sx), var(--sy), 0) rotate(0deg) scale(0.72); }
+  72% { transform: translate3d(calc(var(--sx) * 0.14), calc(var(--sy) * 0.06 - 1.35rem), 0) rotate(var(--spin)) scale(1.06); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
+}
+@keyframes tg-mint {
+  0% { opacity: 0; transform: translate3d(0, 0.35rem, 0) scale(0.94); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes tg-glint {
+  0% { opacity: 0; transform: translate3d(-160%, 0, 0); }
+  18% { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(460%, 0, 0); }
+}
+@keyframes tg-stamp {
+  0% { opacity: 0; transform: scale(1.42) rotate(-1.4deg); }
+  62% { opacity: 1; transform: scale(0.96) rotate(0deg); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes tg-pop {
+  0% { opacity: 0; transform: translate3d(0, 0.7rem, 0) rotate(-7deg) scale(0.72); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes tg-fadein {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes tg-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Skip before the lineup is in: hold the finished card, don't keep digging. */
+.boot-treasure.tg-still .tg-chest,
+.boot-treasure.boot-hold .tg-chest,
+.boot-treasure.tg-still .tg-mound,
+.boot-treasure.boot-hold .tg-mound {
+  animation: none;
+  transform: none;
+}
+.boot-treasure.tg-still .tg-lid,
+.boot-treasure.boot-hold .tg-lid {
+  animation: none;
+  transform: translate3d(0, -1.5rem, 0) rotateX(-38deg);
+}
+.boot-treasure.tg-still .tg-coin,
+.boot-treasure.boot-hold .tg-coin,
+.boot-treasure.tg-still .tg-stone,
+.boot-treasure.boot-hold .tg-stone,
+.boot-treasure.tg-still .tg-gem-letter,
+.boot-treasure.boot-hold .tg-gem-letter,
+.boot-treasure.tg-still .tg-fill,
+.boot-treasure.boot-hold .tg-fill,
+.boot-treasure.tg-still .tg-credit,
+.boot-treasure.boot-hold .tg-credit,
+.boot-treasure.tg-still .tg-tag span,
+.boot-treasure.boot-hold .tg-tag span,
+.boot-treasure.tg-still .tg-mouth,
+.boot-treasure.boot-hold .tg-mouth {
+  animation: none;
+  opacity: 1;
+  transform: none;
+}
+.boot-treasure.tg-still .tg-dirt,
+.boot-treasure.boot-hold .tg-dirt,
+.boot-treasure.tg-still .tg-burst,
+.boot-treasure.boot-hold .tg-burst,
+.boot-treasure.tg-still .tg-spark,
+.boot-treasure.boot-hold .tg-spark,
+.boot-treasure.tg-still .tg-word::after,
+.boot-treasure.boot-hold .tg-word::after {
+  animation: none;
+  opacity: 0;
+}
+
+@media (max-aspect-ratio: 1/1) {
+  .tg-word { font-size: 0.64rem; top: 6vh; }
+  .tg-credit { font-size: 1.25rem; letter-spacing: 0.08em; top: 30vh; }
+  .tg-tag { font-size: 1.35rem; top: 38vh; }
+  .tg-chest { width: 14rem; height: 8rem; margin-left: -7rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boot-treasure {
+    animation: tg-fade 0.45s ease;
+  }
+  .boot-treasure .tg-chest,
+  .boot-treasure .tg-mound {
+    animation: none !important;
+    transform: none !important;
+  }
+  .boot-treasure .tg-lid {
+    animation: none !important;
+    transform: translate3d(0, -1.5rem, 0) rotateX(-38deg) !important;
+  }
+  .boot-treasure .tg-coin,
+  .boot-treasure .tg-stone,
+  .boot-treasure .tg-gem-letter,
+  .boot-treasure .tg-fill,
+  .boot-treasure .tg-credit,
+  .boot-treasure .tg-tag span,
+  .boot-treasure .tg-mouth,
+  .boot-treasure .boot-hint,
+  .boot-treasure .boot-version {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .boot-treasure .tg-dirt,
+  .boot-treasure .tg-burst,
+  .boot-treasure .tg-spark,
+  .boot-treasure .tg-word::after {
+    animation: none !important;
+    opacity: 0 !important;
+  }
+}

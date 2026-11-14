@@ -255,6 +255,197 @@ export function searchStore(shelves, text) {
   return out;
 }
 
+// Family rows from Nova's shelf plan (2026-11-08), the "What feeds Grok's library-visual work"
+// section. A row is a label over the per-channel shelves it names. channels are dial keys:
+// "17" is that number with no sub-channel, "17-2" is the sub-channel. Pack shelves (30 and up)
+// match the number in the pack's slug (p-…-30), so they show up when that pack is loaded and
+// stay on the row even if the dial number was taken. A channel the plan lists twice (17, 33,
+// 44, 46) is the same shelf under both labels: the films are not copied onto a second shelf.
+// Anything unnamed still shows, in "The rest of the store".
+//   { id, name, icon, blurb, channels: ["1", "17-2"], slugs?: ["midnight-noir"] }
+export const SHELF_PLAN = [
+  { id: "western", name: "Western Row", icon: "🌵", blurb: "High Noon, the singing cowboys, and Trail TV.", channels: ["1", "2", "3"] },
+  { id: "horror", name: "Horror Row", icon: "🦇", blurb: "Creature features, the drive-in, and horror packs when they're loaded.", channels: ["7", "26", "32", "35", "44"] },
+  { id: "sci-fi", name: "Sci-Fi Row", icon: "🛸", blurb: "Mission Control, and the sci-fi packs when they're loaded.", channels: ["17", "30", "31", "33", "46"] },
+  { id: "noir", name: "Noir Row", icon: "🕵️", blurb: "Cliffhangers and Midnight Noir.", channels: ["5", "6"] },
+  { id: "comedy", name: "Comedy Row", icon: "😂", blurb: "Laugh Track.", channels: ["10"] },
+  { id: "silent", name: "Silent Row", icon: "🎞️", blurb: "Silent Era.", channels: ["9"] },
+  { id: "space", name: "Space Row", icon: "🚀", blurb: "Mission Control and The Wild Blue.", channels: ["17", "17-2"] },
+  { id: "world", name: "World Row", icon: "💬", blurb: "Subtítulos.", channels: ["23"] },
+  { id: "eighties", name: "80s Row", icon: "📼", blurb: "80s packs, when they're loaded.", channels: ["33", "34", "43", "44"] },
+  { id: "nineties", name: "90s Row", icon: "📼", blurb: "90s packs, when they're loaded.", channels: ["35", "36", "45", "46"] },
+  { id: "anime", name: "Anime Row", icon: "🗾", blurb: "Anime films, when that pack is loaded. Series stay on the air, not on a tape.", channels: ["40"] },
+];
+
+// A film on the shelf and the catalog book it comes from, or 111 and A Christmas Carol.
+// Every id and title here is one that is in the shipped lineup, the catalog, or Pearly Gates.
+// Radio dramatizations of Holmes, Dracula, and Poe are not tagged: the shipped radio channels
+// have no program under those titles.
+export const CROSS_LINKS = [
+  {
+    bookId: "phantomofopera00lero",
+    bookTitle: "The phantom of the opera",
+    films: [{ id: "ThePhantomoftheOpera", title: "The Phantom of the Opera" }],
+  },
+  {
+    bookId: "strangecaseofdr00stevuoft",
+    bookTitle: "The strange case of Dr. Jekyll and Mr. Hyde. Illustrated by Charles Raymond Macauley",
+    films: [{ id: "DrJekyllandMrHyde", title: "Dr. Jekyll and Mr. Hyde" }],
+  },
+  {
+    bookId: "hunchbackofnotre1hugo",
+    bookTitle: "The Hunchback of Notre-Dame",
+    films: [{ id: "The_Hunchback_of_Notre_Dame", title: "The Hunchback of Notre Dame" }],
+  },
+  {
+    bookId: "AlicesAdventuresInWonderland",
+    bookTitle: "Alice's Adventures In Wonderland",
+    films: [
+      { id: "AliceinWonderland1915", title: "Alice in Wonderland" },
+      { id: "AliceInWonderland1915_503", title: "Alice In Wonderland" },
+    ],
+  },
+  {
+    bookId: "draculabr00stokuoft",
+    bookTitle: "Dracula",
+    films: [{ id: "Nosferatu_most_complete_version_93_mins.", title: "Nosferatu, eine Symphonie des Grauens (A Symphony of Horror)" }],
+  },
+  {
+    bookId: "christmascar00dick",
+    bookTitle: "A Christmas carol",
+    station: { number: 111, slug: "pearly-gates", name: "Pearly Gates", filmId: "silent-a-christmas-carol", filmTitle: "A Christmas Carol" },
+  },
+];
+
+// Tags for a tape: "From the book", when this film is one of the linked features.
+export function filmTags(itemId) {
+  const out = [];
+  CROSS_LINKS.forEach(function (link) {
+    const films = link.films || [];
+    for (let i = 0; i < films.length; i++) {
+      if (films[i].id === itemId) out.push({ tag: "From the book", title: link.bookTitle, bookId: link.bookId });
+    }
+  });
+  return out;
+}
+
+// Tags for a book: the feature on the shelf, and 111 for A Christmas Carol.
+export function bookTags(bookId) {
+  const out = [];
+  CROSS_LINKS.forEach(function (link) {
+    if (link.bookId !== bookId) return;
+    (link.films || []).forEach(function (film) {
+      out.push({ tag: "On film", title: film.title, filmId: film.id });
+    });
+    if (link.station) out.push({ tag: "On " + link.station.number + " " + link.station.name, title: link.station.filmTitle, filmId: link.station.filmId });
+  });
+  return out;
+}
+
+const REST_AISLE = {
+  id: "rest",
+  name: "The rest of the store",
+  icon: "📼",
+  blurb: "Added channels, and anything the shelf plan hasn't named yet.",
+};
+
+function aisleCount(shelves) {
+  let n = 0;
+  shelves.forEach(function (sh) {
+    n += sh.films.length;
+  });
+  return n;
+}
+
+// "17" or "17-2". A sub of 0 counts as the main channel.
+function channelKey(ch) {
+  if (!ch || ch.number == null || ch.number === "") return "";
+  if (ch.sub) return String(ch.number) + "-" + ch.sub;
+  return String(ch.number);
+}
+
+// A pack channel's plan number is the one in its slug (p-pack-name-30), not wherever it landed on the dial.
+function packPlanNumber(ch) {
+  const m = /^p-.+-(\d+)$/.exec((ch && ch.slug) || "");
+  return m ? m[1] : "";
+}
+
+// Which plan key this shelf matches in this row, or "".
+function rowKey(rule, ch) {
+  if (!ch) return "";
+  const keys = rule.channels || [];
+  const pn = packPlanNumber(ch);
+  if (pn) return keys.indexOf(pn) >= 0 ? pn : "";
+  const key = channelKey(ch);
+  if (key && keys.indexOf(key) >= 0) return key;
+  const slugs = rule.slugs || [];
+  if (ch.slug && slugs.indexOf(ch.slug) >= 0) return "slug:" + ch.slug;
+  return "";
+}
+
+function rowIndex(rule, key) {
+  if (key.indexOf("slug:") === 0) {
+    const i = (rule.slugs || []).indexOf(key.slice(5));
+    return (rule.channels || []).length + (i < 0 ? 999 : i);
+  }
+  const i = (rule.channels || []).indexOf(key);
+  return i < 0 ? 999 : i;
+}
+
+// Shelves from storeShelves(), gathered into family rows. plan: a SHELF_PLAN-shaped list, or omit
+// it for the shipped plan. A shelf the plan names twice is listed under both rows (the same shelf,
+// not a copy). Empty rows are left off the floor. Returns [{ id, name, icon, blurb, shelves, count }].
+export function groupAisles(shelves, plan) {
+  const rules = plan || SHELF_PLAN;
+  const aisles = rules.map(function (r) {
+    return { id: r.id, name: r.name, icon: r.icon || "📼", blurb: r.blurb || "", shelves: [], keys: [] };
+  });
+  const rest = { id: REST_AISLE.id, name: REST_AISLE.name, icon: REST_AISLE.icon, blurb: REST_AISLE.blurb, shelves: [] };
+  (shelves || []).forEach(function (sh) {
+    let placed = false;
+    for (let i = 0; i < rules.length; i++) {
+      const key = rowKey(rules[i], sh && sh.ch);
+      if (!key) continue;
+      aisles[i].shelves.push(sh);
+      aisles[i].keys.push(key);
+      placed = true;
+    }
+    if (!placed) rest.shelves.push(sh);
+  });
+  aisles.forEach(function (a, i) {
+    const order = a.shelves.map(function (sh, n) {
+      return { sh: sh, i: rowIndex(rules[i], a.keys[n]) };
+    });
+    order.sort(function (x, y) {
+      return x.i - y.i;
+    });
+    a.shelves = order.map(function (x) {
+      return x.sh;
+    });
+    delete a.keys;
+    a.count = aisleCount(a.shelves);
+  });
+  const out = aisles.filter(function (a) {
+    return a.shelves.length;
+  });
+  if (rest.shelves.length) {
+    rest.count = aisleCount(rest.shelves);
+    out.push(rest);
+  }
+  return out;
+}
+
+// Every film in an aisle, shelves in order, for "browse the whole aisle".
+export function aisleFilms(aisle) {
+  const out = [];
+  ((aisle && aisle.shelves) || []).forEach(function (sh) {
+    sh.films.forEach(function (f) {
+      out.push(f);
+    });
+  });
+  return out;
+}
+
 // ---------- the Reading Room's books ----------
 
 export function bookLoan(lib, id) {

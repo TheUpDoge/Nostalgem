@@ -35,6 +35,17 @@ const LITE_GLASS_COLS = 17; // panes across in the light version
 const GLASS_MS = 66; // a new picture in the glass at most this often
 const LITE_GLASS_MS = 125;
 const GLASS_SEED = 111; // the same window every time
+// A TV's limits (main.js turns them on in the TV app and TV browsers; a computer has none). Measured on a
+// TV-sized screen with the processor slowed 4× (the TV performance PR has the numbers): ASCII at 128
+// characters across, redrawn with every frame of the film, kept a TV's processor busy all the time (0.4–4
+// frames a second, the remote waiting behind it). On a TV it has 80 square characters across, an old
+// terminal's width, and a new picture at most 10 times a second; stained glass a new picture 8 times a
+// second (its cost is the pictures, not the panes: fewer panes or no filter changed nothing); the light
+// version of an SVG look is drawn 400 pixels wide instead of 640 (it's always the light tier: on a TV the
+// light version is where an SVG look starts, main.js lookIsLite).
+const TV_LIMITS = { asciiCols: 80, asciiMs: 100, glassMs: 125, filterWide: 480 };
+// …and on a TV that still struggles (Filter quality: Light, or Auto after the frame-rate watch spoke up).
+const TV_LITE_LIMITS = { asciiCols: 64, asciiMs: 150, glassMs: 250, glassCols: 17, filterWide: 400 };
 // The light through the window: the picture brightened and mostly gray, then each pane's own glass color on
 // top (multiplied, as light through colored glass is), so black-and-white films come out in colors too.
 const GLASS_LIGHT = "grayscale(0.55) contrast(1.35) brightness(1.5) saturate(1.5)";
@@ -176,6 +187,17 @@ export class CanvasLook {
     this.running = false;
     this.frameHandle = 0;
     this.timers = [];
+    this.tv = false;
+    this.limits = {};
+    this.lastPicture = 0;
+    this.pictures = 0; // pictures drawn (tests)
+  }
+
+  // On a TV: the limits above (main.js). more: changes to them, for measuring (?perf=asciiCols:64,…).
+  setTv(on, more) {
+    this.tv = !!on;
+    this.more = more || null;
+    this.setupKey = "";
   }
 
   // The player swapped in a fresh <video> (after a church film, player.js): draw from that one.
@@ -196,12 +218,13 @@ export class CanvasLook {
     this.fit = fit || "contain";
     this.mix = mix || "";
     this.lite = !!lite;
+    this.limits = this.tv ? Object.assign({}, this.lite ? TV_LITE_LIMITS : TV_LIMITS, this.more) : {};
     if (!this.look) {
       this.setupKey = "";
       this.stop();
       return;
     }
-    this.setupKey = this.look.id + (this.lite ? ":lite" : "") + (this.look.filter ? ":" + this.look.filter : "");
+    this.setupKey = this.look.id + (this.lite ? ":lite" : "") + (this.tv ? ":tv" : "") + (this.look.filter ? ":" + this.look.filter : "");
     if (was !== this.setupKey) {
       this.stop();
       this.setup();
@@ -218,8 +241,9 @@ export class CanvasLook {
     this.offsets = null;
     this.panes = null;
     if (look.canvas === "ascii") {
-      this.cols = this.lite ? LITE_COLS : COLS;
-      this.rows = Math.max(16, Math.round(COLS * aspect * 1.0));
+      this.cols = this.limits.asciiCols || (this.lite ? LITE_COLS : COLS);
+      // On a TV, fewer characters in both directions (square cells); elsewhere the rows of the full grid.
+      this.rows = this.limits.asciiCols ? Math.max(12, Math.round(this.cols * aspect)) : Math.max(16, Math.round(COLS * aspect * 1.0));
       this.small = canvas(this.cols, this.rows);
       this.band = canvas(this.cols, this.rows);
       this.tint = canvas(this.cols, this.rows);
@@ -247,8 +271,9 @@ export class CanvasLook {
     } else if (look.canvas === "glass") {
       this.setupGlass(aspect);
     } else if (look.canvas === "filter") {
-      this.out.width = FILTER_WIDE;
-      this.out.height = Math.max(2, Math.round(FILTER_WIDE * aspect));
+      const fw = this.limits.filterWide || FILTER_WIDE;
+      this.out.width = fw;
+      this.out.height = Math.max(2, Math.round(fw * aspect));
       this.small = this.out;
       this.out.classList.remove("pix");
     } else {
@@ -294,7 +319,7 @@ export class CanvasLook {
   setupGlass(aspect) {
     const W = GLASS_WIDE;
     const H = Math.max(2, Math.round(W * aspect));
-    const cols = this.lite ? LITE_GLASS_COLS : GLASS_COLS;
+    const cols = this.limits.glassCols || (this.lite ? LITE_GLASS_COLS : GLASS_COLS);
     const rows = Math.max(6, Math.round(cols * aspect * 1.05));
     this.out.width = W;
     this.out.height = H;
@@ -492,13 +517,19 @@ export class CanvasLook {
       this.out.hidden = true;
       return;
     }
+    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
     if (look.canvas === "glass") {
       // Glass doesn't need every frame: a TV has better things to do.
-      const now = Date.now();
-      if (now - this.lastGlass < (this.lite ? LITE_GLASS_MS : GLASS_MS) && !this.video.paused) return;
+      if (now - this.lastGlass < (this.limits.glassMs || (this.lite ? LITE_GLASS_MS : GLASS_MS)) && !this.video.paused) return;
       this.lastGlass = now;
     }
+    // On a TV, ASCII needn't follow every frame of the film: its characters shimmer on their own clock.
+    if (look.canvas === "ascii" && this.limits.asciiMs) {
+      if (now - this.lastPicture < this.limits.asciiMs && !this.video.paused) return;
+      this.lastPicture = now;
+    }
     this.out.hidden = false;
+    this.pictures++;
     const v = this.video;
     const s = this.small.getContext("2d");
     const w = this.small.width;

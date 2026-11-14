@@ -69,6 +69,7 @@ export class Menu {
     if (!this.isOpen) return;
     this.isOpen = false;
     this.root.hidden = true;
+    this.root.classList.remove("menu-wide", "place-club", "place-room");
     this.root.innerHTML = "";
     this.el = null;
     this.stack = [];
@@ -167,14 +168,17 @@ export class Menu {
     if (!el || !this.root.contains(el.scroll)) {
       this.root.innerHTML =
         '<div class="m-title"></div><div class="m-sub"></div>' +
+        '<div class="m-banner" hidden></div>' +
         '<div class="m-list"><div class="m-scroll"></div></div><div class="m-foot"></div>';
       el = this.el = {
         title: this.root.querySelector(".m-title"),
         sub: this.root.querySelector(".m-sub"),
+        banner: this.root.querySelector(".m-banner"),
         list: this.root.querySelector(".m-list"),
         scroll: this.root.querySelector(".m-scroll"),
         foot: this.root.querySelector(".m-foot"),
         html: null,
+        bannerHtml: null,
         foot0: null,
         page: null,
         shift: -1,
@@ -182,8 +186,17 @@ export class Menu {
     }
     const title = resolve(t.page.title);
     const sub = resolve(t.page.sub) || "";
+    const banner = resolve(t.page.banner) || "";
+    this.root.classList.toggle("menu-wide", !!t.page.wide);
+    this.root.classList.toggle("place-club", t.page.place === "club");
+    this.root.classList.toggle("place-room", t.page.place === "room");
     if (el.title.textContent !== title) el.title.textContent = title;
     if (el.sub.textContent !== sub) el.sub.textContent = sub;
+    if (el.bannerHtml !== banner) {
+      el.banner.innerHTML = banner;
+      el.banner.hidden = !banner;
+      el.bannerHtml = banner;
+    }
     if (el.html !== html) {
       el.scroll.innerHTML = html;
       el.html = html;

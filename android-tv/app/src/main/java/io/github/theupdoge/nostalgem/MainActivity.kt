@@ -2,17 +2,29 @@ package io.github.theupdoge.nostalgem
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Path
+import android.media.AudioManager
 import android.net.ConnectivityManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
+import android.view.Gravity
 import android.view.InputDevice
+import android.view.KeyCharacterMap
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -21,9 +33,12 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.FrameLayout
+import androidx.webkit.JavaScriptReplyProxy
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import org.json.JSONObject
 import java.net.Inet4Address
 import java.net.NetworkInterface
 
@@ -37,13 +52,28 @@ import java.net.NetworkInterface
  * (channel up/down, play/pause, guide, info, the colored keys, Back) handed to the page, and this TV's
  * Wi-Fi address, so a phone remote on the same Wi-Fi can reach it directly.
  *
- * The secret link-out stations (777's arcade and friends) open their sites right here on the TV. While
- * one is on screen, every key and controller button goes to it, so its games play with a controller;
- * the remote's Back steps back through the site and then home to NostalGem.
+ * The secret link-out stations (777's arcade and friends) open their sites right here on the TV, in a
+ * second view over NostalGem, so NostalGem keeps running underneath and the phone remote stays linked.
+ * While one is on screen, every key and controller button goes to it, so its games play with a
+ * controller; the remote's Back steps back through the site and then home to NostalGem.
+ *
+ * The phone remote's Mouse page (js/pointer.js): the page hands its messages to this activity, which draws
+ * a pointer over whatever is on screen and presses there for real — a touch for a click, a mouse hovering
+ * for a move, the wheel for a scroll, a keyboard's keys and letters — on NostalGem, the YouTube player
+ * or a link-out station's site alike.
+ *
+ * Screen shape 4:3 (Menu ▸ Picture & sound, for an old CRT TV): the page puts NostalGem in a 4:3 box in the
+ * middle of the screen and tells this activity, which keeps its own two pieces in the same box: the
+ * pointer, and a link-out station's site.
  */
 class MainActivity : Activity() {
 
+    private lateinit var stage: FrameLayout
     private lateinit var web: WebView
+    private lateinit var pointer: PointerView
+    private var away: WebView? = null
+    private var box43 = false // Screen shape 4:3: the set is a 4:3 box in the middle of the screen
+    private var pageReply: JavaScriptReplyProxy? = null
     private val main = Handler(Looper.getMainLooper())
     private var usingBundled = false
     private var siteLoaded = false
@@ -77,8 +107,8 @@ class MainActivity : Activity() {
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
                     assetLoader.shouldInterceptRequest(request.url)
 
-                // The TV stays on NostalGem, except for the link-out stations' own sites. While one of those is
-                // on screen, its frames (a game's player) may load from anywhere.
+                // The TV stays on NostalGem. (An older page sends the TV itself to a link-out station's site;
+                // while one of those is on screen, its frames, a game's player, may load from anywhere.)
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     if (isOurs(request.url) || isAway(request.url)) return false
                     return request.isForMainFrame || home()
@@ -101,25 +131,37 @@ class MainActivity : Activity() {
                 }
             }
 
-            webChromeClient = object : WebChromeClient() {
-                // Without this, WebView paints a grey play-button poster before every program starts.
-                override fun getDefaultVideoPoster(): Bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
-            }
+            webChromeClient = quietPosters()
         }
 
-        // The page asks for this TV's Wi-Fi address; only pages from this app or its site get an answer.
+        // The page asks for this TV's Wi-Fi address, opens link-out sites and passes on the phone's
+        // pointer; only pages from this app or its site are heard.
         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
-            WebViewCompat.addWebMessageListener(web, "NostalGemTV", setOf("https://$APP_HOST", "https://$SITE_HOST")) { _, _, _, isMainFrame, reply ->
-                if (isMainFrame) reply.postMessage(hello())
+            WebViewCompat.addWebMessageListener(web, "NostalGemTV", setOf("https://$APP_HOST", "https://$SITE_HOST")) { _, message, _, isMainFrame, reply ->
+                if (isMainFrame) {
+                    pageReply = reply
+                    fromPage(message.data ?: "", reply)
+                }
             }
         }
 
-        setContentView(web)
+        pointer = PointerView(this)
+        stage = FrameLayout(this).apply {
+            setBackgroundColor(Color.BLACK)
+            addView(web, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+            addView(pointer, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        }
+        setContentView(stage)
         hideSystemBars()
         web.loadUrl(SITE_URL)
         // A slow network: don't sit on a black screen.
         main.postDelayed({ if (!siteLoaded) useBundled() }, SITE_TIMEOUT_MS)
         web.requestFocus()
+    }
+
+    private fun quietPosters() = object : WebChromeClient() {
+        // Without this, WebView paints a grey play-button poster before every program starts.
+        override fun getDefaultVideoPoster(): Bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
     }
 
     private fun isOurs(url: Uri): Boolean =
@@ -132,7 +174,7 @@ class MainActivity : Activity() {
     }
 
     /** Is the TV showing NostalGem (rather than a link-out station's site) right now? */
-    private fun home(): Boolean = web.url?.let { isOurs(Uri.parse(it)) } ?: true
+    private fun home(): Boolean = away == null && (web.url?.let { isOurs(Uri.parse(it)) } ?: true)
 
     private fun useBundled() {
         if (usingBundled) return
@@ -141,8 +183,10 @@ class MainActivity : Activity() {
         web.loadUrl(BUNDLED_URL)
     }
 
-    /** {"lan":["192.168.1.23"],"app":"1.0.21","can":["open"]}: this TV's IPv4 addresses on the local
-     * network, the app's version, and what it can do for the page ("open": link-out sites, right here). */
+    /** {"lan":["192.168.1.23"],"app":"1.0.21","can":["open","overlay","pointer","box"]}: this TV's IPv4
+     * addresses on the local network, the app's version, and what it can do for the page ("open": link-out
+     * sites right here; "overlay": over NostalGem, which keeps running; "pointer": the phone's Mouse page;
+     * "box": it keeps its pointer and those sites to the 4:3 box when the page says the shape is 4:3). */
     private fun hello(): String {
         val ips = lanAddresses().joinToString(",") { "\"" + it + "\"" }
         val version = try {
@@ -150,7 +194,343 @@ class MainActivity : Activity() {
         } catch (e: Exception) {
             ""
         }
-        return "{\"lan\":[" + ips + "],\"app\":\"" + version.replace("\"", "") + "\",\"can\":[\"open\"]}"
+        return "{\"lan\":[" + ips + "],\"app\":\"" + version.replace("\"", "") + "\",\"can\":[\"open\",\"overlay\",\"pointer\",\"box\"]}"
+    }
+
+    // ---------- what the page asks for ----------
+    private fun fromPage(data: String, reply: JavaScriptReplyProxy) {
+        val m: JSONObject? = try {
+            if (data.startsWith("{")) JSONObject(data) else null
+        } catch (e: Exception) {
+            null
+        }
+        if (m == null) {
+            reply.postMessage(hello()) // "hello" (all an older page ever sends)
+            return
+        }
+        when (m.optString("t")) {
+            "open" -> openAway(m.optString("url"))
+            "close" -> closeAway(true)
+            "back" -> comeHome()
+            "mute" -> muteAway()
+            "ptr" -> movePointer(m.optDouble("dx", 0.0), m.optDouble("dy", 0.0))
+            "click" -> click()
+            "press" -> press(m.optBoolean("down", false))
+            "scroll" -> scroll(m.optDouble("dx", 0.0), m.optDouble("dy", 0.0))
+            "kbd" -> kbd(m.optString("key"), if (!m.has("down") || m.isNull("down")) null else m.optBoolean("down"))
+            "text" -> type(m.optString("s").take(200))
+            "shape" -> setShape(m.optString("s") == "43")
+        }
+    }
+
+    private fun tellPage(json: String) {
+        try {
+            pageReply?.postMessage(json)
+        } catch (e: Exception) {
+            // the page is reloading; it asks again when it's back
+        }
+    }
+
+    // ---------- Screen shape 4:3: the box in the middle of the screen ----------
+    /** How wide the set is: the whole screen, or with 4:3 on a box as wide as four thirds of the screen's
+     * height (the same box the page draws NostalGem in: css/app.css, html.shape-43). A screen that is
+     * already 4:3 or narrower is all set. */
+    private fun boxWidth(): Int {
+        val w = stage.width
+        val h = stage.height
+        if (!box43 || w <= 0 || h <= 0) return w
+        return minOf(w, Math.round(h * 4f / 3f))
+    }
+
+    private fun boxLeft(): Int = (stage.width - boxWidth()) / 2
+
+    /** Where a link-out station's site goes: the whole screen, or the box. */
+    private fun awayLayout(): FrameLayout.LayoutParams {
+        val bw = boxWidth()
+        return if (bw > 0 && bw < stage.width) {
+            FrameLayout.LayoutParams(bw, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.CENTER_HORIZONTAL)
+        } else {
+            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        }
+    }
+
+    /** The page says which shape the screen is set to (at start-up, and when the setting changes). */
+    private fun setShape(on: Boolean) {
+        if (box43 == on) return
+        letGo()
+        box43 = on
+        away?.layoutParams = awayLayout()
+        if (pointer.px >= 0f) {
+            val left = boxLeft().toFloat()
+            pointer.px = pointer.px.coerceIn(left, maxOf(left, left + boxWidth() - 1f))
+            pointer.invalidate()
+        }
+    }
+
+    // ---------- a link-out station's site, over NostalGem ----------
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun openAway(url: String) {
+        val uri = Uri.parse(url)
+        if (!isAway(uri)) return
+        closeAway(false)
+        letGo()
+        val v = WebView(this).apply {
+            setBackgroundColor(Color.BLACK)
+            isFocusable = true
+            isFocusableInTouchMode = true
+            settings.javaScriptEnabled = true
+            settings.domStorageEnabled = true
+            settings.mediaPlaybackRequiresUserGesture = false
+            settings.allowFileAccess = false
+            settings.allowContentAccess = false
+            webViewClient = object : WebViewClient() {
+                // The site's own pages; its frames (a game's player) may load from anywhere.
+                override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
+                    !isAway(request.url) && request.isForMainFrame
+
+                override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                    if (request.isForMainFrame) closeAway(true)
+                }
+
+                override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
+                    if (request.isForMainFrame && response.statusCode >= 400) closeAway(true)
+                }
+            }
+            webChromeClient = quietPosters()
+        }
+        away = v
+        stage.addView(v, stage.indexOfChild(pointer), awayLayout())
+        v.loadUrl(uri.toString())
+        v.requestFocus()
+        tellPage("{\"t\":\"away\"}")
+    }
+
+    /** Close the site and show NostalGem again; tell: let the page know, so its program comes back. */
+    private fun closeAway(tell: Boolean) {
+        val v = away ?: return
+        letGo()
+        away = null
+        stage.removeView(v)
+        v.stopLoading()
+        v.destroy()
+        if (mutedAway) {
+            mutedAway = false
+            audio()?.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_UNMUTE, 0)
+        }
+        web.requestFocus()
+        if (tell) tellPage("{\"t\":\"home\"}")
+    }
+
+    // The phone's mute while a site is up: the site's sound, put back on coming home.
+    private var mutedAway = false
+
+    private fun audio(): AudioManager? = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+
+    private fun muteAway() {
+        if (away == null) return
+        mutedAway = !mutedAway
+        audio()?.adjustStreamVolume(AudioManager.STREAM_MUSIC, if (mutedAway) AudioManager.ADJUST_MUTE else AudioManager.ADJUST_UNMUTE, AudioManager.FLAG_SHOW_UI)
+    }
+
+    // ---------- the phone's pointer and keys ----------
+    /** Whatever is on screen: a link-out station's site, or NostalGem. */
+    private fun front(): WebView = away ?: web
+
+    private val hidePointer = Runnable { pointer.visibility = View.GONE }
+
+    private fun showPointer() {
+        if (pointer.px < 0) {
+            pointer.px = stage.width / 2f
+            pointer.py = stage.height / 2f
+        }
+        pointer.visibility = View.VISIBLE
+        pointer.invalidate()
+        main.removeCallbacks(hidePointer)
+        main.postDelayed(hidePointer, POINTER_HIDE_MS)
+    }
+
+    private fun movePointer(dx: Double, dy: Double) {
+        val w = stage.width.toFloat()
+        val h = stage.height.toFloat()
+        if (w <= 0f || h <= 0f) return
+        showPointer()
+        // Fractions of the set's width both ways, so a swipe goes as far up as across. With 4:3 on, the set
+        // is the box, and the pointer stays in it: an old TV doesn't show the black at the sides.
+        val bw = boxWidth().toFloat()
+        val left = boxLeft().toFloat()
+        pointer.px = (pointer.px + (dx.coerceIn(-1.0, 1.0) * bw).toFloat()).coerceIn(left, maxOf(left, left + bw - 1f))
+        pointer.py = (pointer.py + (dy.coerceIn(-1.0, 1.0) * bw).toFloat()).coerceIn(0f, h - 1f)
+        pointer.invalidate()
+        if (pressing) touch(MotionEvent.ACTION_MOVE) else hover()
+    }
+
+    // A mouse moving over the page (its :hover and mousemove): no button down.
+    private fun hover() {
+        val now = SystemClock.uptimeMillis()
+        val ev = mouseEvent(now, MotionEvent.ACTION_HOVER_MOVE, 0f, 0f)
+        front().dispatchGenericMotionEvent(ev)
+        ev.recycle()
+    }
+
+    private fun mouseEvent(at: Long, action: Int, vscroll: Float, hscroll: Float): MotionEvent {
+        val props = arrayOf(MotionEvent.PointerProperties().apply {
+            id = 0
+            toolType = MotionEvent.TOOL_TYPE_MOUSE
+        })
+        val to = front()
+        val coords = arrayOf(MotionEvent.PointerCoords().apply {
+            // where the pointer is, counted from the front view's own corner (a site in the 4:3 box starts
+            // in from the screen's edge)
+            x = pointer.px - to.left
+            y = pointer.py - to.top
+            pressure = 0f
+            size = 1f
+            setAxisValue(MotionEvent.AXIS_VSCROLL, vscroll)
+            setAxisValue(MotionEvent.AXIS_HSCROLL, hscroll)
+        })
+        return MotionEvent.obtain(at, at, action, 1, props, coords, 0, 0, 1f, 1f, 0, 0, InputDevice.SOURCE_MOUSE, 0)
+    }
+
+    // A click is a tap where the pointer is: every page and player takes a tap.
+    private var pressDownAt = 0L
+    private var pressing = false
+
+    private fun touch(action: Int) {
+        val now = SystemClock.uptimeMillis()
+        if (action == MotionEvent.ACTION_DOWN) pressDownAt = now
+        val props = arrayOf(MotionEvent.PointerProperties().apply {
+            id = 0
+            toolType = MotionEvent.TOOL_TYPE_FINGER
+        })
+        val to = front()
+        val coords = arrayOf(MotionEvent.PointerCoords().apply {
+            x = pointer.px - to.left
+            y = pointer.py - to.top
+            pressure = 1f
+            size = 1f
+        })
+        val ev = MotionEvent.obtain(pressDownAt, now, action, 1, props, coords, 0, 0, 1f, 1f, 0, 0, InputDevice.SOURCE_TOUCHSCREEN, 0)
+        to.dispatchTouchEvent(ev)
+        ev.recycle()
+    }
+
+    private fun click() {
+        showPointer()
+        if (pressing) return
+        touch(MotionEvent.ACTION_DOWN)
+        main.postDelayed({ touch(MotionEvent.ACTION_UP) }, CLICK_MS)
+    }
+
+    // Hold the button down to drag (a slider, a game's dragging), and let go.
+    private fun press(down: Boolean) {
+        showPointer()
+        if (down && !pressing) {
+            pressing = true
+            touch(MotionEvent.ACTION_DOWN)
+        } else if (!down && pressing) {
+            pressing = false
+            touch(MotionEvent.ACTION_UP)
+        }
+    }
+
+    // The wheel. Down the page is negative on Android's scroll axis.
+    private fun scroll(dx: Double, dy: Double) {
+        showPointer()
+        val w = boxWidth().toDouble()
+        val notch = if (Build.VERSION.SDK_INT >= 26) ViewConfiguration.get(this).scaledVerticalScrollFactor.toDouble() else 64.0 * resources.displayMetrics.density
+        if (w <= 0.0 || notch <= 0.0) return
+        val v = (-dy.coerceIn(-2.0, 2.0) * w / notch).toFloat()
+        val hz = (dx.coerceIn(-2.0, 2.0) * w / notch).toFloat()
+        val ev = mouseEvent(SystemClock.uptimeMillis(), MotionEvent.ACTION_SCROLL, v, hz)
+        front().dispatchGenericMotionEvent(ev)
+        ev.recycle()
+    }
+
+    // Keys: down true holds one (arrows and ⌫ repeat while held, as a keyboard's do), false lets go, null
+    // presses it. A held key the phone never lets go of (a lost message) lets go by itself.
+    private class Held(val code: Int, val downAt: Long, var until: Long, var repeats: Int = 0)
+
+    private val held = HashMap<String, Held>()
+
+    private fun key(code: Int, action: Int, downAt: Long, repeat: Int) {
+        val now = SystemClock.uptimeMillis()
+        val ev = KeyEvent(downAt, now, action, code, repeat, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0, 0, InputDevice.SOURCE_KEYBOARD)
+        front().dispatchKeyEvent(ev)
+    }
+
+    private fun kbd(name: String, down: Boolean?) {
+        val code = keyCodeFor(name)
+        if (code == KeyEvent.KEYCODE_UNKNOWN) return
+        val now = SystemClock.uptimeMillis()
+        val h = held[name]
+        when (down) {
+            null -> {
+                if (h != null) return
+                key(code, KeyEvent.ACTION_DOWN, now, 0)
+                key(code, KeyEvent.ACTION_UP, now, 0)
+            }
+            true -> {
+                if (h != null) {
+                    h.until = now + HOLD_LIMIT_MS
+                    return
+                }
+                val nh = Held(code, now, now + HOLD_LIMIT_MS)
+                held[name] = nh
+                key(code, KeyEvent.ACTION_DOWN, now, 0)
+                main.postDelayed({ holdTick(name, nh) }, if (REPEATS.contains(name)) REPEAT_DELAY_MS else 1000L)
+            }
+            false -> release(name)
+        }
+    }
+
+    private fun holdTick(name: String, h: Held) {
+        if (held[name] !== h) return
+        val now = SystemClock.uptimeMillis()
+        if (now > h.until) {
+            release(name)
+            return
+        }
+        if (REPEATS.contains(name)) {
+            h.repeats++
+            key(h.code, KeyEvent.ACTION_DOWN, h.downAt, h.repeats)
+            main.postDelayed({ holdTick(name, h) }, REPEAT_EVERY_MS)
+        } else {
+            main.postDelayed({ holdTick(name, h) }, 1000L)
+        }
+    }
+
+    private fun release(name: String) {
+        val h = held.remove(name) ?: return
+        key(h.code, KeyEvent.ACTION_UP, h.downAt, 0)
+    }
+
+    /** Let go of every held key and the button (before the screen changes under them). */
+    private fun letGo() {
+        held.keys.toList().forEach { release(it) }
+        if (pressing) {
+            pressing = false
+            touch(MotionEvent.ACTION_UP)
+        }
+    }
+
+    // Typed text: each letter as a keyboard would send it; anything a keyboard can't (an emoji, a letter
+    // this TV's keymap lacks) goes straight into the text field.
+    private val keymap: KeyCharacterMap by lazy { KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD) }
+
+    private fun type(text: String) {
+        val target = front()
+        var i = 0
+        while (i < text.length) {
+            val n = if (Character.isHighSurrogate(text[i]) && i + 1 < text.length) 2 else 1
+            val part = text.substring(i, i + n)
+            i += n
+            val events = if (n == 1) keymap.getEvents(part.toCharArray()) else null
+            if (events != null) {
+                events.forEach { target.dispatchKeyEvent(it) }
+            } else {
+                target.evaluateJavascript("document.execCommand('insertText',false," + JSONObject.quote(part) + ")", null)
+            }
+        }
     }
 
     private fun lanAddresses(): List<String> {
@@ -181,6 +561,11 @@ class MainActivity : Activity() {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // A hand on the TV's remote: the phone's pointer gets out of the way.
+        if (pointer.visibility == View.VISIBLE) {
+            main.removeCallbacks(hidePointer)
+            pointer.visibility = View.GONE
+        }
         if (!home()) return awayKey(event)
         val action = remoteAction(event.keyCode) ?: return super.dispatchKeyEvent(event)
         if (event.action == KeyEvent.ACTION_DOWN) {
@@ -221,14 +606,24 @@ class MainActivity : Activity() {
 
     // Back through the site's own pages, then home to NostalGem.
     private fun comeHome() {
+        val v = away
+        if (v != null) {
+            if (v.canGoBack()) v.goBack() else closeAway(true)
+            return
+        }
         val list = web.copyBackForwardList()
         val i = list.currentIndex
         val prev = if (i > 0) list.getItemAtIndex(i - 1)?.url else null
         if (prev != null) web.goBack() else goHome()
     }
 
-    // Straight home to NostalGem: back to its page in this visit's history, or load it afresh.
+    // Straight home to NostalGem: close the site over it, or (an older page that sent the TV itself
+    // away) back to its page in this visit's history, or load it afresh.
     private fun goHome() {
+        if (away != null) {
+            closeAway(true)
+            return
+        }
         val list = web.copyBackForwardList()
         for (k in list.currentIndex - 1 downTo 0) {
             val u = list.getItemAtIndex(k)?.url ?: continue
@@ -249,7 +644,9 @@ class MainActivity : Activity() {
     }
 
     override fun onPause() {
+        letGo()
         web.evaluateJavascript("window.NP && NP.suspend()", null)
+        away?.onPause()
         web.onPause()
         super.onPause()
     }
@@ -257,12 +654,14 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         web.onResume()
+        away?.onResume()
         hideSystemBars()
         web.evaluateJavascript("window.NP && NP.resume()", null)
     }
 
     override fun onDestroy() {
         main.removeCallbacksAndMessages(null)
+        closeAway(false)
         web.destroy()
         super.onDestroy()
     }
@@ -285,6 +684,58 @@ class MainActivity : Activity() {
             )
     }
 
+    /** The phone's pointer: a mouse arrow in NostalGem's colors, drawn over whatever is on screen. It never
+     * takes a touch itself (it isn't clickable), and fades out when it hasn't moved for a few seconds. */
+    private class PointerView(context: Context) : View(context) {
+        var px = -1f
+        var py = -1f
+        private val k = 1.15f * context.resources.displayMetrics.density
+        private val arrow = Path().apply {
+            // 24 × 32 units, the tip at (2, 2): the same arrow as the page's own (css/app.css .pointer)
+            moveTo(2f, 2f)
+            lineTo(2f, 26f)
+            lineTo(8.4f, 19.8f)
+            lineTo(12.9f, 30.1f)
+            lineTo(17f, 28.3f)
+            lineTo(12.6f, 18.3f)
+            lineTo(21f, 18.3f)
+            close()
+        }
+        private val glow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(170, 255, 42, 109)
+            style = Paint.Style.STROKE
+            strokeWidth = 5f
+            strokeJoin = Paint.Join.ROUND
+        }
+        private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            style = Paint.Style.FILL
+        }
+        private val edge = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(13, 2, 33)
+            style = Paint.Style.STROKE
+            strokeWidth = 1.6f
+            strokeJoin = Paint.Join.ROUND
+        }
+
+        init {
+            isClickable = false
+            isFocusable = false
+            visibility = View.GONE
+        }
+
+        override fun onDraw(canvas: Canvas) {
+            if (px < 0f) return
+            canvas.save()
+            canvas.translate(px - 2f * k, py - 2f * k)
+            canvas.scale(k, k)
+            canvas.drawPath(arrow, glow)
+            canvas.drawPath(arrow, fill)
+            canvas.drawPath(arrow, edge)
+            canvas.restore()
+        }
+    }
+
     companion object {
         const val APP_HOST = WebViewAssetLoader.DEFAULT_DOMAIN
         const val SITE_HOST = "theupdoge.github.io"
@@ -292,6 +743,14 @@ class MainActivity : Activity() {
         const val SITE_URL = "https://$SITE_HOST$SITE_PATH?tv=android"
         const val SITE_TIMEOUT_MS = 15000L
         const val SELECT_HOLD_MS = 1500L
+        const val POINTER_HIDE_MS = 4000L
+        const val CLICK_MS = 40L
+        const val HOLD_LIMIT_MS = 8000L
+        const val REPEAT_DELAY_MS = 400L
+        const val REPEAT_EVERY_MS = 60L
+
+        /** Held keys that repeat, as a keyboard's do. */
+        val REPEATS = setOf("ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Backspace", "Delete")
 
         /** The link-out stations' sites, which open right here on the TV (and their subdomains). */
         val AWAY_HOSTS = listOf("retrogames.cc", "southpark.cc.com", "asciicity.com")
@@ -323,6 +782,33 @@ class MainActivity : Activity() {
             KeyEvent.KEYCODE_PROG_YELLOW -> "yellow"
             KeyEvent.KEYCODE_PROG_BLUE -> "blue"
             else -> null
+        }
+
+        /** The phone's keys (js/link.js KBD_KEYS) as Android key codes: a keyboard's, which the page reads
+         * as ArrowUp, Enter, Escape … and letters. */
+        fun keyCodeFor(name: String): Int = when (name) {
+            "ArrowUp" -> KeyEvent.KEYCODE_DPAD_UP
+            "ArrowDown" -> KeyEvent.KEYCODE_DPAD_DOWN
+            "ArrowLeft" -> KeyEvent.KEYCODE_DPAD_LEFT
+            "ArrowRight" -> KeyEvent.KEYCODE_DPAD_RIGHT
+            "Enter" -> KeyEvent.KEYCODE_ENTER
+            "Escape" -> KeyEvent.KEYCODE_ESCAPE
+            " " -> KeyEvent.KEYCODE_SPACE
+            "Tab" -> KeyEvent.KEYCODE_TAB
+            "Backspace" -> KeyEvent.KEYCODE_DEL
+            "Delete" -> KeyEvent.KEYCODE_FORWARD_DEL
+            "Home" -> KeyEvent.KEYCODE_MOVE_HOME
+            "End" -> KeyEvent.KEYCODE_MOVE_END
+            "PageUp" -> KeyEvent.KEYCODE_PAGE_UP
+            "PageDown" -> KeyEvent.KEYCODE_PAGE_DOWN
+            else -> {
+                val c = if (name.length == 1) name[0] else ' '
+                when (c) {
+                    in 'a'..'z' -> KeyEvent.KEYCODE_A + (c - 'a')
+                    in '0'..'9' -> KeyEvent.KEYCODE_0 + (c - '0')
+                    else -> KeyEvent.KEYCODE_UNKNOWN
+                }
+            }
         }
     }
 }

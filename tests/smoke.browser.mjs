@@ -210,7 +210,7 @@ try {
   lineup.channels.push({ number: 99, sub: 3, slug: "yt-test-3", name: "Test Locked", tagline: "Region lock test", icon: "🔒", color: "#b967ff", kind: "video", offset: 0, items: blocked });
   lineup.channels.push({ number: 99, sub: 4, slug: "yt-test-4", name: "Test Refused", tagline: "Embed refusal test", icon: "⛔", color: "#ff2a6d", kind: "video", offset: 0, items: [{ id: "yt:cfgvideo0001", f: "yt", t: "Refused", d: 12 }] });
   // 99-5: YouTube runs an ad before the show.
-  lineup.channels.push({ number: 99, sub: 5, slug: "yt-test-5", name: "Test Ads", tagline: "Pre-roll ad test", icon: "📺", color: "#ffb86b", kind: "video", offset: 0, items: [{ id: "yt:advideo00001", f: "yt", t: "Behind An Ad", d: 12 }] });
+  lineup.channels.push({ number: 99, sub: 5, slug: "yt-test-5", name: "Test Ads", tagline: "Pre-roll ad test, on a monster movie channel", icon: "📺", color: "#ffb86b", kind: "video", offset: 0, items: [{ id: "yt:advideo00001", f: "yt", t: "Behind An Ad", d: 12 }] });
   // 99-10: a two-digit sub-channel, so 9 9 1 has to wait a beat for a possible 0.
   lineup.channels.push({ number: 99, sub: 10, slug: "yt-test-10", name: "Test Ten", tagline: "Two-digit sub-channel test", icon: "🔟", color: "#05d9e8", kind: "video", offset: 0, items: [{ id: "yt:tenvideo0001", f: "yt", t: "Test Ten", d: 12 }] });
   const fakeYouTube = await readFile(join(fixtures, "fake-youtube.js"), "utf8");
@@ -253,6 +253,21 @@ try {
   check(await page.isVisible("#bug"), "the channel logo shows while watching");
   await key("Enter", 300);
   check(await page.isVisible("#banner"), "OK shows it again");
+  // A key in the page's first quarter second does its job. (The tuner starts with the start-up card now,
+  // so a press can land that early; it used to be dropped as a controller's double press.) The page's
+  // clock reads 120 ms for this one key.
+  await page.evaluate(() => {
+    const real = performance.now;
+    performance.now = () => 120;
+    try {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", keyCode: 39, bubbles: true, cancelable: true }));
+    } finally {
+      performance.now = real;
+    }
+  });
+  await page.waitForTimeout(300);
+  check((await state()).overlay === "menu", "a key pressed in the page's first quarter second is not dropped (▶ opens the menu)");
+  await key("Escape", 300);
 
   // Channel up, then number entry.
   await key("ArrowUp", 900);
@@ -411,6 +426,12 @@ try {
   await page.waitForFunction(() => window.NP.state().mode === "adbreak", null, { timeout: 10000 }).catch(() => {});
   check((await state()).mode === "adbreak" && (await page.isVisible("#card.card-adbreak")), "an ad ahead of a YouTube show gets the ad-break card, not PRESS OK: " + (await page.textContent("#card")).trim().slice(0, 80));
   check(await page.evaluate(() => window.__yt.players[0].muted), "…and the ad is muted");
+  const adLook = await page.evaluate(() => {
+    const c = document.getElementById("card");
+    const sc = c.querySelector(".fscene.fs-horror");
+    return { cls: c.className, scene: !!sc, dim: sc ? Number(getComputedStyle(sc).opacity) : 1, back: getComputedStyle(c).backgroundColor };
+  });
+  check(/fam-horror/.test(adLook.cls) && adLook.scene && adLook.dim < 0.5 && /rgb\(0, 0, 0\)/.test(adLook.back), `…on a monster channel the ad card has the horror scenery, turned down, over black (${adLook.cls}, opacity ${adLook.dim})`);
   const adLoads = (await page.evaluate(() => window.__yt.log)).filter((l) => l.id === "advideo00001").length;
   await key("Enter", 300);
   check((await page.evaluate(() => window.__yt.log)).filter((l) => l.id === "advideo00001").length === adLoads, "OK during the ad doesn't load the video again (which would restart the ad)");
@@ -719,7 +740,7 @@ try {
     };
     await toClub();
     const clubMenu = await page.textContent("#menu");
-    check(/Get a library card/.test(clubMenu) && /Shelves/.test(clubMenu) && /New this week/.test(clubMenu), "Menu ▸ 📼 Video Club has shelves of tapes and offers a library card");
+    check(/Get a library card/.test(clubMenu) && /Rows/.test(clubMenu) && /Western Row\s*\d+ tapes/.test(clubMenu) && /The rest of the store/.test(clubMenu) && /New this week/.test(clubMenu), "Menu ▸ 📼 Video Club has rows of tapes by family, a front rack, and offers a library card");
     await page.click('#menu .m-item:has-text("Get a library card")');
     await page.waitForTimeout(300);
     check(/1\/3/.test(await dialogText()) && /two tapes/.test(await dialogText()), "…signing up starts with how the club works (1/3)");

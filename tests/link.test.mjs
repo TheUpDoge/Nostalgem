@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { makeCode, cleanCode, peerIdFor, prettyCode, remoteUrl, checkMessage, isIPv4, lanCopies, sendLanCopies, linkReport, CODE_LENGTH, PAGES_REMOTE } from "../web/js/link.js";
+import { makeCode, cleanCode, peerIdFor, prettyCode, remoteUrl, checkMessage, isIPv4, lanCopies, sendLanCopies, linkReport, CODE_LENGTH, PAGES_REMOTE, KBD_KEYS, FILE_CHUNK, FILE_MAX, FILE_PIECES, typingDiff } from "../web/js/link.js";
 
 test("pairing codes are six easy-to-read characters", () => {
   for (let i = 0; i < 200; i++) {
@@ -59,6 +59,52 @@ test("messages from a phone are checked", () => {
   assert.equal(checkMessage({ t: "eval", code: "1" }), null);
   assert.equal(checkMessage("chup"), null);
   assert.equal(checkMessage(null), null);
+});
+
+test("the Mouse page's messages are checked: moves and scrolls in bounds, known keys, plain text", () => {
+  assert.deepEqual(checkMessage({ t: "ptr", dx: 0.25, dy: -0.1 }), { t: "ptr", dx: 0.25, dy: -0.1 });
+  for (const bad of [{ dx: 2, dy: 0 }, { dx: "1", dy: 0 }, { dx: NaN, dy: 0 }, { dx: 0 }]) assert.equal(checkMessage(Object.assign({ t: "ptr" }, bad)), null, JSON.stringify(bad));
+  assert.deepEqual(checkMessage({ t: "click", x: 5 }), { t: "click" });
+  assert.deepEqual(checkMessage({ t: "press", down: true }), { t: "press", down: true });
+  assert.deepEqual(checkMessage({ t: "press", down: "yes" }), { t: "press", down: false });
+  assert.deepEqual(checkMessage({ t: "scroll", dx: 0, dy: 1.5 }), { t: "scroll", dx: 0, dy: 1.5 });
+  assert.equal(checkMessage({ t: "scroll", dx: 0, dy: 3 }), null);
+  for (const key of KBD_KEYS.concat(["a", "z", "0", "9"])) assert.deepEqual(checkMessage({ t: "kbd", key, down: true }), { t: "kbd", key, down: true }, key);
+  for (const key of ["F5", "Meta", "A", "ä", "", "ArrowUp ", null]) assert.equal(checkMessage({ t: "kbd", key }), null, String(key));
+  assert.equal(checkMessage({ t: "kbd", key: "Enter" }).down, null, "no down: a press");
+  assert.equal(checkMessage({ t: "kbd", key: "Enter", down: false }).down, false);
+  assert.deepEqual(checkMessage({ t: "text", s: "héllo 👋\u0007\n" }), { t: "text", s: "héllo 👋" });
+  assert.equal(checkMessage({ t: "text", s: "x".repeat(500) }).s.length, 200);
+  assert.equal(checkMessage({ t: "text", s: "\u0000" }), null);
+});
+
+test("a file from the phone comes in checked pieces", () => {
+  const ok = { t: "file", id: "abc123", name: "packs/two.zip", size: 1000, n: 1, i: 0, data: "QUJD" };
+  assert.deepEqual(checkMessage(ok), Object.assign({}, ok, { name: "packs_two.zip" }));
+  assert.equal(FILE_PIECES, Math.ceil(Math.ceil(FILE_MAX / 3) * 4 / FILE_CHUNK));
+  for (const bad of [
+    { id: "a b" },
+    { id: "x".repeat(20) },
+    { name: "" },
+    { size: FILE_MAX + 1 },
+    { size: 0 },
+    { n: FILE_PIECES + 1 },
+    { i: 1 },
+    { i: -1 },
+    { data: "x".repeat(FILE_CHUNK + 1) },
+    { data: "<script>" },
+  ]) {
+    assert.equal(checkMessage(Object.assign({}, ok, bad)), null, JSON.stringify(bad).slice(0, 40));
+  }
+});
+
+test("the phone's keyboard: what to delete and what to add, corrections included", () => {
+  assert.deepEqual(typingDiff("", "lone"), { del: 0, add: "lone" });
+  assert.deepEqual(typingDiff("lone", "lone r"), { del: 0, add: " r" });
+  assert.deepEqual(typingDiff("lone rangr", "lone ranger"), { del: 1, add: "er" });
+  assert.deepEqual(typingDiff("teh", "the "), { del: 2, add: "he " });
+  assert.deepEqual(typingDiff("abc", "ab"), { del: 1, add: "" });
+  assert.deepEqual(typingDiff("abc", ""), { del: 3, add: "" });
 });
 
 test("real addresses for the TV's hidden ones", () => {

@@ -8,13 +8,14 @@ import { actionFor, isTypingTarget, registerTvKeys } from "./remote.js";
 import { load, save } from "./store.js";
 import { archiveLinkQuery, buildChannel, browserFetchJson, metadataUrl } from "./archive.js";
 import { archiveAboutHtml } from "./about.js";
-import { asPack, buildItemsChannel, packChannelDef, packFilesFromZip, packSkipLists, parsePack, validatePack, PACK_MIN_NUMBER, PACK_MAX_NUMBER } from "./packs.js";
+import { asPack, buildItemsChannel, packChannelDef, packFilesFromZip, packSkipLists, parsePack, validatePack } from "./packs.js";
+import { channelForDigits, moreToType, packNumberFor, typedLabel } from "./dial.js";
 import { LINK_CHANNELS, isLinkChannel, isGuideVisible, linkCardName, linkUrl, openLinkChannel } from "./linkout.js";
-import { createGamepad } from "./gamepad.js";
+import { createGamepad, samePress } from "./gamepad.js";
 import { LOOKS, asciiMask, comboCss, lookById, lookCss, lookYtCss, looksSvg, mixable, nextLook } from "./looks.js";
 import { FrameWatch } from "./framewatch.js";
-import { MAX_TAPES, LOAN_HOURS, MAX_BOOKS, BOOK_DAYS, cleanLibrary, issueCard, cancelCard, loanFor, checkOut, setPosition, setSafeCut, isRewound, rewind, returnTape, overdue, storeShelves, staffPicks, searchStore, bookLoan, borrowBook, returnBook, overdueBooks, setMark, markFor } from "./library.js";
-import { bookSearchUrl, parseBookSearch, bookFromMetadata, pageNumbersUrl, parsePageNumbers, scandataUrl, parseScandata, parseShelves, parseCatalog } from "./books.js";
+import { MAX_TAPES, LOAN_HOURS, MAX_BOOKS, BOOK_DAYS, cleanLibrary, issueCard, cancelCard, loanFor, checkOut, setPosition, setSafeCut, isRewound, rewind, returnTape, overdue, storeShelves, staffPicks, searchStore, groupAisles, aisleFilms, bookLoan, borrowBook, returnBook, overdueBooks, setMark, markFor } from "./library.js";
+import { bookSearchUrl, parseBookSearch, bookFromMetadata, pageNumbersUrl, parsePageNumbers, scandataUrl, parseScandata, parseShelves, parseCatalog, groupStackShelves } from "./books.js";
 import { Reader } from "./ui/reader.js";
 import * as Stacks from "./ui/stacks.js";
 import * as Club from "./ui/club.js";
@@ -31,22 +32,33 @@ import { Dialog } from "./ui/dialog.js";
 import { Numpad } from "./ui/numpad.js";
 import * as V from "./ui/views.js";
 import { TvLink, makeCode, cleanCode, remoteUrl, prettyCode, qrSvg, loadScript, isIPv4, PAGES_BASE } from "./link.js";
+import { PagePointer, appMessage } from "./pointer.js";
+import { utf8Text } from "./zip.js";
 import { pathsText } from "./relay.js";
 import { loadLineup, builtAt } from "./lineup.js";
+import { SNOW_FRAMES, createTurnOn, introAudible, playTurnOnSound, prefersStill, showBootSnow, snowBufferSize, snowPixels, turnOnAction, turnOnDuration } from "./intro.js";
+import { mountTreasureBoot, playTreasureSound, treasureWanted } from "./boot-treasure.js";
 import { loadBumpers } from "./bumpers.js";
-import { pad2, escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder, numberText } from "./util.js";
+import { DEFAULT_CARDS, loadCards, familyAdQuips, familyOf, cardClass } from "./cards.js";
+import { crystalChime, stopCrystalChime } from "./crystal-chime.js";
+import { pictureReady, loadCardDecision } from "./loadhold.js";
+import { parseSent, archivePlan, whyNot, QUEUE_MAX } from "./sendto.js";
+import { playlistIds } from "./youtube.js";
+import { escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder, numberText } from "./util.js";
 
-const VERSION = "1.11.0";
+const VERSION = "1.18.0";
 const NAME = "NostalGem";
 const params = new URLSearchParams(window.location.search);
 const ANDROID = params.get("tv") === "android";
+// A TV: the TV app, or a TV's own browser (LG webOS, Samsung Tizen, Sony, Fire TV, Google TV and the like).
+const ON_TV = ANDROID || /SMART-TV|SmartTV|Web0S|WebOS|Tizen|NetCast|BRAVIA|HbbTV|\bAFT[A-Z]|GoogleTV|Android TV|CrKey|AppleTV/i.test(navigator.userAgent || "");
 // The TV app opens the published site, and falls back to its own copy when it can't reach it. That
 // copy's lineup is as old as the app, while the published one is rebuilt daily, so the copy asks for it.
 const ON_PAGES = window.location.href.indexOf(PAGES_BASE) === 0;
 const LIVE_LINEUP = ANDROID && !ON_PAGES ? PAGES_BASE + "data/lineup.json" : "";
 const LINEUP_RECHECK = 3 * 3600 * 1000; // coming back to the app after this long: look for a newer lineup
 
-const DEFAULTS = { crt: "light", fit: "contain", cc: "off", staticFx: "sound", bug: true, clock24: false, surf: "all", phone: false, region: "auto", look: "off", mix: "off", ambience: "off", lookQuality: "auto", liteLooks: {}, readMode: "auto", readPaper: "day" };
+const DEFAULTS = { shape: "wide", crt: "light", fit: "contain", cc: "off", staticFx: "sound", bug: true, clock24: false, surf: "all", phone: false, region: "auto", look: "off", mix: "off", ambience: "off", lookQuality: "auto", liteLooks: {}, readMode: "auto", readPaper: "day" };
 const SLEEP_STEPS = [0, 15, 30, 45, 60, 90, 120];
 // Whether this TV had used NostalGem before this start (for a welcome, or "what's new").
 const HAD_USED = load("settings", null) != null || load("last", null) != null || load("favs", null) != null;
@@ -55,6 +67,9 @@ const STILL_GRACE = 2 * 60 * 1000; // then switch off two minutes later
 const BAD_TTL = 24 * 3600 * 1000; // a file that wouldn't play is skipped for a day
 const PROBLEMS_KEPT = 30; // Menu ▸ Playback problems lists this many
 const CUSTOM_FROM = 30; // channels you add start at CH 30
+const LOAD_CARD_AFTER = 1500; // ms of loading before the channel's own "one moment" card takes over from the snow
+// Once that card is up, loadhold.js keeps it until the picture is really playing (at least this long,
+// and no longer than LOAD_CARD_HOLD). Claude: the wait lives here and in loadhold.js; player.pictureState is read-only.
 const SWATCHES = ["#ff2a6d", "#05d9e8", "#b967ff", "#fffb96", "#ff9f1c", "#3ddc97", "#f72585", "#4cc9f0"];
 
 const $ = V.$;
@@ -75,11 +90,16 @@ function pruneBad(bad) {
 
 const app = {
   lineup: null,
+  away: "", // a link-out station's site the TV app has over NostalGem (its name)
+  ptrAt: 0, // when the phone's pointer last moved
+
   adCount: Math.floor(Math.random() * 1000), // which ad-break quip comes next
   boxToken: 0, // the book box showing now (its details arrive later)
   adQuip: "",
   about: {},
   bumpers: [],
+  cards: DEFAULT_CARDS, // the station cards' words, in each channel family's voice (cards.js, data/cards.json)
+  loadCardTimer: 0,
   channels: [],
   idx: -1,
   last: -1,
@@ -112,8 +132,13 @@ const app = {
   lineupCheckedAt: 0,
   calling: "",
   callingWhy: "",
+  sentPlain: false, // a station's own look is set aside while something sent is on
+  sent: null, // Send to TV: what a phone sent, while it plays { items, i, conn }
+  sentToken: 0, // the latest link sent (an answer about an earlier one is dropped)
 };
 const s = app.s;
+// 4:3 for an old TV, before anything is drawn (see applyShape).
+document.documentElement.classList.toggle("shape-43", s.shape === "43");
 
 const fx = new Static($("static"));
 const ambience = new Ambience();
@@ -127,6 +152,17 @@ const frameWatch = new FrameWatch(function (key) {
   V.toast("🎨 " + lookById(lookId()).name + " was slowing this TV down, so it's on its light version now (Menu ▸ Filter quality)", 6000);
 });
 const canvasLook = new CanvasLook({ video: $("screen"), yt: $("yt"), before: $("yt"), rainBefore: $("radio") });
+// The TV path gets the strictest limits on the filters (fxcanvas.js TV_LIMITS): what a filter costs a TV's
+// slow processor, a computer never notices. Nothing changes on a computer.
+// ?perf=asciiCols:64,asciiMs:150 changes them, for measuring (tests, and the profile in the TV performance PR).
+canvasLook.setTv(
+  ON_TV,
+  (params.get("perf") || "").split(",").reduce(function (o, kv) {
+    const a = kv.split(":");
+    if (a.length === 2 && isFinite(Number(a[1]))) o[a[0]] = Number(a[1]);
+    return o;
+  }, {})
+);
 const church = new Church(); // 111's sound
 
 // Clean cuts (cuts.js): the lists that ship (data/skip-lists.json, none yet) and any a pack brought to this
@@ -142,7 +178,11 @@ function loadSkipLists() {
       return r.ok ? r.json() : null;
     })
     .then(function (json) {
-      if (json) skipLists.shipped = checkSkipLists(json).lists;
+      if (!json) return;
+      skipLists.shipped = checkSkipLists(json).lists;
+      // The boot tunes as soon as the lineup is in, which can be before this file
+      // comes back. Apply the list to whatever is already playing.
+      if (player.refreshCuts) player.refreshCuts();
     })
     .catch(function () {
       /* none, then */
@@ -154,16 +194,16 @@ function filmList(item) {
 }
 const numpad = new Numpad($("numpad"), {
   describe: function (typed) {
-    const exact = channelForDigits(typed, false);
-    const longer = app.channels.some(function (c) {
-      const k = chKey(c);
-      return k.length > typed.length && k.indexOf(typed) === 0;
-    });
-    const ch = channelForDigits(typed, true);
+    const exact = channelForDigits(app.channels, typed, false);
+    const longer = moreToType(app.channels, typed);
+    const ch = channelForDigits(app.channels, typed, true);
     return {
       text: ch ? "CH " + chLabel(ch) + " · " + ch.name : longer ? "Keep typing…" : "No channel " + typed,
       done: !!exact && !longer,
     };
+  },
+  label: function (typed) {
+    return typedLabel(app.channels, typed, false);
   },
   go: function (typed) {
     app.digits = typed;
@@ -216,6 +256,12 @@ const player = new Player($("screen"), {
   program: onProgram,
   bad: onBad,
   problem: onProblem,
+  // Send to TV: something sent in parts (or a playlist) plays one after the other.
+  demandEnded: sentNext,
+  // A sent YouTube video's title and length arrive once it plays.
+  learned: function () {
+    if (!banner.hidden) renderBanner();
+  },
   captions: function (info) {
     if (info.error) V.toast("Subtitles aren't available for this program");
   },
@@ -402,8 +448,12 @@ function tuneTo(ch, opts) {
   }
   clearTimeout(app.surfTimer);
   app.pendingIdx = -1;
-  staticBurst(450);
-  V.osdChannel(ch);
+  // The turn-on draws its own snow. The surf snow repaints a canvas until it stops;
+  // starting that under the ident would be work nobody can see.
+  if (!(app.turnOn && app.turnOn.active())) {
+    staticBurst(450);
+    V.osdChannel(ch);
+  }
   app.lastProgKey = "";
   applyCaptions();
   // The secret stations dress the set while they're on (Dead Air's red glow), and say goodbye.
@@ -494,48 +544,30 @@ function surf(dir) {
   }, 380);
 }
 
-// Number entry. Channels are 1–2 digits; a sub-channel adds one more, so 5 0 1 is CH 50-1. The TV tunes
-// as soon as no longer number could follow, otherwise after a short pause. 5 0 alone, on a channel that
-// only has sub-channels, goes to the first of them.
-// Numbers are typed like a cable box: 5 0 waits a beat for a sub-channel, 5 0 1 tunes 50-1, and where
-// there's a 60-10, 6 0 1 waits a beat for the 0.
-function typedLabel(typed) {
-  if (typed.length === 1) return typed + "-";
-  if (typed.length === 2) return pad2(Number(typed)) + "-";
-  return typed.slice(0, 2) + "-" + typed.slice(2);
-}
+// Number entry (dial.js). Channels are 1–3 digits; a sub-channel adds one or two more after its channel's
+// two, so 5 0 1 is CH 50-1 and 0 3 2 is CH 3-2. The TV tunes as soon as no longer number could follow,
+// otherwise after a short pause. 5 0 alone, on a channel that only has sub-channels, goes to the first of
+// them. Numbers are typed like a cable box: 5 0 waits a beat for a sub-channel, 5 0 1 tunes 50-1, 1 0 waits
+// a beat where there's a CH 101, and where there's a 60-10, 6 0 1 waits a beat for the 0. 2 0 2 is CH 20-2
+// until a pack owns 202; then it tunes the pack.
 function digit(n) {
   app.digits = (app.digits + String(n)).slice(-4);
   const typed = app.digits;
   clearTimeout(app.digitTimer);
-  const exact = channelForDigits(typed, false);
-  const longer = app.channels.some(function (c) {
-    const k = chKey(c);
-    return k.length > typed.length && k.indexOf(typed) === 0;
-  });
+  const exact = channelForDigits(app.channels, typed, false);
+  const longer = moreToType(app.channels, typed);
   // A leading zero ("069", "01") waits for the rest of the number.
   const zero = typed.charAt(0) === "0" && typed.length < 3;
-  if (longer || zero) V.osd("CH " + typedLabel(typed), "", 2500);
+  if (longer || zero) V.osd("CH " + typedLabel(app.channels, typed, false), "", 2500);
   if (!zero && ((exact && !longer) || typed.length >= 4 || (!exact && !longer))) commitDigits();
   else app.digitTimer = setTimeout(commitDigits, 1600);
-}
-
-function channelForDigits(typed, firstSub) {
-  const exact = app.channels.filter(function (c) {
-    return chKey(c) === typed;
-  })[0];
-  if (exact || !firstSub) return exact;
-  const num = Number(typed);
-  return app.channels.filter(function (c) {
-    return c.number === num;
-  })[0];
 }
 
 // A channel number typed into a search box (a remote with no number buttons) tunes that channel instead of
 // building a channel out of an Archive search for "777". Returns true when it did.
 function tuneTypedNumber(text) {
   const digits = numberText(text);
-  const ch = digits ? channelForDigits(digits, true) : null;
+  const ch = digits ? channelForDigits(app.channels, digits, true) : null;
   if (!ch) return false;
   closeOverlays();
   tuneTo(ch);
@@ -547,12 +579,12 @@ function commitDigits() {
   const typed = app.digits;
   app.digits = "";
   if (!typed) return;
-  const ch = channelForDigits(typed, true);
+  const ch = channelForDigits(app.channels, typed, true);
   if (ch) {
     closeOverlays();
     tuneTo(ch);
   } else {
-    V.osd("CH " + (typed.length > 2 ? typedLabel(typed) : pad2(Number(typed))), "NO SIGNAL", 2000);
+    V.osd("CH " + typedLabel(app.channels, typed, true), "NO SIGNAL", 2000);
     staticBurst(500);
   }
 }
@@ -592,20 +624,135 @@ function onCut(info) {
   }
 }
 
+// Is what's on now sound only? A radio channel's program, or a recording sent from a phone (whatever the
+// channel under it).
+function radioNow(ch) {
+  const item = player.slot ? player.slot.item : null;
+  return item && item.sent ? item.sent === "audio" : !!ch && ch.kind === "audio";
+}
+
+// The channel whose look the ad card takes: none while the ad is ahead of something sent from a phone
+// (that isn't the channel's show, so it gets the plain card).
+function adChannel(ch) {
+  const item = player.slot ? player.slot.item : null;
+  return item && item.sent ? null : ch;
+}
+function showAdCard(ch) {
+  const own = adChannel(ch);
+  V.showCard("adbreak", V.adBreakCard(app.adQuip, own), own ? cardClass(own) : "");
+}
+
+// The loading card's extra hold. shown: when it appeared. readyAt: when the picture first qualified.
+let loadShown = 0;
+let loadReadyAt = 0;
+let loadTime = null;
+let loadFrame = false;
+let loadTimer = 0;
+
+function clearLoadHold() {
+  loadShown = 0;
+  loadReadyAt = 0;
+  loadTime = null;
+  loadFrame = false;
+  clearTimeout(loadTimer);
+  loadTimer = 0;
+}
+
+function armLoadFrame() {
+  loadFrame = false;
+  const v = player.v;
+  if (!v || typeof v.requestVideoFrameCallback !== "function") return;
+  try {
+    v.requestVideoFrameCallback(function () {
+      loadFrame = true;
+      pokeLoadHold();
+    });
+  } catch (e) {
+    /* the readyState and currentTime checks still apply */
+  }
+}
+
+function pokeLoadHold() {
+  if (!loadShown) return;
+  clearTimeout(loadTimer);
+  const card = $("card");
+  if (!card || card.hidden || card.className.indexOf("card-tuning") < 0) {
+    clearLoadHold();
+    return;
+  }
+  const snap = player.pictureState ? player.pictureState() : { playing: player.mode === "playing", signals: false };
+  const ready = pictureReady({
+    playing: snap.playing,
+    signals: snap.signals,
+    frame: loadFrame,
+    readyState: snap.readyState,
+    currentTime: snap.currentTime,
+    lastTime: loadTime,
+  });
+  if (typeof snap.currentTime === "number") loadTime = snap.currentTime;
+  const d = loadCardDecision(performance.now(), loadShown, loadReadyAt, ready, LOAD_CARD_AFTER);
+  loadReadyAt = d.readyAt;
+  if (d.hide) fadeLoadCard();
+  else loadTimer = setTimeout(pokeLoadHold, Math.max(40, d.wait || 200));
+}
+
+function fadeLoadCard() {
+  clearTimeout(loadTimer);
+  loadTimer = 0;
+  const card = $("card");
+  loadShown = 0;
+  if (!card || card.hidden || card.className.indexOf("card-tuning") < 0) return;
+  card.classList.add("card-leave");
+  loadTimer = setTimeout(function () {
+    stopCrystalChime();
+    if (card.className.indexOf("card-tuning") >= 0) V.hideCard();
+  }, 450);
+}
+
 function onPlayerState(mode, extra) {
   const ch = current();
+  // Leave the ident playing while the loading card is held over the first frames.
+  if (mode !== "playing") stopCrystalChime();
+  clearTimeout(app.loadCardTimer);
   tv.classList.toggle("paused", mode === "paused");
   if (mode !== "playing") tv.classList.remove("buffering");
   if (app.stillShownAt && mode !== "playing" && mode !== "tuning") app.stillShownAt = 0;
   switch (mode) {
     case "tuning":
+      clearLoadHold();
       if (s.staticFx !== "off") fx.hold();
       V.hideCard();
       showRadio(ch);
+      // A slow load (a TV on slow Wi-Fi, a big film): after a moment the channel's own card, in its family's
+      // look, takes over from the snow until the picture comes. Radio has its own panel. Something sent
+      // from a phone isn't the channel's program: it gets NostalGem's own card, saying whose it is.
+      if (ch && !radioNow(ch)) {
+        const tunedAt = Date.now();
+        const item = player.slot ? player.slot.item : null;
+        app.loadCardTimer = setTimeout(function () {
+          if (player.mode !== "tuning" || app.state !== "on" || current() !== ch || (player.slot ? player.slot.item : null) !== item) return;
+          fx.release();
+          if (item && item.sent) V.showCard("tuning", V.sentLoadingCard(item));
+          else {
+            V.showCard("tuning", V.loadingCard(ch, app.cards, tunedAt), cardClass(ch));
+            // The ident plays once, with the light sweep. Muted, or a blocked audio context: silence.
+            if (familyOf(ch).id === "crystalsignal") crystalChime({ muted: player.muted, volume: player.v && typeof player.v.volume === "number" ? player.v.volume : 1 });
+          }
+          // Either card stays until the picture is really there (loadhold.js).
+          // performance.now(), not the wall clock: the schedule tests pin Date, and that must not freeze the card.
+          loadShown = performance.now();
+          loadReadyAt = 0;
+          loadTime = null;
+          armLoadFrame();
+          pokeLoadHold();
+        }, LOAD_CARD_AFTER);
+      }
       break;
     case "playing":
       fx.release();
-      if (!app.stillShownAt) V.hideCard();
+      // The loading card stays up until the picture is really ready (loadhold.js), for every theme.
+      if (loadShown) pokeLoadHold();
+      else if (!app.stillShownAt) V.hideCard();
       showRadio(ch);
       break;
     case "paused":
@@ -613,7 +760,7 @@ function onPlayerState(mode, extra) {
     case "gap":
       fx.release();
       hideRadio();
-      if (player.slot) V.showCard("gap", V.gapCard(ch, player.slot, s.clock24, app.bumpers));
+      if (player.slot) V.showCard("gap", V.gapCard(ch, player.slot, s.clock24, app.bumpers, app.cards), cardClass(ch));
       break;
     case "standby":
       fx.release();
@@ -635,8 +782,8 @@ function onPlayerState(mode, extra) {
     case "adbreak":
       fx.release();
       hideRadio();
-      app.adQuip = V.adQuip(app.adCount++);
-      V.showCard("adbreak", V.adBreakCard(app.adQuip));
+      app.adQuip = V.adQuip(app.adCount++, adChannel(ch) ? familyAdQuips(app.cards, ch) : []);
+      showAdCard(ch);
       break;
     case "off":
       fx.release();
@@ -659,6 +806,7 @@ function onProgram(slot) {
 // A program that won't play is skipped on this TV for a day. stop: the player gave up on this channel
 // for now (program after program wouldn't play here), so don't retune.
 function onBad(item, info, stop) {
+  if (sentBad(item, stop)) return;
   app.bad[programKey(item)] = Date.now() + BAD_TTL;
   save("bad", app.bad);
   app.badSet = null;
@@ -782,6 +930,250 @@ function watchFromStart(ch, item) {
   }
 }
 
+// ---------- Send to TV: a link from a phone, played on demand ----------
+// A paired phone sends a link (sendto.js: a YouTube video or playlist, an archive.org item) and the TV plays
+// it right away, off the schedule, on the channel it was on: the way a tape or "watch from the start" does.
+// An item in parts, or a playlist, plays one after the other. BACK (or changing channel, or LIVE) goes back
+// to the schedule. The phone that sent it hears how it went: { t: "sent", state, text, i, n }.
+function sentTell(conn, state, text, more) {
+  const msg = Object.assign({ t: "sent", state: state, text: text || "" }, more || {});
+  // The phone that sent it; or, if that link has gone (the relay gave way to a direct one), whoever's there.
+  if (conn && conn.open) link.sendTo(conn, msg);
+  else link.send(msg);
+}
+
+function sentItem() {
+  return app.sent ? app.sent.items[app.sent.i] : null;
+}
+
+// A station's own look (666's red ASCII, 111's stained glass) steps aside while something sent is on, and
+// comes back after: a sent film plays as made, with the viewer's own filter.
+function sentLook(on) {
+  if (!!app.sentPlain === !!on) return;
+  app.sentPlain = !!on;
+  if (app.stationLook) applyLook();
+}
+
+// What was sent is over, however it ended.
+function sentOver() {
+  app.sent = null;
+  sentLook(false);
+}
+
+// Is what was sent still the thing on screen?
+function sentOn() {
+  const sl = player.slot;
+  return !!(app.sent && sl && sl.onDemand && sl.item === sentItem() && player.mode !== "off" && player.mode !== "gap" && player.mode !== "empty" && player.mode !== "standby");
+}
+
+function playSent(m, conn) {
+  const p = parseSent(m.url);
+  if (!p) return;
+  phoneWake();
+  closeOverlays();
+  if (app.introTimer) hideIntro(false);
+  const token = ++app.sentToken;
+  const fail = function (why, text) {
+    if (token !== app.sentToken) return;
+    const words = text || whyNot(why);
+    sentTell(conn, why === "collection" || why === "search" ? "collection" : "failed", words);
+    V.toast("📲 " + words, 6000);
+  };
+  if (p.kind === "search") {
+    fail("search");
+    return;
+  }
+  if (p.kind === "youtube") {
+    startSent([ytSent(p.id)], 0, conn, p.at || 0);
+    // A video from a playlist: the rest of the list lines up behind it once YouTube says what's on it.
+    if (p.list) {
+      readPlaylist(p.list).then(
+        function (ids) {
+          const q = app.sent;
+          const at = ids.indexOf(p.id);
+          if (token !== app.sentToken || !q || q.items.length !== 1 || at < 0 || ids.length < 2) return;
+          const first = q.items[0];
+          q.items = ids.map(function (id, k) {
+            return k === at ? first : ytSent(id);
+          });
+          q.i = at;
+          sentUpNext();
+          sentTell(conn, "playing", first.t, { i: q.i, n: q.items.length });
+        },
+        function () {
+          /* the video plays by itself */
+        }
+      );
+    }
+    return;
+  }
+  if (p.kind === "ytlist") {
+    sentTell(conn, "looking", "Asking YouTube what's on that playlist…");
+    readPlaylist(p.list).then(
+      function (ids) {
+        if (token === app.sentToken) startSent(ids.map(ytSent), 0, conn, 0);
+      },
+      function () {
+        fail("playlist");
+      }
+    );
+    return;
+  }
+  sentTell(conn, "looking", "Looking it up on the Archive…");
+  browserFetchJson(metadataUrl(p.id)).then(
+    function (meta) {
+      if (token !== app.sentToken) return;
+      const plan = archivePlan(meta, p.file);
+      if (plan.why) {
+        fail(plan.why);
+        return;
+      }
+      if (plan.about) app.about[p.id] = plan.about;
+      const items = plan.programs.map(function (it) {
+        return Object.assign({}, it, { sent: plan.kind });
+      });
+      startSent(items, plan.start, conn, p.at || 0);
+    },
+    function (err) {
+      fail("", "Couldn't reach the Archive (" + err.message + "). Try again in a moment.");
+    }
+  );
+}
+
+// What's on a YouTube playlist, asked twice if the first time gets no answer (it usually comes in under a
+// second, but the first one asked has been seen to go unanswered).
+function readPlaylist(list) {
+  return playlistIds(list, tv, QUEUE_MAX, 8000).then(null, function () {
+    return playlistIds(list, tv, QUEUE_MAX, 8000);
+  });
+}
+
+// A YouTube video as a program: its title and length aren't known until its player has them.
+function ytSent(id) {
+  return { id: "yt:" + id, f: "yt", t: "YouTube video", d: 0, untitled: true, sent: "video" };
+}
+
+function startSent(items, i, conn, at) {
+  // It plays over a channel with a schedule to come back to: this one, or the first there is.
+  let ch = current();
+  if (!ch || isLinkChannel(ch)) {
+    ch = visibleChannels().filter(function (c) {
+      return !isLinkChannel(c);
+    })[0];
+  }
+  if (!ch || !items.length) {
+    sentTell(conn, "failed", whyNot(ch ? "" : "nochannel"));
+    return;
+  }
+  if (ch !== current() || player.mode === "off") tuneTo(ch, { quiet: true });
+  if (app.tape) ejectTape(); // the tape comes out, keeping its place
+  app.sent = { items: items, i: i, conn: conn };
+  sentLook(true);
+  if (!playSentAt(i, at)) {
+    sentOver();
+    sentTell(conn, "failed", whyNot(""));
+  }
+}
+
+function playSentAt(i, at) {
+  const q = app.sent;
+  const item = q && q.items[i];
+  if (!item || !player.playFromStart(item, at || 0, { rate: 1, anyLength: true })) return false;
+  q.i = i;
+  sentUpNext();
+  showBanner(6000);
+  const ch = current();
+  const part = q.items.length > 1 ? " (" + (i + 1) + " of " + q.items.length + ")" : "";
+  V.toast("📲 From your phone: " + sentTitle(item) + part + " · BACK returns to CH " + chLabel(ch), 5000);
+  sentTell(q.conn, "playing", sentTitle(item), { i: i, n: q.items.length });
+  q.told = item.t;
+  return true;
+}
+
+function sentTitle(item) {
+  return item.t + (item.e ? " · " + item.e : "");
+}
+
+// The banner's "up next" while a queue plays: the next part.
+function sentUpNext() {
+  const q = app.sent;
+  if (q && player.slot && player.slot.item === q.items[q.i]) player.slot.next = q.items[q.i + 1] || null;
+}
+
+// The player finished one: the next in line, if there is one (true: something else is playing now).
+function sentNext(item) {
+  const q = app.sent;
+  if (!q || q.items[q.i] !== item || q.i + 1 >= q.items.length) return false;
+  return playSentAt(q.i + 1, 0);
+}
+
+// One that was sent won't play here. It isn't the channel's program to drop for a day: the next in line
+// plays, or the phone hears why and the channel comes back. True: it was one of ours.
+function sentBad(item, stop) {
+  const q = app.sent;
+  if (!q || item !== sentItem()) return false;
+  const why = q.problem || "It wouldn't play on the TV.";
+  q.problem = "";
+  if (!stop && q.i + 1 < q.items.length && playSentAt(q.i + 1, 0)) return true;
+  sentOver();
+  sentTell(q.conn, "failed", why);
+  const ch = current();
+  if (ch && !stop) player.tune(timelineFor(ch), true);
+  // stop: one after another wouldn't play, and the player is about to say the channel has nothing. It
+  // was never the channel's doing: tune it in again once the player has finished giving up.
+  else if (ch) {
+    setTimeout(function () {
+      if (!app.sent && player.mode === "empty" && current() === ch) player.tune(timelineFor(ch));
+    }, 0);
+  }
+  return true;
+}
+
+// ⏮ ⏭ from the phone: another part of what was sent.
+function sentStep(go) {
+  const q = app.sent;
+  if (!q || !sentOn()) return;
+  const i = q.i + (go < 0 ? -1 : 1);
+  if (i < 0 || i >= q.items.length) {
+    V.toast(go < 0 ? "That's the first one" : "That's the last one", 2500);
+    return;
+  }
+  playSentAt(i, 0);
+}
+
+// The phone's seek bar and its ⏪ ⏩: on demand only (a sent link, a tape, "watch from the start").
+function sentSeek(m) {
+  const to = m.by != null ? player.seekBy(m.by) : player.seekTo(m.to);
+  if (to < 0) return;
+  showBanner(3500);
+}
+
+// BACK, with something sent on screen: back to the channel.
+function stopSent() {
+  const ch = current();
+  sentTell(app.sent.conn, "ended", "");
+  sentOver();
+  player.goLive();
+  V.toast("Back to CH " + chLabel(ch) + " " + ch.name, 3000);
+}
+
+// Twice a second: what was sent is over once the screen has moved on (a channel change, LIVE, the last part
+// ended, or it wouldn't play); its title, once YouTube's player has it, goes to the phone that sent it.
+function sentTick() {
+  const q = app.sent;
+  if (!q) return;
+  if (!sentOn()) {
+    sentOver();
+    sentTell(q.conn, q.problem ? "failed" : "ended", q.problem || "");
+    return;
+  }
+  const item = q.items[q.i];
+  if (q.told !== item.t) {
+    q.told = item.t;
+    sentTell(q.conn, "playing", sentTitle(item), { i: q.i, n: q.items.length });
+  }
+}
+
 // ---------- the Video Club: a library card and tapes to check out ----------
 let lib = cleanLibrary(load("library", null));
 function saveLib() {
@@ -833,6 +1225,11 @@ function openClub() {
 function clubPage() {
   return {
     title: "📼 Video Club",
+    wide: true,
+    place: "club",
+    banner: function () {
+      return Club.storefrontHtml();
+    },
     sub: function () {
       return lib.card
         ? lib.card.name + " · " + lib.loans.length + " of " + MAX_TAPES + " tapes out · " + LOAN_HOURS / 24 + "-day rentals"
@@ -865,6 +1262,7 @@ function clubPage() {
         list.push({
           label: "📼 " + loan.t,
           sub: true,
+          swatch: Club.spineColor(loan.key),
           value: function () {
             return Club.tapeState(loan, now);
           },
@@ -874,15 +1272,16 @@ function clubPage() {
           },
         });
       });
-      list.push({ head: true, label: "Shelves" });
       const shelves = clubShelves();
-      const picks = staffPicks(shelves, Math.floor(now / (7 * 86400000)), 12);
+      const week = Math.floor(now / (7 * 86400000));
+      const picks = staffPicks(shelves, week, 12);
+      list.push({ head: true, label: "The front rack" });
       list.push({
         label: "🆕 New this week",
         sub: true,
         value: picks.length + " tapes",
         ok: function () {
-          menu.push(shelfPage("🆕 New this week", picks));
+          menu.push(shelfPage("🆕 New this week", picks, { kicker: "Staff picks · the same tapes all week" }));
         },
       });
       list.push({
@@ -892,13 +1291,14 @@ function clubPage() {
           openStoreSearch();
         },
       });
-      shelves.forEach(function (sh) {
+      list.push({ head: true, label: "Rows" });
+      groupAisles(shelves).forEach(function (aisle) {
         list.push({
-          label: (sh.ch.icon || "📼") + " " + sh.ch.name,
+          label: aisle.icon + " " + aisle.name,
           sub: true,
-          value: sh.films.length + (sh.films.length === 1 ? " tape" : " tapes"),
+          value: aisle.count + (aisle.count === 1 ? " tape" : " tapes"),
           ok: function () {
-            menu.push(shelfPage((sh.ch.icon || "📼") + " " + sh.ch.name, sh.films));
+            menu.push(aislePage(aisle));
           },
         });
       });
@@ -914,14 +1314,60 @@ function clubPage() {
   };
 }
 
-function shelfPage(title, films) {
+// One channel family: its shelves, and everything on them in one browse.
+function aislePage(aisle) {
+  const films = aisleFilms(aisle);
+  return {
+    title: aisle.icon + " " + aisle.name,
+    wide: true,
+    place: "club",
+    banner: function () {
+      return Club.spineRowHtml(films, "What's on the shelf");
+    },
+    sub: aisle.blurb || films.length + " tapes",
+    items: function () {
+      const list = [];
+      if (aisle.shelves.length > 1) {
+        list.push({
+          label: "Browse everything on this row",
+          sub: true,
+          value: films.length + (films.length === 1 ? " tape" : " tapes"),
+          ok: function () {
+            menu.push(shelfPage(aisle.icon + " " + aisle.name, films, { kicker: "What's on the shelf · " + aisle.name }));
+          },
+        });
+      }
+      aisle.shelves.forEach(function (sh) {
+        list.push({
+          label: (sh.ch.icon || "📼") + " " + sh.ch.name,
+          sub: true,
+          swatch: sh.ch.color || "",
+          value: sh.films.length + (sh.films.length === 1 ? " tape" : " tapes"),
+          ok: function () {
+            menu.push(shelfPage((sh.ch.icon || "📼") + " " + sh.ch.name, sh.films, { kicker: "What's on the shelf · " + sh.ch.name }));
+          },
+        });
+      });
+      return list;
+    },
+  };
+}
+
+function shelfPage(title, films, opts) {
+  const o = opts || {};
   return {
     title: title,
-    sub: films.length + (films.length === 1 ? " tape" : " tapes") + " · OK to look at the box",
+    wide: true,
+    place: "club",
+    banner: function () {
+      return Club.spineRowHtml(films, o.kicker || "What's on the shelf");
+    },
+    sub: films.length + (films.length === 1 ? " tape" : " tapes") + " · what's on the shelf · OK to look at the box",
     items: function () {
       return films.map(function (f) {
         return {
           label: f.item.t,
+          swatch: Club.spineColor(f.key),
           value: function () {
             const out = loanFor(lib, f.key);
             return (out ? "📼 YOURS · " : "") + (f.item.y ? String(f.item.y) : "");
@@ -952,7 +1398,7 @@ function openStoreSearch() {
           }
           d.close();
           if (!menu.isOpen) menu.open(rootPage());
-          menu.push(shelfPage("🔎 " + text, found));
+          menu.push(shelfPage("🔎 " + text, found, { kicker: "What's on the shelf · " + text }));
         },
       },
       {
@@ -1500,6 +1946,11 @@ function stacksPage() {
   });
   return {
     title: "📚 Reading Room",
+    wide: true,
+    place: "room",
+    banner: function () {
+      return Stacks.readingRoomHtml();
+    },
     sub: function () {
       return lib.card
         ? lib.card.name + " · " + (lib.books || []).length + " of " + MAX_BOOKS + " books out · " + BOOK_DAYS + "-day loans"
@@ -1534,6 +1985,7 @@ function stacksPage() {
         list.push({
           label: "📖 " + b.t,
           sub: true,
+          swatch: Stacks.clothColor(b.id),
           value: function () {
             return (m ? "p. " + (m.p + 1) + " · " : "") + Stacks.dueSlipText(b, now);
           },
@@ -1542,7 +1994,7 @@ function stacksPage() {
           },
         });
       });
-      list.push({ head: true, label: "Shelves" });
+      list.push({ head: true, label: "The desk" });
       list.push({
         label: "🔎 Search the stacks",
         sub: true,
@@ -1572,13 +2024,16 @@ function stacksPage() {
         });
         list.push({ head: true, label: "The Archive's stacks" });
       }
-      (shelvesCacheList || []).forEach(function (sh) {
-        list.push({
-          label: sh.icon + " " + sh.name,
-          sub: true,
-          ok: function () {
-            menu.push(bookShelfPage(sh));
-          },
+      groupStackShelves(shelvesCacheList || []).forEach(function (aisle) {
+        list.push({ head: true, label: aisle.icon + " " + aisle.name });
+        aisle.shelves.forEach(function (sh) {
+          list.push({
+            label: sh.icon + " " + sh.name,
+            sub: true,
+            ok: function () {
+              menu.push(bookShelfPage(sh));
+            },
+          });
         });
       });
       list.push({
@@ -1601,11 +2056,17 @@ bookShelves().then(function (list) {
 function catalogShelfPage(sh) {
   return {
     title: sh.icon + " " + sh.name,
-    sub: "Checked public domain · " + sh.books.length + " on the shelf · OK to look at one",
+    wide: true,
+    place: "room",
+    banner: function () {
+      return Stacks.bookSpineHtml(sh.books, "What's on the shelf · title order");
+    },
+    sub: "Checked public domain · " + sh.books.length + " on the shelf, title order · OK to look at one",
     items: function () {
       return sh.books.map(function (b) {
         return {
           label: b.t,
+          swatch: Stacks.clothColor(b.id),
           value: function () {
             return (bookLoan(lib, b.id) ? "📚 YOURS · " : "") + (b.y ? String(b.y) : "");
           },
@@ -1622,7 +2083,7 @@ function catalogShelfPage(sh) {
 function showCatalogNote(sh) {
   dialog.open({
     title: sh.icon + " " + sh.name + " · checked public domain",
-    html: esc(sh.note || "Nothing on this shelf yet."),
+    html: Stacks.emptyShelfHtml(sh.name, sh.note, sh.id === "pd-manga" ? "No verifiably public-domain manga — here's why" : ""),
     buttons: [
       {
         label: "OK",
@@ -1638,6 +2099,12 @@ function bookShelfPage(shelf) {
   loadShelf(shelf);
   return {
     title: shelf.icon + " " + shelf.name,
+    wide: true,
+    place: "room",
+    banner: function () {
+      const st = shelfState[shelf.id];
+      return Stacks.bookSpineHtml((st && st.books) || [], "What's on the shelf · " + shelf.name);
+    },
     sub: function () {
       const st = shelfState[shelf.id];
       return st && st.books.length ? st.books.length + " on the shelf · OK to look at one" : "From the Internet Archive";
@@ -1647,6 +2114,7 @@ function bookShelfPage(shelf) {
       const list = st.books.map(function (b) {
         return {
           label: b.t,
+          swatch: Stacks.clothColor(b.id),
           value: function () {
             return (bookLoan(lib, b.id) ? "📚 YOURS · " : "") + (b.y ? String(b.y) : "");
           },
@@ -1871,6 +2339,8 @@ function keptProblems(list) {
 }
 function onProblem(item, info) {
   const ch = current();
+  // Something a phone sent wouldn't play: the phone hears why (onBad, or sentTick when it's the service).
+  if (app.sent && item && item === sentItem()) app.sent.problem = info.text || "It wouldn't play on the TV.";
   app.problems.unshift({ at: Date.now(), ch: ch ? chLabel(ch) + " " + ch.name : "", t: item ? item.t : "", text: info.text, kind: info.kind });
   if (app.problems.length > PROBLEMS_KEPT) app.problems.length = PROBLEMS_KEPT;
   save("problems", app.problems);
@@ -1923,11 +2393,12 @@ function showProblems() {
 }
 
 function showRadio(ch) {
-  if (!ch || ch.kind !== "audio" || app.state !== "on") {
+  const item = player.slot ? player.slot.item : null;
+  // Something sent from a phone is radio or a picture by what it is, whatever the channel under it.
+  if (!ch || !radioNow(ch) || app.state !== "on") {
     hideRadio();
     return;
   }
-  const item = player.slot ? player.slot.item : null;
   const key = ch.slug + "|" + (item ? programKey(item) : "");
   if (radio.getAttribute("data-key") !== key) {
     radio.innerHTML = V.radioHtml(ch, item);
@@ -2027,7 +2498,8 @@ function saveLists() {
 // ---------- look ----------
 // The filter on screen: the viewer's, or the station's own while it's on (666's red ASCII, 111's stained glass).
 function lookId() {
-  return app.stationLook || s.look;
+  // A station's own look is for its own programs: something sent from a phone gets the viewer's.
+  return (app.sentPlain ? "" : app.stationLook) || s.look;
 }
 // The filter and mix on screen now, as one key ("vhs", "pop-red+pop-blue"): what Filter quality's
 // automatic light versions remember.
@@ -2041,7 +2513,14 @@ function lookKey() {
 function lookIsLite() {
   if (s.lookQuality === "light") return true;
   if (s.lookQuality === "full") return false;
-  return !!(s.liteLooks && s.liteLooks[lookKey()]);
+  if (s.liteLooks && s.liteLooks[lookKey()]) return true;
+  // Auto, on a TV: a filter with an SVG part starts on its light version. The full version is worked out
+  // over the whole screen, off the page's own thread (several times the work, measured), where the
+  // frame-rate watch can't see it slowing the picture down. Filter quality: Full still gets it.
+  const look = lookById(lookId());
+  if (!ON_TV || look.canvas || look.id === "off") return false;
+  const mix = lookById(s.mix);
+  return /url\(/.test(comboCss(look, mixable(mix) && mix.id !== look.id ? mix : null));
 }
 
 function applyLook() {
@@ -2103,6 +2582,19 @@ function applyLook() {
   fx.sound = s.staticFx === "sound";
   updateBug();
   if (!banner.hidden) renderBanner();
+}
+
+// Menu ▸ Screen shape: 4:3 for an old CRT TV. The set becomes a 4:3 box in the middle of the screen, black
+// at the sides (css/app.css, html.shape-43), and everything sized to the set follows it: the canvas
+// filters are drawn again for the new shape, and the guide and menus lay themselves out inside it.
+function applyShape() {
+  const on = s.shape === "43";
+  if (document.documentElement.classList.contains("shape-43") === on) return;
+  document.documentElement.classList.toggle("shape-43", on);
+  canvasLook.set(null);
+  applyLook();
+  if (guide.isOpen) guide.render();
+  tellAppShape();
 }
 
 // Called twice a second: watch while a heavy filter is on a playing picture, and nothing else is going on.
@@ -2538,6 +3030,17 @@ function rootPage() {
       );
       list.push(
         cycler(
+          "📺 Screen shape",
+          "shape",
+          [
+            ["wide", "Widescreen"],
+            ["43", "4:3 for old CRT TVs"],
+          ],
+          applyShape
+        )
+      );
+      list.push(
+        cycler(
           "CRT effect",
           "crt",
           [
@@ -2859,16 +3362,6 @@ function fetchChannelPrograms(def, onProgress) {
   return buildChannel(def, channelCtx(onProgress));
 }
 
-// First free number in the viewer-added range (30–49); past that, the first free number anywhere.
-function nextPackNumber() {
-  const used = {};
-  app.channels.forEach(function (c) {
-    used[c.number] = 1;
-  });
-  for (let n = PACK_MIN_NUMBER; n <= PACK_MAX_NUMBER; n++) if (!used[n]) return n;
-  return nextNumber();
-}
-
 // A built channel (def + build result) onto the dial. opts.number pins the number
 // (a pack channel); without it, the next free number is used. Returns { ch, renumbered }
 // or { skipped } when a channel with that slug is already on this TV. Does not save:
@@ -2891,17 +3384,11 @@ function addBuiltChannel(def, res, opts) {
   let renumbered = false;
   if (o.number == null) {
     number = nextNumber();
-  } else if (
-    o.number >= PACK_MIN_NUMBER &&
-    o.number <= PACK_MAX_NUMBER &&
-    !app.channels.some(function (c) {
-      return c.number === o.number;
-    })
-  ) {
-    number = o.number;
   } else {
-    number = nextPackNumber();
-    renumbered = true;
+    // The number the pack asked for, or the next free one (dial.js): 30–49, 100–199, or 200–299.
+    number = packNumberFor(app.channels, o.number);
+    if (number == null) number = nextNumber();
+    renumbered = number !== o.number;
   }
   const ch = {
     slug: slug,
@@ -3071,11 +3558,11 @@ function showPackHelp() {
     html:
       "A channel pack is a small JSON file that adds channels from the <b>Internet Archive</b> — " +
       "a collection search, or Archive item IDs. Nothing else: no YouTube, no other sites, no direct video links.<br><br>" +
-      "Pack channels land on <b>CH 30–49</b> and are saved on this TV only, like channels you add by search. " +
+      "Pack channels land on <b>CH 30–49</b>, <b>CH 100–199</b>, or <b>CH 200–299</b>, and are saved on this TV only, like channels you add by search. " +
       "Loading a pack never changes the shipped lineup.<br><br>" +
       "The format is in <b>PACKS.md</b>, with an example pack in <b>packs/example-pack.json</b>. " +
       "Several packs can come together in one <b>.zip</b>: every .json file in it is loaded. " +
-      "On a TV with no file picker, use Paste pack JSON instead. " +
+      "On a TV with no file picker, send it from the phone remote (its Channels page: Send a pack to the TV), or use Paste pack JSON. " +
       "Channels you load are your choice on your own TV.",
     buttons: [
       {
@@ -3088,7 +3575,8 @@ function showPackHelp() {
   });
 }
 
-function showPackErrors(label, errors) {
+function showPackErrors(label, errors, report) {
+  if (report) report({ state: "failed", bad: errors.slice(0, 12) });
   dialog.open({
     title: "That pack won't load",
     html:
@@ -3149,7 +3637,7 @@ function openPackPaste() {
     title: "Paste pack JSON",
     html:
       "Paste the pack file's text. Packs only point at the Internet Archive — a collection search or " +
-      "Archive item IDs — and their channels land on CH 30–49 on this TV.",
+      "Archive item IDs — and their channels land on CH 30–49, 100–199, or 200–299 on this TV.",
     textarea: { placeholder: '{"pack": "Example pack", "version": 1, "channels": [...]}', rows: 8 },
     buttons: [
       {
@@ -3168,23 +3656,24 @@ function openPackPaste() {
   });
 }
 
-function handlePackText(text, label) {
+// report(what): the phone that sent the file hears how it went (see packFromPhone); null when it was chosen here.
+function handlePackText(text, label, report) {
   const parsed = parsePack(text);
-  if (!parsed.ok) return showPackErrors(label, parsed.errors);
+  if (!parsed.ok) return showPackErrors(label, parsed.errors, report);
   const pack = asPack(parsed.pack, label);
   const v = validatePack(pack);
-  if (!v.ok) return showPackErrors(label, v.errors);
-  confirmPacks([{ pack: pack, warnings: v.warnings }], [], label);
+  if (!v.ok) return showPackErrors(label, v.errors, report);
+  confirmPacks([{ pack: pack, warnings: v.warnings }], [], label, report);
 }
 
 // A .zip of packs: every .json file in it, each a pack or a skip-list file. The ones that check out can be
 // loaded together; the others are listed with what's wrong.
-function handlePackZip(buf, label) {
+function handlePackZip(buf, label, report) {
   let files;
   try {
     files = packFilesFromZip(buf);
   } catch (e) {
-    return showPackErrors(label, [e.message]);
+    return showPackErrors(label, [e.message], report);
   }
   const good = [];
   const bad = [];
@@ -3196,8 +3685,8 @@ function handlePackZip(buf, label) {
     if (!v.ok) return bad.push(f.name + ": " + v.errors[0] + (v.errors.length > 1 ? " (and " + (v.errors.length - 1) + " more)" : ""));
     good.push({ pack: pack, warnings: v.warnings });
   });
-  if (!good.length) return showPackErrors(label, bad.length ? bad : ["There are no packs (.json files) in this zip."]);
-  confirmPacks(good, bad, label);
+  if (!good.length) return showPackErrors(label, bad.length ? bad : ["There are no packs (.json files) in this zip."], report);
+  confirmPacks(good, bad, label, report);
 }
 
 // What a pack would add, for the "Load?" dialog.
@@ -3231,7 +3720,7 @@ function packSummaryHtml(pack) {
 }
 
 // good: [{ pack, warnings }] that check out; bad: lines about the files that didn't (from a zip).
-function confirmPacks(good, bad, label) {
+function confirmPacks(good, bad, label, report) {
   let html = good.length > 1 ? "<b>" + esc(label) + "</b> holds " + good.length + " packs.<br><br>" : "";
   html += good
     .map(function (g) {
@@ -3257,18 +3746,25 @@ function confirmPacks(good, bad, label) {
       (bad.length > 8 ? "<br>…and " + (bad.length - 8) + " more." : "");
   }
   html += "<br><br>Channels you load are saved on this TV only. They never change the shipped lineup.";
+  let answered = false;
   dialog.open({
     title: good.length > 1 ? "Load these packs?" : "Load this pack?",
     html: html,
+    onClose: function () {
+      if (!answered && report) report({ state: "cancelled" });
+      answered = true;
+    },
     buttons: [
       {
         label: good.length > 1 ? "Load " + good.length + " packs" : "Load pack",
         action: function (d) {
+          answered = true;
           d.close();
           loadPacks(
             good.map(function (g) {
               return g.pack;
-            })
+            }),
+            report
           );
         },
       },
@@ -3280,6 +3776,18 @@ function confirmPacks(good, bad, label) {
       },
     ],
   });
+  if (report) {
+    report({
+      state: "asked",
+      title: good.length > 1 ? "Load these packs?" : "Load this pack?",
+      ok: good.map(function (g) {
+        const chs = g.pack.channels || [];
+        const cuts = packSkipLists(g.pack).length;
+        return g.pack.pack + (chs.length ? " — " + chs.map(function (c) { return "CH " + c.number + " " + c.name; }).join(", ") : "") + (cuts ? (chs.length ? "; " : " — ") + "clean cuts for " + cuts + " film" + (cuts === 1 ? "" : "s") : "");
+      }),
+      bad: bad.slice(0, 12),
+    });
+  }
 }
 
 // Clean cuts a pack brought: kept on this TV, replacing older lists for the same film.
@@ -3302,7 +3810,7 @@ function keepSkipLists(lists) {
 
 // Load packs, one channel after another (a zip can hold several; a number one pack took moves the next
 // one's channel along).
-function loadPacks(packs) {
+function loadPacks(packs, report) {
   let cancelled = false;
   const done = [];
   const notes = [];
@@ -3318,10 +3826,12 @@ function loadPacks(packs) {
     });
   });
   const name = packs.length > 1 ? packs.length + " packs" : packs[0].pack;
+  if (report) report({ state: "loading", title: "Loading " + name });
   dialog.open({
     title: "Loading " + name,
     html: "Asking the Internet Archive for programs. This takes a few seconds per channel.",
     onClose: function () {
+      if (!cancelled && report) report({ state: "cancelled" });
       cancelled = true;
     },
     buttons: [
@@ -3339,6 +3849,15 @@ function loadPacks(packs) {
     saveCustom();
     cancelled = true; // done: closing the dialog now is not a cancel
     dialog.close();
+    if (report) {
+      report({
+        state: "loaded",
+        channels: done.map(function (c) {
+          return "CH " + chLabel(c) + " " + c.name;
+        }),
+        notes: notes.slice(0, 12),
+      });
+    }
     if (!done.length) {
       dialog.open({
         title: notes.length && !queue.length ? (packs.length > 1 ? "Packs loaded" : "Pack loaded") : packs.length > 1 ? "Packs loaded — nothing new" : "Pack loaded — nothing new",
@@ -3475,7 +3994,7 @@ function phoneSnapshot() {
         pos = Math.round(at);
       } else start = Math.round((Date.now() - at * 1000) / 2000) * 2000;
     }
-    now = { t: it.t, y: it.y || 0, d: it.d, start: start, pos: pos };
+    now = { t: it.t + (it.sent && it.e ? " · " + it.e : ""), y: it.y || 0, d: it.d, start: start, pos: pos };
   }
   let dlg = null;
   if (dialog.isOpen && dialog.spec && !app.pairOpen) {
@@ -3487,14 +4006,19 @@ function phoneSnapshot() {
     mode: player.mode,
     paused: paused,
     shifted: player.shifted,
+    // On demand (a sent link, a tape, "watch from the start"): the phone may move through it.
+    demand: !!(sl && sl.onDemand && (player.mode === "playing" || paused)),
+    sent: app.sent && sentOn() ? { i: app.sent.i, n: app.sent.items.length } : null,
     muted: player.muted,
     cc: ccValue(),
     fav: ch ? app.favs.has(ch.slug) : false,
     ch: ch ? { slug: ch.slug, number: ch.number, label: chLabel(ch), name: ch.name, icon: ch.icon || "", color: ch.color || "", kind: ch.kind || "video", tagline: ch.tagline || "" } : null,
     now: now,
-    next: sl && sl.next ? sl.next.t : "",
+    next: sl && sl.next ? (sl.next.sent && sl.next.e ? sl.next.e : sl.next.t) : "",
     overlay: dialog.isOpen ? "dialog" : menu.isOpen ? "menu" : guide.isOpen ? "guide" : "",
     dialog: dlg,
+    away: app.away || "",
+    pointer: appCan("pointer") ? "app" : "page",
   };
 }
 
@@ -3529,28 +4053,200 @@ function phoneWake() {
   }
 }
 
-function phoneMessage(m) {
-  if (app.state === "boot") return;
+// A link-out station's site is on top of the page (the TV app's overlay): what the phone asks for next is
+// for NostalGem itself, so the site closes first.
+function phoneHome() {
+  if (!app.away) return;
+  sendApp({ t: "close" });
+  cameHome();
+}
+
+function phoneMessage(m, conn) {
+  const turnOnUp = !!(app.turnOn && app.turnOn.active());
+  // The pointer moving and a pack arriving in pieces aren't a press: the turn-on plays on over them.
+  const press = m.t !== "ptr" && m.t !== "scroll" && m.t !== "file";
+  if (app.state === "boot") {
+    // No channel yet. The press still skips the turn-on; mute is remembered for the tune.
+    if (turnOnUp && press) skipTurnOn();
+    if (m.t === "key" && m.type === "mute") {
+      player.setMuted(true);
+      V.toast("Sound off");
+    }
+    return;
+  }
   if (m.t === "key") {
-    if (m.type === "back") back();
-    else handleAction({ type: m.type, digit: m.digit });
+    if (app.away && awayAction(m)) return;
+    // Back only dismisses the ident: it must not also arm "press again to exit".
+    if (m.type === "back") {
+      if (turnOnUp) skipTurnOn();
+      else back();
+      return;
+    }
+    handleAction({ type: m.type, digit: m.digit });
+    return;
+  }
+  // The Mouse page: its clicks and keys reach the page as a tap or a key would, and skip the turn-on the
+  // same way.
+  if (POINTER_MESSAGES.indexOf(m.t) >= 0) {
+    pointerMessage(m);
+    return;
+  }
+  if (m.t === "file") {
+    packFromPhone(m, conn);
+    return;
+  }
+  if (turnOnUp) skipTurnOn();
+  if (m.t === "play") {
+    phoneHome();
+    playSent(m, conn);
+  } else if (m.t === "seek") {
+    if (!app.away) sentSeek(m);
+  } else if (m.t === "queue") {
+    if (!app.away) sentStep(m.go);
   } else if (m.t === "tune") {
     const ch = app.channels.filter(function (c) {
       return c.slug === m.slug;
     })[0];
     if (!ch) return;
+    phoneHome();
     phoneWake();
     closeOverlays();
     tuneTo(ch);
   } else if (m.t === "search") {
+    phoneHome();
     phoneWake();
     closeOverlays();
     if (!tuneTypedNumber(m.text)) buildCustom(searchDef(m.text, m.kind));
   } else if (m.t === "find") {
+    phoneHome();
     phoneWake();
     closeOverlays();
     if (!tuneTypedNumber(m.text)) showFound(m.text);
   }
+}
+
+// ---------- the phone's Mouse page (pointer.js) ----------
+// In the TV app (newer versions say "pointer"), the app draws the pointer over whatever is on screen and
+// presses there for real, the YouTube player and 777's arcade included; this page passes the phone's
+// messages on. Anywhere else, the page draws its own pointer and works its own screen.
+const POINTER_MESSAGES = ["ptr", "click", "press", "scroll", "kbd", "text"];
+const pagePointer = new PagePointer($("pointer"), {
+  say: function (text) {
+    V.toast(text, 5000);
+  },
+  // Two fingers over the guide or a menu move a row at a time, like ▲▼.
+  steps: function (n) {
+    if (!navOpen() || reader.isOpen) return false;
+    for (let i = 0; i < Math.abs(n); i++) handleAction({ type: n > 0 ? "down" : "up" });
+    return true;
+  },
+  // The pointer keeps to the set: with Screen shape 4:3, to the box.
+  box: function () {
+    return tv.getBoundingClientRect();
+  },
+});
+function appCan(what) {
+  return ANDROID && native.can.indexOf(what) >= 0;
+}
+function sendApp(m) {
+  const bridge = window.NostalGemTV;
+  if (!bridge || typeof bridge.postMessage !== "function") return false;
+  try {
+    bridge.postMessage(appMessage(m));
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+// The TV app has two pieces of its own on the screen: the pointer it draws, and a link-out station's site.
+// A newer app (it says "box") is told the screen's shape, at start-up and when the setting changes, so
+// with 4:3 on both keep to the box as well.
+function tellAppShape() {
+  if (appCan("box")) sendApp({ t: "shape", s: s.shape === "43" ? "43" : "wide" });
+}
+function pointerMessage(m) {
+  // The pointer's own mouse and touch events aren't a hand on the screen: no touch buttons for them.
+  app.ptrAt = Date.now();
+  if (m.t !== "ptr" && m.t !== "scroll") phoneWake();
+  if (appCan("pointer") && sendApp(m)) return;
+  if (m.t === "ptr") pagePointer.move(m.dx, m.dy);
+  else if (m.t === "click") pagePointer.click();
+  else if (m.t === "press") pagePointer.press(m.down);
+  else if (m.t === "scroll") pagePointer.scroll(m.dx, m.dy);
+  else if (m.t === "kbd") pagePointer.key(m.key, m.down);
+  else if (m.t === "text") pagePointer.text(m.s);
+}
+
+// ---------- a link-out station's site, over the TV (the TV app's second screen) ----------
+// A newer TV app (it says "overlay") opens 777's arcade and friends over NostalGem instead of in its place,
+// so this page keeps running underneath: the phone stays linked, and its pointer and keys reach the site.
+// The program stops while the site is up and comes back when the app says it's closed.
+function goAway(ch) {
+  app.away = ch.name;
+  suspend();
+  if (!sendApp({ t: "open", url: linkUrl(ch) })) cameHome();
+}
+function cameHome() {
+  if (!app.away) return;
+  app.away = "";
+  resume();
+}
+// The phone's buttons while a site is up: the arrows and OK go to the site (as the TV remote's do); BACK
+// steps back through it and then home; anything else comes home first and then happens here.
+const AWAY_KEYS = { up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight", ok: "Enter" };
+function awayAction(m) {
+  if (AWAY_KEYS[m.type]) {
+    app.ptrAt = Date.now();
+    return sendApp({ t: "kbd", key: AWAY_KEYS[m.type], down: null });
+  }
+  if (m.type === "back") return sendApp({ t: "back" });
+  if (m.type === "mute") return sendApp({ t: "mute" });
+  sendApp({ t: "close" });
+  cameHome();
+  return false;
+}
+
+// ---------- a channel pack sent from the phone ----------
+// The phone sends the file in pieces (link.js); once it's all here, it goes through the same loader as a
+// file chosen on the TV — checked, then "Load these packs?" — and the phone hears what the TV made of it.
+const incoming = {}; // id -> { name, size, n, parts, got, at }
+function packFromPhone(m, conn) {
+  const now = Date.now();
+  Object.keys(incoming).forEach(function (id) {
+    if (now - incoming[id].at > 60000) delete incoming[id];
+  });
+  let f = incoming[m.id];
+  if (!f) {
+    if (Object.keys(incoming).length >= 3) return;
+    f = incoming[m.id] = { name: m.name, size: m.size, n: m.n, parts: [], got: 0, at: now };
+  }
+  if (f.n !== m.n || f.size !== m.size) return;
+  f.at = now;
+  if (f.parts[m.i] == null) {
+    f.parts[m.i] = m.data;
+    f.got++;
+  }
+  link.sendTo(conn, { t: "fileack", id: m.id, i: m.i });
+  if (f.got < f.n) return;
+  delete incoming[m.id];
+  const report = function (what) {
+    link.sendTo(conn, Object.assign({ t: "packs", id: m.id, name: f.name }, what));
+  };
+  let bytes = null;
+  try {
+    const bin = atob(f.parts.join(""));
+    bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  } catch (e) {
+    bytes = null;
+  }
+  if (!bytes || bytes.length !== f.size) return report({ state: "failed", bad: ["The file didn't arrive whole. Send it again."] });
+  phoneWake();
+  closeOverlays();
+  V.toast("📱 A channel pack from the phone: " + f.name, 3000);
+  const zip = /\.zip$/i.test(f.name) || (bytes[0] === 0x50 && bytes[1] === 0x4b);
+  if (zip) handlePackZip(bytes, f.name, report);
+  else handlePackText(utf8Text(bytes), f.name, report);
 }
 
 function pairStatus() {
@@ -3602,7 +4298,7 @@ function openPairing() {
     title: "Phone remote",
     html:
       '<div class="pair"><div class="pair-qr"></div><div class="pair-info">' +
-      "Point your phone's camera at the code to use it as the remote: buttons, a channel list and a keyboard for searching." +
+      "Point your phone's camera at the code to use it as the remote: buttons, a mouse and keyboard, a channel list, searching, and Send to TV for a YouTube or archive.org link." +
       '<div class="pair-or">or open <b>' +
       esc(shown) +
       "</b> and enter</div>" +
@@ -3755,7 +4451,7 @@ function canOpenHere() {
 
 // A link-out station's card, with a QR code so a phone can open the site too.
 function showLinkCard(ch) {
-  V.showCard(linkCardName(ch), V.linkCard(ch, ANDROID, canOpenHere()));
+  V.showCard(linkCardName(ch), V.linkCard(ch, ANDROID, canOpenHere(), appCan("pointer")));
   loadScript("vendor/qrcode.js")
     .then(function () {
       const box = document.querySelector(".link-qr");
@@ -3770,6 +4466,13 @@ function showLinkCard(ch) {
 // OK on a link-out station: a new tab in a browser; in the TV app, the site right on the TV (BACK on the
 // remote comes back); in an older TV app that can't, the phone.
 function openLinkOut(ch) {
+  if (appCan("overlay")) {
+    V.toast("Opening " + ch.name + "… BACK on the remote comes back here", 4000);
+    setTimeout(function () {
+      if (current() === ch) goAway(ch);
+    }, 700);
+    return;
+  }
   if (canOpenHere()) {
     V.toast("Opening " + ch.name + "… BACK on the remote comes back here", 4000);
     const url = linkUrl(ch);
@@ -3787,10 +4490,10 @@ function openLinkOut(ch) {
 
 function restoreCard() {
   const ch = current();
-  if (player.mode === "gap" && player.slot) V.showCard("gap", V.gapCard(ch, player.slot, s.clock24, app.bumpers));
+  if (player.mode === "gap" && player.slot) V.showCard("gap", V.gapCard(ch, player.slot, s.clock24, app.bumpers, app.cards), cardClass(ch));
   else if (player.mode === "standby") V.showCard("standby", V.standbyCard(app.standby));
   else if (player.mode === "empty") V.showCard("empty", V.emptyCard(ch, app.emptyWhy));
-  else if (player.mode === "adbreak") V.showCard("adbreak", V.adBreakCard(app.adQuip));
+  else if (player.mode === "adbreak") showAdCard(ch);
   else if (player.mode === "gesture") V.showCard("gesture", V.gestureCard());
   else if (isLinkChannel(ch)) showLinkCard(ch);
   else V.hideCard();
@@ -3808,6 +4511,11 @@ function handleAction(a) {
       /* fine */
     }
   }
+  // The turn-on takes this press. Back only dismisses it. Anything else dismisses it and still happens
+  // (mute, channel up, OK).
+  const turn = turnOnAction(!!(app.turnOn && app.turnOn.active()), a.type);
+  if (turn !== "run") skipTurnOn();
+  if (turn === "skip") return;
   if (app.state === "boot") return;
   if (app.stillShownAt) {
     app.stillShownAt = 0;
@@ -3824,7 +4532,11 @@ function handleAction(a) {
   }
   if (player.mode === "gesture") {
     player.userGesture();
-    return;
+    // The press that lets a blocked picture start still does its job when it is a channel
+    // change or it is for a dialog, menu or guide that is already open. Dropping it left
+    // the phone's channel-up on channel 1, and Enter unable to close What's new.
+    const moves = a.type === "up" || a.type === "down" || a.type === "chup" || a.type === "chdown";
+    if (!moves && !overlayOpen()) return;
   }
   if (numpad.isOpen) {
     numpad.handle(a);
@@ -3921,6 +4633,7 @@ function rootAction(a) {
       break;
     case "mute":
       player.setMuted(!player.muted);
+      if (player.muted) stopCrystalChime();
       V.toast(player.muted ? "Sound off" : "Sound on");
       break;
     case "help":
@@ -3966,6 +4679,11 @@ function back() {
     V.osdHide();
     return true;
   }
+  // Something sent from a phone is on: BACK is back to the channel.
+  if (app.sent && sentOn()) {
+    stopSent();
+    return true;
+  }
   if (!banner.hidden) {
     hideBanner();
     return true;
@@ -3980,8 +4698,19 @@ function back() {
 }
 
 document.addEventListener("keydown", function (e) {
+  // Keys the remote doesn't use still skip the turn-on. "a" should not have to be OK.
+  if (app.turnOn && app.turnOn.active() && !actionFor(e) && !isTypingTarget(e.target)) {
+    skipTurnOn();
+    if (player.mode === "gesture") player.userGesture();
+    e.preventDefault();
+    return;
+  }
   const a = actionFor(e);
   if (!a) return;
+  if (e.isTrusted) {
+    cameHome(); // a real key here: NostalGem is what's on screen
+    pagePointer.hide(); // a hand on the remote: the phone's pointer gets out of the way
+  }
   if (isTypingTarget(e.target)) {
     // A text field keeps its own keys; the app takes Escape, Enter and ▲▼.
     const esc = a.type === "back" && e.key !== "Backspace" && e.keyCode !== 8;
@@ -3992,19 +4721,19 @@ document.addEventListener("keydown", function (e) {
 });
 
 // On Android TV a controller's D-pad and A button also arrive as key presses, so one press can come in
-// twice: once as a key, once from the Gamepad API. The second copy within a moment is dropped.
+// twice: once as a key, once from the Gamepad API. The second copy within a moment is dropped
+// (gamepad.js, samePress).
 const lastInputFrom = { key: {}, pad: {} };
 function fromInput(source, a) {
   const now = typeof performance !== "undefined" ? performance.now() : Date.now();
-  lastInputFrom[source][a.type] = now;
-  const other = lastInputFrom[source === "key" ? "pad" : "key"][a.type] || 0;
-  if (now - other < 250) return;
+  if (samePress(lastInputFrom, source, a.type, now)) return;
   handleAction(a);
 }
 
 // ---------- mouse and touch ----------
 let pointerTimer = 0;
 function pointerActivity() {
+  if (Date.now() - (app.ptrAt || 0) < 1500) return; // the phone's pointer, not a hand on the screen
   touch.hidden = false;
   tv.classList.add("touch-on");
   tv.classList.remove("hide-cursor");
@@ -4068,6 +4797,23 @@ touch.addEventListener("pointerdown", function (e) {
 });
 document.addEventListener("mousemove", pointerActivity);
 document.addEventListener("touchstart", pointerActivity, { passive: true });
+// A tap skips the turn-on. The click that follows belongs to that tap, so it doesn't also press OK.
+let turnOnTap = false;
+document.addEventListener(
+  "pointerdown",
+  function () {
+    if (!(app.turnOn && app.turnOn.active())) return;
+    skipTurnOn();
+    // The click that follows this tap is swallowed, so this is the press that lets a
+    // blocked picture start. Otherwise the next dock button (MENU, GUIDE) is eaten.
+    if (player.mode === "gesture") player.userGesture();
+    turnOnTap = true;
+    setTimeout(function () {
+      turnOnTap = false;
+    }, 700);
+  },
+  true
+);
 touch.addEventListener("click", function (e) {
   const b = e.target.closest ? e.target.closest("[data-act]") : null;
   if (!b) return;
@@ -4083,6 +4829,10 @@ touch.addEventListener("click", function (e) {
   syncTouch();
 });
 tv.addEventListener("click", function (e) {
+  if (turnOnTap) {
+    turnOnTap = false;
+    return;
+  }
   // A click on a menu row or dialog button can remove that element before the click gets here (the menu
   // closes and a dialog opens). It was a click on an overlay, not on the picture: don't press OK again.
   if (!tv.contains(e.target)) return;
@@ -4124,6 +4874,7 @@ function suspend() {
   player.off();
 }
 function resume() {
+  if (app.away) return; // a link-out station's site is on top; the app says when it's gone
   ambience.wake();
   askApp();
   if (!app.suspended) return;
@@ -4165,6 +4916,7 @@ document.addEventListener("visibilitychange", function () {
 window.NP = {
   version: VERSION,
   remote: function (type, d) {
+    cameHome(); // the app only hands this page keys when NostalGem is what's on screen
     if (type === "back") return back();
     handleAction({ type: type, digit: d });
     return true;
@@ -4206,10 +4958,20 @@ window.NP = {
       reader: reader.state(),
       station: app.station || "",
       intro: !$("intro").hidden,
-      look: { id: lookId(), setting: s.look, station: app.stationLook || "", mix: s.mix, key: lookKey(), lite: lookIsLite(), quality: s.lookQuality, watching: frameWatch.key, fps: frameWatch.last },
+      turnOn: !!(app.turnOn && app.turnOn.active()),
+      look: { id: lookId(), setting: s.look, station: app.stationLook || "", mix: s.mix, key: lookKey(), lite: lookIsLite(), quality: s.lookQuality, watching: frameWatch.key, fps: frameWatch.last, canvas: canvasLook.out.hidden ? "" : canvasLook.out.width + "x" + canvasLook.out.height, pictures: canvasLook.pictures, onScreen: tv.style.getPropertyValue("--look") },
+      tv: ON_TV,
       sound: player.soundState(),
       cut: player.cutState(),
       cutCard: !$("cutcard").hidden,
+      pointer: pagePointer.state(),
+      away: app.away,
+      card: $("card").hidden ? "" : $("card").className,
+      cardWords: app.cards !== DEFAULT_CARDS, // data/cards.json is in (a break card on screen is redrawn with it)
+      sent: app.sent ? { i: app.sent.i, n: app.sent.items.length, on: sentOn(), titles: app.sent.items.map(sentTitle) } : null,
+      at: player.position() ? Math.round(player.position().at * 10) / 10 : 0,
+      length: player.slot ? player.slot.item.d : 0,
+      radio: !radio.hidden,
     };
   },
 };
@@ -4222,6 +4984,7 @@ function tick() {
   ambience.setActive(app.state === "on" && !app.suspended && !player.muted);
   watchFrames();
   clubTick(now);
+  sentTick();
   syncTouch();
   if (app.pairOpen && app.ticks % 4 === 0) pairStatus(); // relay servers coming and going
   if (app.bannerUntil) {
@@ -4318,6 +5081,64 @@ function swapLineup(lineup, source) {
 }
 
 // ---------- boot ----------
+function skipTurnOn() {
+  if (!app.turnOn || !app.turnOn.active()) return false;
+  app.turnOn.skip();
+  return true;
+}
+
+function endTurnOn() {
+  if (app.turnOnEnded) return;
+  app.turnOnEnded = true;
+  const bootEl = $("boot");
+  if (bootEl) {
+    bootEl.classList.add("gone");
+    setTimeout(function () {
+      bootEl.hidden = true;
+      bootEl.innerHTML = "";
+      app.turnOn = null;
+    }, 480);
+  }
+  // What's new waits until the picture is actually on screen.
+  setTimeout(function () {
+    if (app.state === "on" && !overlayOpen()) showWhatsNew(false);
+  }, 1100);
+}
+
+function holdTurnOn() {
+  const bootEl = $("boot");
+  if (bootEl) bootEl.classList.add("boot-hold");
+}
+
+// A few stills of snow, then stop. No animation frame loop.
+function paintBootSnow(turnOn) {
+  const c = $("boot-snow");
+  if (!c || !c.getContext) return;
+  let ctx = null;
+  try {
+    ctx = c.getContext("2d");
+  } catch (e) {
+    return;
+  }
+  if (!ctx) return;
+  const size = snowBufferSize(c.clientWidth || 160, c.clientHeight || 90, window.devicePixelRatio || 1);
+  c.width = size.w;
+  c.height = size.h;
+  function draw() {
+    if (!turnOn.active()) return;
+    try {
+      const img = ctx.createImageData(size.w, size.h);
+      img.data.set(snowPixels(size.w, size.h));
+      ctx.putImageData(img, 0, 0);
+    } catch (e) {
+      /* no canvas: the bars still play */
+    }
+  }
+  // Three stills as the raster opens, then the canvas sits. Not a loop.
+  let i;
+  for (i = 0; i < SNOW_FRAMES.length; i++) turnOn.arm(draw, 380 + SNOW_FRAMES[i]);
+}
+
 function wait(ms) {
   return new Promise(function (r) {
     setTimeout(r, ms);
@@ -4339,6 +5160,9 @@ function askApp() {
       return;
     }
     if (!m || typeof m !== "object") return;
+    // A link-out station's site was closed (BACK, or held Select): back to the program.
+    if (m.t === "home") return cameHome();
+    if (m.t) return;
     if (Array.isArray(m.lan)) native.lan = m.lan.filter(isIPv4).slice(0, 4);
     if (typeof m.app === "string") native.app = m.app.slice(0, 20);
     if (Array.isArray(m.can)) {
@@ -4349,6 +5173,7 @@ function askApp() {
         .slice(0, 10);
       // A link-out card on screen now says it opens right here.
       if (app.state === "on" && isLinkChannel(current())) showLinkCard(current());
+      tellAppShape();
     }
   };
   try {
@@ -4359,57 +5184,99 @@ function askApp() {
 }
 
 async function boot() {
+  const bootEl = $("boot");
+  const still = prefersStill(function (q) {
+    return window.matchMedia(q);
+  });
+  // Alternate card only. The CRT title card stays the markup in index.html.
+  const treasure = !!(bootEl && treasureWanted(params.get("boot")));
+  if (treasure) mountTreasureBoot(bootEl, still);
   const bootVersion = document.querySelector(".boot-version");
   if (bootVersion) bootVersion.textContent = "v" + VERSION;
   askApp();
   registerTvKeys();
   applyLook();
   tv.classList.add("hide-cursor");
-  const status = document.querySelector(".boot-status");
-  const t0 = Date.now();
+  if (!treasure && (!showBootSnow(s.staticFx) || still)) bootEl.classList.add("boot-quiet");
+  const waitEl = document.querySelector(".boot-wait");
+  // The title card plays over the load. It does not wait, and it does not hold the tuner.
+  const turnOn = createTurnOn({
+    now: function () {
+      return typeof performance !== "undefined" ? performance.now() : Date.now();
+    },
+    duration: turnOnDuration(still),
+    schedule: function (fn, ms) {
+      return setTimeout(fn, ms);
+    },
+    cancel: function (id) {
+      clearTimeout(id);
+    },
+    audible: function () {
+      return !still && introAudible({ muted: player.muted, staticFx: s.staticFx });
+    },
+    playSound: treasure ? playTreasureSound : playTurnOnSound,
+    onFinish: endTurnOn,
+    onWait: holdTurnOn,
+  });
+  app.turnOn = turnOn;
+  if (!treasure && !still && showBootSnow(s.staticFx)) paintBootSnow(turnOn);
   let got = null;
   while (!got) {
     got = await loadLineup({ bundled: "data/lineup.json", live: LIVE_LINEUP });
     if (!got) {
-      status.textContent = "NO SIGNAL · RETRYING";
+      if (waitEl) waitEl.textContent = "NO SIGNAL · RETRYING";
       await wait(5000);
-      status.textContent = "TUNING IN…";
+      if (waitEl) waitEl.textContent = "";
     }
   }
   applyLineup(got.lineup, got.source);
+  // The tuner no longer waits for the start-up card, so a station break can be on screen before these two
+  // files are in: when one arrives, a break card that's up is drawn again with it.
+  const redrawBreak = function () {
+    if (app.state !== "on" || app.stillShownAt) return;
+    if (player.mode === "gap" && player.slot) {
+      restoreCard();
+      return;
+    }
+    // The card while a channel loads, in its family's words (not something sent from a phone, which has
+    // NostalGem's own card, and not one that's already fading out).
+    const card = $("card");
+    const item = player.slot ? player.slot.item : null;
+    const ch = current();
+    if (player.mode === "tuning" && ch && !card.hidden && /\bcard-tuning\b/.test(card.className) && !/\bcard-leave\b/.test(card.className) && !(item && item.sent)) {
+      V.showCard("tuning", V.loadingCard(ch, app.cards, Date.now()), cardClass(ch));
+    }
+  };
   // House bumpers for the station breaks. Loads in the background; a missing
   // file just means plain "up next" cards.
   loadBumpers("data/bumpers.json").then(function (list) {
     app.bumpers = list;
+    redrawBreak();
+  });
+  // The station cards' words, in each family's voice. Missing: the plain words.
+  loadCards("data/cards.json").then(function (c) {
+    app.cards = c;
+    redrawBreak();
   });
   loadSkipLists();
   const asked = (params.get("ch") || "").replace(/[^0-9]/g, "").replace(/^0+(?=\d)/, "");
   const lastSlug = load("last", "");
   const start =
-    app.channels.filter(function (c) {
-      return asked && chKey(c) === asked;
-    })[0] ||
+    (asked && channelForDigits(app.channels, asked, false)) ||
     app.channels.filter(function (c) {
       return c.slug === lastSlug;
     })[0] ||
     app.channels[0];
 
-  await wait(Math.max(0, 1300 - (Date.now() - t0)));
-  const bootEl = $("boot");
-  bootEl.classList.add("gone");
-  setTimeout(function () {
-    bootEl.hidden = true;
-    bootEl.innerHTML = "";
-  }, 700);
+  // Tune the moment the lineup is in. The title card is still up; uncovering it is lineupReady's job.
+  // The channel's own banner and snow stay the tuning screen. This card does not become that.
   app.state = "on";
   tuneTo(start);
-  // Once the start-up screen has gone: a welcome, or what's new since last time.
-  setTimeout(function () {
-    if (app.state === "on" && !overlayOpen()) showWhatsNew(false);
-  }, 1500);
+  turnOn.lineupReady();
   // Any standard controller drives the remote: D-pad to surf, A for OK, B to go back.
   createGamepad(
     function (a) {
+      if (app.away) return; // a controller playing the arcade's games, over this page
       fromInput("pad", a);
     },
     {
@@ -4428,6 +5295,4 @@ async function boot() {
   }
 }
 
-// The boot screen shares the sunset scene.
-$("boot").insertAdjacentHTML("afterbegin", V.SCENE);
 boot();
