@@ -70,6 +70,12 @@ const shot = async (name, wait) => {
   await page.waitForTimeout(wait || 250);
   await page.screenshot({ path: join(SHOTS, name) });
 };
+// A station break on screen, in its family's words: the tuner starts with the start-up card now, so a break
+// can be on screen a moment before data/cards.json is in. The card is drawn again when it arrives.
+const inBreak = async () => {
+  await page.waitForFunction(() => window.NP && window.NP.state().mode === "gap" && window.NP.state().cardWords, null, { timeout: 15000 }).catch(() => {});
+  await page.waitForTimeout(100);
+};
 const chan = (slug) => lineup.channels.find((c) => c.slug === slug);
 // The moment the first program on a channel ends: its first station break.
 const breakOf = (ch) => {
@@ -83,7 +89,7 @@ let ch = chan("high-noon");
 let b = breakOf(ch);
 await page.clock.setFixedTime(new Date(b.at));
 await page.goto(base + "?ch=1");
-await page.waitForFunction(() => window.NP && window.NP.state().mode === "gap", null, { timeout: 15000 }).catch(() => {});
+await inBreak();
 let c = await card();
 check((await st()).mode === "gap" && /card-gap/.test(c.cls) && /fam-western/.test(c.cls) && !c.hidden, `CH 01's station break shows the western card (${c.cls})`);
 check(await page.isVisible("#card .fscene.fs-western"), "…with the sundown scene behind it");
@@ -114,7 +120,7 @@ ch = chan("creature-feature");
 b = breakOf(ch);
 await page.clock.setFixedTime(new Date(b.at));
 await page.goto(base + "?ch=7");
-await page.waitForFunction(() => window.NP && window.NP.state().mode === "gap", null, { timeout: 15000 }).catch(() => {});
+await inBreak();
 c = await card();
 const bumper = /NOSTALGEM|UPDOGE|STATION IDENTIFICATION|PLEASE STAND BY|A WORD FROM OUR SPONSOR|TECHNICAL NOTE|GOOD NIGHT|HOUSE AD|STATION BREAK|DID YOU KNOW|SIGN-OFF/.test(c.text) && !/RISING IN/.test(c.text);
 check(/card-gap/.test(c.cls) && /fam-horror/.test(c.cls), `CH 07's break has the horror look (${c.cls})`);
@@ -139,7 +145,8 @@ slowMedia = 2600;
 ch = chan("midnight-noir");
 await page.clock.setFixedTime(new Date(Date.parse(lineup.epoch) + 3000));
 await page.goto(base + "?ch=6");
-await page.waitForFunction(() => window.NP && document.getElementById("card").className.indexOf("card-tuning") >= 0, null, { timeout: 8000 }).catch(() => {});
+await page.waitForFunction(() => window.NP && document.getElementById("card").className.indexOf("card-tuning") >= 0 && window.NP.state().cardWords, null, { timeout: 8000 }).catch(() => {});
+await page.waitForTimeout(100);
 c = await card();
 const lines = cards.noir.loading;
 check(/card-tuning/.test(c.cls) && /fam-noir/.test(c.cls) && !c.hidden, `a film slow to load: the channel's own card after a moment (${c.cls})`);

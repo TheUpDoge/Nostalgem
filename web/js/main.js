@@ -4967,6 +4967,7 @@ window.NP = {
       pointer: pagePointer.state(),
       away: app.away,
       card: $("card").hidden ? "" : $("card").className,
+      cardWords: app.cards !== DEFAULT_CARDS, // data/cards.json is in (a break card on screen is redrawn with it)
       sent: app.sent ? { i: app.sent.i, n: app.sent.items.length, on: sentOn(), titles: app.sent.items.map(sentTitle) } : null,
       at: player.position() ? Math.round(player.position().at * 10) / 10 : 0,
       length: player.slot ? player.slot.item.d : 0,
@@ -5232,7 +5233,19 @@ async function boot() {
   // The tuner no longer waits for the start-up card, so a station break can be on screen before these two
   // files are in: when one arrives, a break card that's up is drawn again with it.
   const redrawBreak = function () {
-    if (app.state === "on" && player.mode === "gap" && player.slot && !app.stillShownAt) restoreCard();
+    if (app.state !== "on" || app.stillShownAt) return;
+    if (player.mode === "gap" && player.slot) {
+      restoreCard();
+      return;
+    }
+    // The card while a channel loads, in its family's words (not something sent from a phone, which has
+    // NostalGem's own card, and not one that's already fading out).
+    const card = $("card");
+    const item = player.slot ? player.slot.item : null;
+    const ch = current();
+    if (player.mode === "tuning" && ch && !card.hidden && /\bcard-tuning\b/.test(card.className) && !/\bcard-leave\b/.test(card.className) && !(item && item.sent)) {
+      V.showCard("tuning", V.loadingCard(ch, app.cards, Date.now()), cardClass(ch));
+    }
   };
   // House bumpers for the station breaks. Loads in the background; a missing
   // file just means plain "up next" cards.
