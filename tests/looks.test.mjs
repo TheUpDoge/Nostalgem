@@ -165,3 +165,51 @@ test("stained glass: irregular panes that cover the picture without gaps or over
   assert.ok(panes.every((p) => p.x >= -0.01 && p.y >= -0.01 && p.x + p.w <= W + 0.01 && p.y + p.h <= H + 0.01));
   assert.deepEqual(glassPanes(26, 15, W, H, 111)[100].pts, panes[100].pts);
 });
+
+// Sin City's color windows (Task 14): muted colors are kept, neighbours stay out, near-misses fade.
+import { popStrength, POP_WINDOWS } from "../web/js/looks.js";
+
+test("Sin City yellow keeps real-world yellows and leaves orange and green out", () => {
+  const keep = { "pure yellow": [1, 1, 0], "taxi": [0.95, 0.75, 0.1], "road sign": [0.98, 0.82, 0.05], "muted film yellow": [0.6, 0.55, 0.3], "faded print": [0.72, 0.64, 0.38], "mustard": [0.45, 0.38, 0.12] };
+  for (const [what, rgb] of Object.entries(keep)) assert.ok(popStrength("yellow", rgb) >= 0.7, what + " is kept: " + popStrength("yellow", rgb));
+  assert.ok(popStrength("yellow", [0.82, 0.66, 0.4]) > 0.1, "sand in late light keeps some yellow");
+  for (const [what, rgb] of Object.entries({ orange: [1, 0.5, 0], "deep orange": [0.85, 0.4, 0.1], lime: [0.5, 1, 0], green: [0, 1, 0], red: [1, 0, 0], gray: [0.5, 0.5, 0.5], white: [1, 1, 1], skin: [0.85, 0.65, 0.55] })) {
+    assert.equal(popStrength("yellow", rgb), 0, what + " is not yellow");
+  }
+});
+
+test("every Sin City color keeps its own hue, muted too, and not the others'", () => {
+  const PURE = { red: [1, 0, 0], yellow: [1, 1, 0], green: [0, 1, 0], cyan: [0, 1, 1], blue: [0, 0, 1], purple: [0.6, 0.15, 0.85] };
+  const MUTED = { red: [0.6, 0.3, 0.25], yellow: [0.6, 0.55, 0.3], green: [0.3, 0.5, 0.3], cyan: [0.1, 0.5, 0.5], blue: [0.25, 0.35, 0.55], purple: [0.45, 0.3, 0.55] };
+  for (const c of Object.keys(POP_WINDOWS)) {
+    assert.ok(popStrength(c, PURE[c]) > 0.95, c + " keeps pure " + c);
+    assert.ok(popStrength(c, MUTED[c]) >= 0.5, c + " keeps muted " + c + ": " + popStrength(c, MUTED[c]));
+    for (const other of Object.keys(PURE)) if (other !== c) assert.equal(popStrength(c, PURE[other]), 0, c + " leaves " + other + " gray");
+    for (const g of [[0, 0, 0], [0.3, 0.3, 0.3], [0.7, 0.7, 0.7], [1, 1, 1], [0.52, 0.5, 0.49]]) assert.equal(popStrength(c, g), 0, c + " leaves gray gray");
+  }
+});
+
+test("a Sin City color fades toward its window's edges instead of dropping off", () => {
+  const hue = (h, chroma) => {
+    const x = (((h % 360) + 360) % 360) / 60;
+    const f = x - Math.floor(x);
+    const c = [[1, f, 0], [1 - f, 1, 0], [0, 1, f], [0, 1 - f, 1], [f, 0, 1], [1, 0, 1 - f]][Math.floor(x) % 6];
+    return c.map((k) => 0.8 - chroma + chroma * k);
+  };
+  for (const [c, w] of Object.entries(POP_WINDOWS)) {
+    // A muted color, stepped from the middle out to each edge: it only ever gets weaker, passing through
+    // values in between (no step from all to nothing).
+    for (const edge of [w[0], w[2]]) {
+      let last = popStrength(c, hue(w[1], 0.3));
+      let between = 0;
+      for (let i = 1; i <= 20; i++) {
+        const v = popStrength(c, hue(w[1] + ((edge - w[1]) * i) / 20, 0.3));
+        assert.ok(v <= last + 1e-9, c + " gets weaker toward " + edge);
+        if (v > 0.05 && v < 0.95) between++;
+        last = v;
+      }
+      assert.ok(between >= 3, c + " fades toward " + edge + " over several steps (" + between + ")");
+      assert.equal(last, 0, c + " is gone at its edge " + edge);
+    }
+  }
+});
