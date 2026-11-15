@@ -360,4 +360,53 @@ test("mixPrograms: Archive programs and links share the rotation evenly", () => 
   const m = mixPrograms(a, ["L0", "L1", "L2"]);
   assert.equal(m.length, 13);
   assert.deepEqual(m.filter((x) => x[0] === "a"), a, "each list keeps its own order");
+// ---------- the pack list (browsing packs on the TV) ----------
+import { parsePackIndex, packIndexLine, PACK_INDEX_FORMAT } from "../web/js/packs.js";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, writeFileSync as writeFileNow } from "node:fs";
+import { tmpdir } from "node:os";
+import { join as joinPath } from "node:path";
+
+test("parsePackIndex: packs beside the list or at https addresses; anything else is left out with why", () => {
+  const list = {
+    format: PACK_INDEX_FORMAT,
+    title: "Test add-ons",
+    updated: "2026-11-14",
+    packs: [
+      { name: "Sci-Fi", file: "packs/sci-fi.json", channels: [{ number: 46, name: "80s Sci-Fi" }, { number: 47, name: "More" }], programs: 37, about: "Rockets." },
+      { name: "Bundle", file: "https://cdn.example.org/all.zip", channels: [], programs: 0 },
+      { name: "Plain http", file: "http://elsewhere.example.org/p.json" },
+      { name: "A page", file: "https://example.org/page.html" },
+      "junk",
+    ],
+  };
+  const r = parsePackIndex(list, "https://mitch.example.org/nostalgem/index.json");
+  assert.equal(r.ok, true);
+  assert.equal(r.title, "Test add-ons");
+  assert.deepEqual(r.packs.map((p) => [p.name, p.url, p.zip]), [
+    ["Sci-Fi", "https://mitch.example.org/nostalgem/packs/sci-fi.json", false],
+    ["Bundle", "https://cdn.example.org/all.zip", true],
+  ]);
+  assert.equal(r.errors.length, 2);
+  assert.match(r.errors[0], /Plain http: its file needs an https/);
+  assert.match(r.errors[1], /A page: its file should be a \.json or a \.zip/);
+  assert.equal(packIndexLine(r.packs[0]), "CH 46, 47 · 37 programs");
+  assert.equal(packIndexLine(r.packs[1]), "");
+  // A list on this computer (for trying one out) may name files beside it on the same http address.
+  assert.equal(parsePackIndex({ format: PACK_INDEX_FORMAT, packs: [{ file: "a.json" }] }, "http://127.0.0.1:8080/index.json").packs[0].url, "http://127.0.0.1:8080/a.json");
+  for (const bad of [null, [], { packs: [] }, { format: "other", packs: [] }, { format: PACK_INDEX_FORMAT }]) assert.equal(parsePackIndex(bad, "https://x.org/i.json").ok, false);
+});
+
+test("tools/build-pack-index.mjs lists the packs that would load, and names the ones it leaves out", () => {
+  const dir = mkdtempSync(joinPath(tmpdir(), "packs-"));
+  writeFileNow(joinPath(dir, "good.json"), JSON.stringify(pack([channel({ name: "Good One", number: 46, sources: [{ items: ["a_1", "b_2"] }, { items: ["c_3"] }] })], { pack: "Good Pack" })));
+  writeFileNow(joinPath(dir, "bad.json"), JSON.stringify({ pack: "Bad", version: 9, channels: [] }));
+  writeFileNow(joinPath(dir, "notes.txt"), "not a pack");
+  const out = execFileSync(process.execPath, [fileURLToPath(new URL("../tools/build-pack-index.mjs", import.meta.url)), dir, "--title", "Test list"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  const index = JSON.parse(out);
+  assert.equal(index.format, PACK_INDEX_FORMAT);
+  assert.equal(index.title, "Test list");
+  assert.deepEqual(index.packs, [{ name: "Good Pack", file: "good.json", channels: [{ number: 46, name: "Good One" }], programs: 3 }]);
+  const back = parsePackIndex(index, "https://x.org/list/index.json");
+  assert.deepEqual(back.packs.map((p) => p.url), ["https://x.org/list/good.json"]);
 });
