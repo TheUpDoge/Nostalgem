@@ -8,7 +8,7 @@ import { actionFor, isTypingTarget, registerTvKeys } from "./remote.js";
 import { load, save } from "./store.js";
 import { archiveLinkQuery, buildChannel, browserFetchJson, metadataUrl } from "./archive.js";
 import { archiveAboutHtml } from "./about.js";
-import { asPack, buildItemsChannel, packChannelDef, packFilesFromZip, packSkipLists, parsePack, validatePack } from "./packs.js";
+import { asPack, buildItemsChannel, packChannelDef, packFilesFromZip, packIndexLine, packSkipLists, parsePack, parsePackIndex, validatePack } from "./packs.js";
 import { channelForDigits, moreToType, packNumberFor, typedLabel } from "./dial.js";
 import { LINK_CHANNELS, isLinkChannel, isGuideVisible, linkCardName, linkUrl, openLinkChannel } from "./linkout.js";
 import { createGamepad, samePress } from "./gamepad.js";
@@ -58,7 +58,7 @@ const ON_PAGES = window.location.href.indexOf(PAGES_BASE) === 0;
 const LIVE_LINEUP = ANDROID && !ON_PAGES ? PAGES_BASE + "data/lineup.json" : "";
 const LINEUP_RECHECK = 3 * 3600 * 1000; // coming back to the app after this long: look for a newer lineup
 
-const DEFAULTS = { shape: "wide", crt: "light", fit: "contain", cc: "off", staticFx: "sound", bug: true, clock24: false, surf: "all", phone: false, region: "auto", look: "off", mix: "off", ambience: "off", lookQuality: "auto", liteLooks: {}, readMode: "auto", readPaper: "day" };
+const DEFAULTS = { shape: "wide", crt: "light", fit: "contain", cc: "off", staticFx: "sound", bug: true, clock24: false, surf: "all", phone: false, region: "auto", look: "off", mix: "off", ambience: "off", lookQuality: "auto", liteLooks: {}, readMode: "auto", readPaper: "day", packIndex: "" };
 const SLEEP_STEPS = [0, 15, 30, 45, 60, 90, 120];
 // Whether this TV had used NostalGem before this start (for a welcome, or "what's new").
 const HAD_USED = load("settings", null) != null || load("last", null) != null || load("favs", null) != null;
@@ -3517,11 +3517,20 @@ function showArchiveAbout() {
 }
 
 // ---------- channel packs ----------
+// The pack list's address: the viewer's own (Menu ▸ Load a channel pack ▸ Pack list address), else the one
+// the app ships with. PACK_INDEX_DEFAULT is empty until Mitchel chooses where the list lives (see PACKS.md):
+// it's outside this repo, since the packs in it are personal.
+const PACK_INDEX_DEFAULT = "";
+function packIndexAddress() {
+  return s.packIndex || PACK_INDEX_DEFAULT;
+}
+
 function packPage() {
   return {
     title: "Load a channel pack",
     sub: "Archive-only packs · saved on this TV",
     items: function () {
+      const listAt = packIndexAddress();
       return [
         { head: true, label: "From a file" },
         {
@@ -3539,6 +3548,23 @@ function packPage() {
             return "close";
           },
         },
+        { head: true, label: "From the pack list" },
+        listAt
+          ? {
+              label: "📚 Browse the pack list",
+              ok: function () {
+                browsePacks(); // the list opens as the next page of this menu
+              },
+            }
+          : { head: true, label: "No pack list set yet: give its address below." },
+        {
+          label: listAt ? "Pack list address" : "Set the pack list address…",
+          value: listAt ? shortAddress(listAt) : "",
+          ok: function () {
+            askPackIndex();
+            return "close";
+          },
+        },
         { head: true, label: "About packs" },
         {
           label: "How channel packs work",
@@ -3552,6 +3578,147 @@ function packPage() {
   };
 }
 
+function shortAddress(url) {
+  const t = String(url).replace(/^https?:\/\//, "");
+  return t.length > 34 ? t.slice(0, 31) + "…" : t;
+}
+
+function askPackIndex() {
+  dialog.open({
+    title: "Pack list address",
+    html: "The address of a NostalGem pack list (an <b>index.json</b> on a website, made with <b>tools/build-pack-index.mjs</b>). Leave it empty to use " + (PACK_INDEX_DEFAULT ? "the app's own list." : "none."),
+    input: { placeholder: "https://…/index.json", value: s.packIndex || "" },
+    buttons: [
+      {
+        label: "Save",
+        action: function (d) {
+          const v = d.value().trim();
+          if (v && !/^https?:\/\/\S+$/i.test(v)) {
+            d.status("That doesn't look like a web address (https://…).");
+            return;
+          }
+          s.packIndex = v;
+          saveSettings();
+          d.close();
+          if (v) browsePacks();
+        },
+      },
+      {
+        label: "Cancel",
+        action: function (d) {
+          d.close();
+        },
+      },
+    ],
+  });
+}
+
+// The pack list, fresh each time it's opened (it changes when packs are added), held for ten minutes.
+let packIndexCache = null;
+function browsePacks() {
+  const url = packIndexAddress();
+  if (!url) return askPackIndex();
+  if (packIndexCache && packIndexCache.url === url && Date.now() - packIndexCache.at < 600000) {
+    openPackList(packIndexCache.index);
+    return;
+  }
+  let cancelled = false;
+  dialog.open({
+    title: "📚 Pack list",
+    html: "Getting the list of packs…",
+    onClose: function () {
+      cancelled = true;
+    },
+    buttons: [
+      {
+        label: "Cancel",
+        action: function (d) {
+          d.close();
+        },
+      },
+    ],
+  });
+  fetch(url, { credentials: "omit", cache: "no-cache" })
+    .then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    })
+    .then(function (json) {
+      if (cancelled) return;
+      const index = parsePackIndex(json, url);
+      if (!index.ok) throw new Error(index.errors[0]);
+      packIndexCache = { url: url, at: Date.now(), index: index };
+      cancelled = true;
+      dialog.close();
+      openPackList(index);
+    })
+    .catch(function (e) {
+      if (!cancelled) dialog.status("Couldn't get the pack list (" + e.message + "). Check the address: Menu ▸ Load a channel pack ▸ Pack list address.");
+    });
+}
+
+function openPackList(index) {
+  if (!menu.isOpen) menu.open(rootPage());
+  menu.push({
+    title: "📚 " + index.title,
+    sub: index.packs.length + (index.packs.length === 1 ? " pack" : " packs") + (index.updated ? " · updated " + index.updated : "") + " · OK to see one",
+    items: function () {
+      if (!index.packs.length) return [{ head: true, label: "The list is empty." }];
+      return index.packs.map(function (p) {
+        return {
+          label: p.name,
+          value: packIndexLine(p),
+          ok: function () {
+            openListedPack(p);
+          },
+        };
+      });
+    },
+  });
+}
+
+function openListedPack(p) {
+  const chans = p.channels
+    .slice(0, 12)
+    .map(function (c) {
+      return "CH " + c.number + (c.name ? " · " + esc(c.name) : "");
+    })
+    .join("<br>");
+  dialog.open({
+    title: "📦 " + p.name,
+    html: (p.about ? esc(p.about) + "<br><br>" : "") + (chans || "") + (p.channels.length > 12 ? "<br>…and " + (p.channels.length - 12) + " more" : "") + (p.programs ? "<br><br>" + p.programs + " programs" : "") + (p.by ? " · from " + esc(p.by) : ""),
+    buttons: [
+      {
+        label: "Load this pack",
+        action: function (d) {
+          d.status("Getting " + p.name + "…");
+          fetch(p.url, { credentials: "omit", cache: "no-cache" })
+            .then(function (r) {
+              if (!r.ok) throw new Error("HTTP " + r.status);
+              return r.arrayBuffer();
+            })
+            .then(function (buf) {
+              const bytes = new Uint8Array(buf);
+              const label = decodeURIComponent(p.url.split("/").pop().split("?")[0]) || p.name;
+              // Loaded the way a picked file is: the same checks, the same "Load these packs?".
+              if (p.zip || (bytes[0] === 0x50 && bytes[1] === 0x4b)) handlePackZip(bytes, label);
+              else handlePackText(utf8Text(bytes), label);
+            })
+            .catch(function (e) {
+              d.status("Couldn't get " + p.name + " (" + e.message + ").");
+            });
+        },
+      },
+      {
+        label: "Back",
+        action: function (d) {
+          d.close();
+        },
+      },
+    ],
+  });
+}
+
 function showPackHelp() {
   dialog.open({
     title: "How channel packs work",
@@ -3563,6 +3730,7 @@ function showPackHelp() {
       "The format is in <b>PACKS.md</b>, with an example pack in <b>packs/example-pack.json</b>. " +
       "Several packs can come together in one <b>.zip</b>: every .json file in it is loaded. " +
       "On a TV with no file picker, send it from the phone remote (its Channels page: Send a pack to the TV), or use Paste pack JSON. " +
+      "With a <b>pack list</b> address set, Browse the pack list shows the packs it names and loads the one you pick. " +
       "Channels you load are your choice on your own TV.",
     buttons: [
       {

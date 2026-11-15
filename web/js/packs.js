@@ -371,3 +371,81 @@ export async function buildItemsChannel(ids, def, ctx) {
   });
   return { items: items, about: usedAbout };
 }
+
+// ---------- a pack list: browsing packs on the TV ----------
+// A small JSON file, hosted anywhere outside this repo (personal packs never go in it), listing packs and
+// where each file is. The TV fetches it, lists the packs, and loads the one picked the way a pasted pack
+// loads. tools/build-pack-index.mjs writes one from a folder of packs.
+//   { "format": "nostalgem-pack-index/1", "title": "…", "updated": "2026-11-14",
+//     "packs": [{ "name": "…", "file": "packs/x.json" or a full https:// address, "channels": [{ "number": 46,
+//                 "name": "…" }], "programs": 37, "about": "…", "by": "…" }] }
+export const PACK_INDEX_FORMAT = "nostalgem-pack-index/1";
+const INDEX_MAX = 300;
+
+// The list's JSON -> { ok, title, updated, packs: [{ name, url, zip, channels, programs, about, by }], errors }.
+// base: the list's own address (a file named relative to it is fetched from beside it). A pack whose file
+// isn't a .json or .zip on https is left out, with the reason in errors.
+export function parsePackIndex(json, base) {
+  const errors = [];
+  if (!isPlainObject(json) || json.format !== PACK_INDEX_FORMAT || !Array.isArray(json.packs)) {
+    return { ok: false, title: "", updated: "", packs: [], errors: ["That isn't a NostalGem pack list (format " + PACK_INDEX_FORMAT + ")."] };
+  }
+  const text = function (v, n) {
+    return typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, n) : "";
+  };
+  let baseUrl = null;
+  try {
+    baseUrl = new URL(base);
+  } catch (e) {
+    baseUrl = null;
+  }
+  const packs = [];
+  json.packs.slice(0, INDEX_MAX).forEach(function (p, i) {
+    if (!isPlainObject(p)) return;
+    const name = text(p.name, 80);
+    const where = name || "Pack " + (i + 1);
+    let url = null;
+    try {
+      url = baseUrl ? new URL(String(p.file || ""), baseUrl) : new URL(String(p.file || ""));
+    } catch (e) {
+      url = null;
+    }
+    // https, or the same kind of address as the list itself (a list on this computer, for trying one out).
+    if (!url || !(url.protocol === "https:" || (baseUrl && url.protocol === baseUrl.protocol && url.host === baseUrl.host))) {
+      errors.push(where + ": its file needs an https:// address.");
+      return;
+    }
+    if (!/\.(json|zip)$/i.test(url.pathname)) {
+      errors.push(where + ": its file should be a .json or a .zip.");
+      return;
+    }
+    const channels = (Array.isArray(p.channels) ? p.channels : [])
+      .filter(function (c) {
+        return isPlainObject(c) && isInt(c.number);
+      })
+      .slice(0, MAX_CHANNELS * 10)
+      .map(function (c) {
+        return { number: c.number, name: text(c.name, NAME_LIMIT * 2) };
+      });
+    packs.push({
+      name: name || decodeURIComponent(url.pathname.split("/").pop()),
+      url: url.href,
+      zip: /\.zip$/i.test(url.pathname),
+      channels: channels,
+      programs: isInt(p.programs) && p.programs >= 0 ? p.programs : 0,
+      about: text(p.about, 300),
+      by: text(p.by, 60),
+    });
+  });
+  return { ok: true, title: text(json.title, 60) || "Pack list", updated: text(json.updated, 20), packs: packs, errors: errors };
+}
+
+// A pack's line in the list: "CH 46, 47 · 37 programs".
+export function packIndexLine(p) {
+  const nums = p.channels.map(function (c) {
+    return c.number;
+  });
+  const ch = nums.length ? "CH " + (nums.length > 4 ? nums.slice(0, 4).join(", ") + "…" : nums.join(", ")) : "";
+  const progs = p.programs ? p.programs + (p.programs === 1 ? " program" : " programs") : "";
+  return [ch, progs].filter(Boolean).join(" · ");
+}

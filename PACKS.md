@@ -108,6 +108,33 @@ Packs point at the Internet Archive and nothing else. The loader rejects a pack 
 
 A pack is loaded or it isn't — a rejected pack adds nothing, and the TV says why.
 
+## A pack list: browsing packs on the TV
+
+Menu ▸ Load a channel pack ▸ **📚 Browse the pack list** shows a list of packs and loads the one you
+pick, through the same checks and the same "Load this pack?" screen as a file. The list is a small
+JSON file on a website, **never in this repo** (personal packs stay out of it). Its address is set
+on the TV (Menu ▸ Load a channel pack ▸ Pack list address), or built into the app once one is chosen.
+
+```json
+{
+  "format": "nostalgem-pack-index/1",
+  "title": "NostalGem add-ons",
+  "updated": "2026-11-14",
+  "packs": [
+    { "name": "1980s Sci-Fi", "file": "1980s-sci-fi.json", "channels": [{ "number": 46, "name": "80s Sci-Fi" }], "programs": 37 }
+  ]
+}
+```
+
+- `file` is the pack's `.json` or `.zip`, beside the list or a full `https://` address. The site must
+  let pages on other sites read it (CORS); most static hosts do.
+- `channels`, `programs`, `about` and `by` are what the list shows; the TV checks the pack itself
+  when it loads.
+
+`node tools/build-pack-index.mjs <folder> --title "…" > <folder>/index.json` writes the list for a
+folder of packs: it checks each one with the TV's own checks, leaves out (and names) any that
+wouldn't load, and counts the item IDs and links each lists. Upload the folder with the list.
+
 ## Several packs in a .zip
 
 Packs can travel together: zip them up and choose the `.zip`. Every `.json` file in it is read, in

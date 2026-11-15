@@ -48,6 +48,8 @@ jobs:
         run: npm run test:cards
       - name: Send to TV (a link from the phone plays on demand; the seek bar, parts, playlists, Share, the relay)
         run: npm run test:sendto
+      - name: Browsing a pack list on the TV (the list, a pack and a .zip from it, no list, a missing list)
+        run: npm run test:packbrowse
 
   # Publishes web/ to GitHub Pages from main. One-time setup: Settings → Pages → Source: GitHub Actions.
   deploy:
