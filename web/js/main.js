@@ -2,7 +2,7 @@
 
 import { makeTimeline, slotAt, programKey, nextAiring, foldText } from "./schedule.js";
 import { guessCountry, playableIn } from "./regions.js";
-import { Player } from "./player.js";
+import { Player, FF_SPEEDS, RW_STEPS, RW_AGAIN_MS } from "./player.js";
 import { Static } from "./static.js";
 import { actionFor, isTypingTarget, registerTvKeys } from "./remote.js";
 import { load, save } from "./store.js";
@@ -254,6 +254,11 @@ const player = new Player($("screen"), {
   },
   state: onPlayerState,
   program: onProgram,
+  // Fast-forward reached the clock, or a program watched behind the clock ended: live again.
+  shuttle: function (what) {
+    V.toast(what === "live" ? "⏩ Caught up with the clock: you're watching live again" : "That program's over, so you're back on the live schedule", 3500);
+    drawShuttle();
+  },
   bad: onBad,
   problem: onProblem,
   // Send to TV: something sent in parts (or a playlist) plays one after the other.
@@ -595,7 +600,150 @@ function lastChannel() {
   else V.toast("No previous channel yet");
 }
 
+// ---------- fast-forward and rewind: the shuttle bar ----------
+// FF and RW (the remote's media keys, ] and [, the phone's ⏪ ⏩, Menu ▸ Fast-forward / rewind) bring up a
+// bar over the picture with the speed and the place in the program. While it's up: ◀ rewinds, ▶ steps the
+// speed up, OK plays at normal speed, ▲ is back to live, ▼ or BACK hides it. Its buttons work by touch or
+// mouse too. Scrubbing is the viewer's own: the shared clock goes on, and the viewer is behind it until
+// Back to live, until FF catches up with it, or until the program ends (then the channel is live again).
+const shuttleEl = $("shuttle");
+const shuttle = { open: false, hideTimer: 0, drawTimer: 0, said: "", saidAt: 0 };
+const SHUTTLE_WHY = {
+  atLive: "⏩ You're watching live: there's nothing after now to skip to. ⏪ Rewind first, or pause.",
+  live: "This is a live broadcast: it can't be rewound or fast-forwarded.",
+  youtube: "⏩ YouTube's player can't fast-forward. ⏪ Rewind works.",
+  wait: "Wait for the picture first.",
+};
+function shuttleShow() {
+  if (!shuttle.open) {
+    shuttle.open = true;
+    shuttleEl.hidden = false;
+    hideBanner();
+    clearInterval(shuttle.drawTimer);
+    shuttle.drawTimer = setInterval(drawShuttle, 250);
+  }
+  drawShuttle();
+  shuttleKeepUp();
+}
+function shuttleHide() {
+  if (!shuttle.open) return;
+  shuttle.open = false;
+  shuttleEl.hidden = true;
+  clearInterval(shuttle.drawTimer);
+  clearTimeout(shuttle.hideTimer);
+}
+// The bar goes by itself 6 seconds after the last press, unless it's fast-forwarding.
+function shuttleKeepUp() {
+  clearTimeout(shuttle.hideTimer);
+  shuttle.hideTimer = setTimeout(function () {
+    if (player.ff > 1) shuttleKeepUp();
+    else shuttleHide();
+  }, 6000);
+}
+function shuttleAct(kind) {
+  let r = null;
+  if (kind === "ff" || kind === "rw") {
+    r = kind === "ff" ? player.fastForward() : player.rewind();
+    if (r.why) {
+      V.toast(SHUTTLE_WHY[r.why] || SHUTTLE_WHY.wait, 4000);
+      if (shuttle.open) drawShuttle();
+      return;
+    }
+    shuttle.said = kind === "ff" ? "⏩ " + r.speed + "×" : "⏪ −" + r.back + " s";
+    shuttle.saidAt = Date.now();
+  } else if (kind === "play") {
+    if (!player.playNormal() && player.mode === "paused") togglePause("play");
+    player.rwAt = 0;
+    shuttle.said = "";
+  } else if (kind === "live") {
+    if (player.shifted) {
+      player.goLive();
+      V.toast("Back to live");
+    }
+    shuttleHide();
+    return;
+  }
+  shuttleShow();
+}
+// Keys while the bar is up. -> whether it took the key.
+function shuttleKey(a) {
+  const map = { left: "rw", rw: "rw", right: "ff", ff: "ff", ok: "play", play: "play", playpause: "play", up: "live", live: "live" };
+  if (a.type === "down") {
+    shuttleHide();
+    return true;
+  }
+  if (a.type === "pause" || (a.type === "playpause" && player.ff === 1 && player.mode === "playing")) {
+    togglePause("pause");
+    shuttleShow();
+    return true;
+  }
+  if (!map[a.type]) {
+    shuttleHide();
+    return false;
+  }
+  shuttleAct(map[a.type]);
+  return true;
+}
+function drawShuttle() {
+  if (!shuttle.open) return;
+  const sl = player.slot;
+  const pos = player.position();
+  if (!sl || !pos) {
+    shuttleHide();
+    return;
+  }
+  const behind = player.behind();
+  const paused = player.mode === "paused";
+  const d = pos.d > 0 ? pos.d : 0;
+  const pct = d ? Math.min(100, (100 * pos.at) / d) : 0;
+  const livePct = d && !sl.onDemand && player.shifted ? Math.min(100, (100 * player.liveTarget(Date.now())) / d) : -1;
+  const just = shuttle.said && Date.now() - shuttle.saidAt < 1500 ? shuttle.said : "";
+  const state = player.ff > 1 ? "⏩ " + player.ff + "×" : just || (paused ? "❚❚ Paused" : "▶ Playing");
+  const where = sl.onDemand ? "On demand" : behind >= 1 ? fmtDuration(behind) + " behind live" : "LIVE";
+  const rwNext = player.rwAt && Date.now() - player.rwAt < RW_AGAIN_MS ? RW_STEPS[1] : RW_STEPS[0];
+  const ffNext = FF_SPEEDS[Math.min(FF_SPEEDS.length - 1, FF_SPEEDS.indexOf(player.ff) + 1)];
+  shuttleEl.innerHTML =
+    '<div class="sh-top"><b class="sh-state">' +
+    esc(state) +
+    '</b><span class="sh-title">' +
+    esc(sl.item.t || "") +
+    '</span><span class="sh-where' +
+    (where === "LIVE" ? " live" : "") +
+    '">' +
+    esc(where) +
+    "</span></div>" +
+    '<div class="sh-track"><i style="width:' +
+    pct.toFixed(2) +
+    '%"></i>' +
+    (livePct >= 0 ? '<s style="left:' + livePct.toFixed(2) + '%" title="Live"></s>' : "") +
+    '</div><div class="sh-row"><span class="sh-time">' +
+    fmtDuration(pos.at) +
+    (d ? " / " + fmtDuration(d) : "") +
+    "</span>" +
+    '<button type="button" data-sh="rw" aria-label="Rewind ' + rwNext + ' seconds">⏪ <small>' + rwNext + " s</small></button>" +
+    '<button type="button" data-sh="play" aria-label="Play">' + (player.ff > 1 || paused ? "▶" : "❚❚") + "</button>" +
+    '<button type="button" data-sh="ff" aria-label="Fast-forward">⏩ <small>' + ffNext + "×</small></button>" +
+    '<button type="button" data-sh="live"' + (player.shifted ? "" : " disabled") + ">LIVE</button>" +
+    '<span class="sh-keys">◀ ⏪ · ▶ ⏩ · OK ▶ · ▲ live · ▼ hide</span></div>';
+}
+shuttleEl.addEventListener("click", function (e) {
+  const b = e.target.closest ? e.target.closest("[data-sh]") : null;
+  if (!b || b.disabled) return;
+  app.lastInput = Date.now();
+  const kind = b.getAttribute("data-sh");
+  if (kind === "play" && player.ff === 1 && player.mode === "playing") {
+    togglePause("pause");
+    shuttleShow();
+  } else shuttleAct(kind);
+});
+
 function togglePause(kind) {
+  // Fast-forwarding: play is back to normal speed, not a pause.
+  if (player.ff > 1 && kind !== "pause") {
+    player.playNormal();
+    drawShuttle();
+    return;
+  }
   if (kind === "play" && player.mode !== "paused") return;
   if (kind === "pause" && player.mode !== "playing") return;
   const r = player.togglePause();
@@ -2851,6 +2999,14 @@ function rootPage() {
         });
       if (it && watching && !it.live)
         list.push({
+          label: "Fast-forward / rewind",
+          ok: function () {
+            shuttleShow();
+            return "close";
+          },
+        });
+      if (it && watching && !it.live)
+        list.push({
           label: "Start this program over",
           ok: function () {
             if (player.restart()) V.toast("From the top: " + it.t);
@@ -4047,6 +4203,9 @@ function phoneSnapshot() {
     mode: player.mode,
     paused: paused,
     shifted: player.shifted,
+    // Fast-forward speed, and how far behind live (to 5 s, so the phone isn't told every second).
+    ff: player.ff,
+    behind: Math.round(player.behind() / 5) * 5,
     // On demand (a sent link, a tape, "watch from the start"): the phone may move through it.
     demand: !!(sl && sl.onDemand && (player.mode === "playing" || paused)),
     sent: app.sent && sentOn() ? { i: app.sent.i, n: app.sent.items.length } : null,
@@ -4396,7 +4555,8 @@ function showHelp() {
     ["Green", "Subtitles", "C"],
     ["Yellow", "Previous channel", "P"],
     ["Blue", "TV guide", "G"],
-    ["", "Back to live after pausing", "L"],
+    ["", "Back to live after pausing or rewinding", "L"],
+    ["⏪ ⏩", "Rewind (10 s, 30 s) and fast-forward (2×, 4×, 8×)", "[ and ]"],
     ["", "Sound on / off", "M"],
     ["🎨", "Next picture filter (a controller's Y button too)", "V"],
     ["📱", "Use your phone as the remote: Menu ▸ Phone remote", ""],
@@ -4587,6 +4747,7 @@ function handleAction(a) {
     back();
     return;
   }
+  if (shuttle.open && !overlayOpen() && shuttleKey(a)) return;
   if (dialog.isOpen) {
     dialog.handle(a);
     return;
@@ -4654,6 +4815,11 @@ function rootAction(a) {
         player.goLive();
         V.toast("Back to live");
       }
+      shuttleHide();
+      break;
+    case "ff":
+    case "rw":
+      shuttleAct(a.type);
       break;
     case "last":
     case "yellow":
@@ -4707,6 +4873,10 @@ function back() {
   }
   if (menu.isOpen) {
     menu.pop();
+    return true;
+  }
+  if (shuttle.open) {
+    shuttleHide();
     return true;
   }
   if (guide.isOpen) {
@@ -4973,6 +5143,10 @@ window.NP = {
       app: app.state,
       mode: player.mode,
       shifted: player.shifted,
+      ff: player.ff,
+      behind: Math.round(player.behind()),
+      at: player.slot && player.v && isFinite(player.v.currentTime) ? Math.round(player.v.currentTime * 10) / 10 : 0,
+      shuttle: shuttle.open ? shuttleEl.textContent : "",
       channel: ch ? ch.number : 0,
       sub: ch && ch.sub ? ch.sub : 0,
       label: ch ? chLabel(ch) : "",

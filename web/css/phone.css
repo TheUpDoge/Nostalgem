@@ -964,3 +964,15 @@ button:disabled {
     transition: none !important;
   }
 }
+
+/* Rewind and fast-forward, with what the TV is doing between them. */
+.row.shuttle {
+  align-items: center;
+}
+.shuttle-now {
+  text-align: center;
+  font-family: var(--display);
+  font-size: 15px;
+  color: #ffd166;
+  min-height: 1em;
+}

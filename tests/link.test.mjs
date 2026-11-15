@@ -168,3 +168,8 @@ test("a failed link says how far the handshake got", async () => {
   const silent = { peerConnection: { remoteDescription: null, iceConnectionState: "new", getStats: () => Promise.reject(new Error("closed")) } };
   assert.equal(await linkReport(silent), "no answer · ICE new");
 });
+
+test("the phone may send fast-forward and rewind", () => {
+  assert.deepEqual(checkMessage({ t: "key", type: "ff" }), { t: "key", type: "ff" });
+  assert.deepEqual(checkMessage({ t: "key", type: "rw" }), { t: "key", type: "rw" });
+});

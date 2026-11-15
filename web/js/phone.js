@@ -645,8 +645,12 @@ function renderFound() {
 function renderButtons() {
   const st = r.state;
   if (!st) return;
-  $("playBtn").textContent = st.paused ? "▶" : "❚❚";
-  $("playBtn").classList.toggle("lit", !!st.paused);
+  // Fast-forwarding, play is back to normal speed: it shows ▶ then, as when paused.
+  const ff = st.ff > 1 ? st.ff : 1;
+  $("playBtn").textContent = st.paused || ff > 1 ? "▶" : "❚❚";
+  $("playBtn").classList.toggle("lit", !!st.paused || ff > 1);
+  $("ffBtn").classList.toggle("lit", ff > 1);
+  $("shuttleNow").textContent = ff > 1 ? "⏩ " + ff + "×" : st.behind > 0 ? fmtDuration(st.behind) + " behind live" : st.shifted && st.paused ? "Paused" : "";
   $("liveBtn").classList.toggle("lit", !!st.shifted);
   $("liveBtn").disabled = !st.shifted;
   $("muteBtn").textContent = st.muted ? "🔇" : "🔊";
