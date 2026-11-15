@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { makeCode, cleanCode, peerIdFor, prettyCode, remoteUrl, checkMessage, isIPv4, lanCopies, sendLanCopies, linkReport, CODE_LENGTH, PAGES_REMOTE, KBD_KEYS, FILE_CHUNK, FILE_MAX, FILE_PIECES, typingDiff } from "../web/js/link.js";
+import { makeCode, cleanCode, peerIdFor, prettyCode, remoteUrl, checkMessage, isIPv4, lanCopies, sendLanCopies, linkReport, CODE_LENGTH, PAGES_REMOTE, KBD_KEYS, FILE_CHUNK, RELAY_CHUNK, FILE_SMALLEST, FILE_MAX, FILE_PIECES, typingDiff } from "../web/js/link.js";
 
 test("pairing codes are six easy-to-read characters", () => {
   for (let i = 0; i < 200; i++) {
@@ -81,7 +81,8 @@ test("the Mouse page's messages are checked: moves and scrolls in bounds, known 
 test("a file from the phone comes in checked pieces", () => {
   const ok = { t: "file", id: "abc123", name: "packs/two.zip", size: 1000, n: 1, i: 0, data: "QUJD" };
   assert.deepEqual(checkMessage(ok), Object.assign({}, ok, { name: "packs_two.zip" }));
-  assert.equal(FILE_PIECES, Math.ceil(Math.ceil(FILE_MAX / 3) * 4 / FILE_CHUNK));
+  assert.equal(FILE_PIECES, Math.ceil(Math.ceil(FILE_MAX / 3) * 4 / FILE_SMALLEST), "the biggest file fits in the smallest pieces");
+  assert.ok(FILE_SMALLEST < RELAY_CHUNK && RELAY_CHUNK < FILE_CHUNK);
   for (const bad of [
     { id: "a b" },
     { id: "x".repeat(20) },

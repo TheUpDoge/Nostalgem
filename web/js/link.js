@@ -97,11 +97,15 @@ export function typingDiff(was, now) {
   return { del: was.length - i, add: now.slice(i) };
 }
 
-// A file from the phone (a channel pack): at most FILE_MAX bytes, sent FILE_CHUNK base64 characters at a
-// time, small enough for the relay's message brokers.
+// A file from the phone (a channel pack): at most FILE_MAX bytes, sent at most FILE_CHUNK base64 characters
+// at a time over the direct link, and RELAY_CHUNK through the relay, whose public brokers are less forgiving.
+// When not one piece gets answered the phone tries again in smaller pieces, down to FILE_SMALLEST. The TV
+// takes any piece size up to FILE_CHUNK, in up to FILE_PIECES pieces.
 export const FILE_MAX = 1024 * 1024;
 export const FILE_CHUNK = 12000;
-export const FILE_PIECES = Math.ceil(Math.ceil(FILE_MAX / 3) * 4 / FILE_CHUNK);
+export const RELAY_CHUNK = 4000;
+export const FILE_SMALLEST = 1000;
+export const FILE_PIECES = Math.ceil(Math.ceil(FILE_MAX / 3) * 4 / FILE_SMALLEST);
 
 function finite(v, limit) {
   return typeof v === "number" && isFinite(v) && Math.abs(v) <= limit ? v : null;
