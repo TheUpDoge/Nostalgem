@@ -14,7 +14,7 @@ import { LINK_CHANNELS, isLinkChannel, isGuideVisible, linkCardName, linkUrl, op
 import { createGamepad, samePress } from "./gamepad.js";
 import { LOOKS, asciiMask, comboCss, lookById, lookCss, lookYtCss, looksSvg, mixable, nextLook } from "./looks.js";
 import { FrameWatch } from "./framewatch.js";
-import { MAX_TAPES, LOAN_HOURS, MAX_BOOKS, BOOK_DAYS, cleanLibrary, issueCard, cancelCard, loanFor, checkOut, setPosition, setSafeCut, isRewound, rewind, returnTape, overdue, storeShelves, staffPicks, searchStore, groupAisles, aisleFilms, bookLoan, borrowBook, returnBook, overdueBooks, setMark, markFor } from "./library.js";
+import { MAX_BOXES, BOX_DAYS, seriesShelves, boxFor, checkOutBox, setBoxPlace, nextEpisode, restartBox, returnBox, overdueBoxes, MAX_TAPES, LOAN_HOURS, MAX_BOOKS, BOOK_DAYS, cleanLibrary, issueCard, cancelCard, loanFor, checkOut, setPosition, setSafeCut, isRewound, rewind, returnTape, overdue, storeShelves, staffPicks, searchStore, groupAisles, aisleFilms, bookLoan, borrowBook, returnBook, overdueBooks, setMark, markFor } from "./library.js";
 import { bookSearchUrl, parseBookSearch, bookFromMetadata, pageNumbersUrl, parsePageNumbers, scandataUrl, parseScandata, parseShelves, parseCatalog, groupStackShelves } from "./books.js";
 import { Reader } from "./ui/reader.js";
 import * as Stacks from "./ui/stacks.js";
@@ -262,7 +262,10 @@ const player = new Player($("screen"), {
   bad: onBad,
   problem: onProblem,
   // Send to TV: something sent in parts (or a playlist) plays one after the other.
-  demandEnded: sentNext,
+  // An on-demand program ended: a box set's next episode, or what a phone sent next.
+  demandEnded: function (item) {
+    return boxEpisodeEnded(item) || sentNext(item);
+  },
   // A sent YouTube video's title and length arrive once it plays.
   learned: function () {
     if (!banner.hidden) renderBanner();
@@ -1215,6 +1218,7 @@ function startSent(items, i, conn, at) {
   }
   if (ch !== current() || player.mode === "off") tuneTo(ch, { quiet: true });
   if (app.tape) ejectTape(); // the tape comes out, keeping its place
+  if (app.box) ejectBox(); // so does a box set's episode
   app.sent = { items: items, i: i, conn: conn };
   sentLook(true);
   if (!playSentAt(i, at)) {
@@ -1420,6 +1424,22 @@ function clubPage() {
           },
         });
       });
+      const boxes = lib.boxes || [];
+      list.push({ head: true, label: "Your box set · " + boxes.length + " of " + MAX_BOXES });
+      boxes.forEach(function (box) {
+        list.push({
+          label: "📦 " + box.t,
+          sub: true,
+          swatch: Club.spineColor(box.key),
+          value: function () {
+            return Club.boxState(box, now);
+          },
+          ok: function () {
+            const series = findSeries(box.key);
+            if (series) openBox(series);
+          },
+        });
+      });
       const shelves = clubShelves();
       const week = Math.floor(now / (7 * 86400000));
       const picks = staffPicks(shelves, week, 12);
@@ -1450,6 +1470,18 @@ function clubPage() {
           },
         });
       });
+      const sets = boxShelves();
+      if (sets.length) {
+        list.push({ head: true, label: "Box sets" });
+        list.push({
+          label: "📦 Box sets: whole series",
+          sub: true,
+          value: sets.length + " sets",
+          ok: function () {
+            menu.push(boxShelfPage(sets));
+          },
+        });
+      }
       list.push({
         label: "📜 Club rules & the fine print",
         sub: true,
@@ -1662,15 +1694,17 @@ function showMyCard(welcome, ret) {
   const books = lib.history.filter(function (h) {
     return h.kind === "book";
   }).length;
-  const tapes = lib.history.length - books;
+  const tapes = lib.history.filter(function (h) {
+    return h.kind !== "book" && h.kind !== "box";
+  }).length;
   dialog.open({
     title: welcome ? "🎉 Welcome to the club!" : "📇 Your library card",
     html:
       Club.cardHtml(lib.card) +
       '<div class="club-sub">' +
       (welcome
-        ? "Tapes: up to " + MAX_TAPES + " at a time, " + LOAN_HOURS / 24 + " days each. Books: up to " + MAX_BOOKS + ", " + BOOK_DAYS + " days each."
-        : lib.loans.length + " of " + MAX_TAPES + " tapes and " + (lib.books || []).length + " of " + MAX_BOOKS + " books out · " + tapes + (tapes === 1 ? " tape" : " tapes") + " and " + books + (books === 1 ? " book" : " books") + " returned") +
+        ? "Tapes: up to " + MAX_TAPES + " at a time, " + LOAN_HOURS / 24 + " days each. A box set (a whole series): " + MAX_BOXES + " at a time, " + BOX_DAYS + " days. Books: up to " + MAX_BOOKS + ", " + BOOK_DAYS + " days each."
+        : lib.loans.length + " of " + MAX_TAPES + " tapes, " + (lib.boxes || []).length + " of " + MAX_BOXES + " box set and " + (lib.books || []).length + " of " + MAX_BOOKS + " books out · " + tapes + (tapes === 1 ? " tape" : " tapes") + " and " + books + (books === 1 ? " book" : " books") + " returned") +
       "</div>",
     buttons: buttons,
   });
@@ -1691,6 +1725,7 @@ function confirmCancelCard() {
         label: "Cut it up",
         action: function (d) {
           ejectTape();
+          ejectBox();
           lib = cancelCard(lib, Date.now());
           saveLib();
           d.close();
@@ -1699,6 +1734,247 @@ function confirmCancelCard() {
       },
     ],
   });
+}
+
+// ---------- box sets: a whole series as one loan ----------
+let boxesFor = null;
+let boxesCache = [];
+function boxShelves() {
+  if (boxesFor !== app.channels) {
+    boxesFor = app.channels;
+    boxesCache = seriesShelves(app.channels, {
+      skip: function (item) {
+        return !!app.bad[programKey(item)];
+      },
+    });
+  }
+  return boxesCache;
+}
+// A series on the shelf, or (its channel changed or went) the one the box out remembers.
+function findSeries(key) {
+  const sets = boxShelves();
+  for (let i = 0; i < sets.length; i++) if (sets[i].key === key) return sets[i];
+  const box = boxFor(lib, key);
+  if (!box) return null;
+  const ch = app.channels.filter(function (c) {
+    return c.slug === box.ch;
+  })[0];
+  return { key: key, show: box.t, ch: ch || null, eps: box.eps };
+}
+
+function boxShelfPage(sets) {
+  return {
+    title: "📦 Box sets",
+    wide: true,
+    place: "club",
+    sub: "Whole series, checked out as one loan · " + MAX_BOXES + " at a time, " + BOX_DAYS + " days · apart from your tapes",
+    items: function () {
+      const list = [];
+      let chName = "";
+      sets.forEach(function (series) {
+        if (series.ch && series.ch.name !== chName) {
+          chName = series.ch.name;
+          list.push({ head: true, label: (series.ch.icon || "📺") + " " + chName });
+        }
+        list.push({
+          label: series.show,
+          swatch: Club.spineColor(series.key),
+          value: function () {
+            return (boxFor(lib, series.key) ? "📦 YOURS · " : "") + series.eps.length + " episodes";
+          },
+          ok: function () {
+            openBox(series);
+          },
+        });
+      });
+      return list;
+    },
+  };
+}
+
+// A box set's slipcase, with what you can do with it.
+function openBox(series, focusLabel) {
+  const now = Date.now();
+  const box = boxFor(lib, series.key);
+  const buttons = [];
+  let note = "";
+  if (box) {
+    const ep = box.eps[box.ep];
+    buttons.push({
+      label: box.done ? "▶ Watch again from episode 1" : box.pos > 2 ? "▶ Resume episode " + (box.ep + 1) + " at " + fmtDuration(box.pos) : "▶ Play episode " + (box.ep + 1),
+      action: function (d) {
+        d.close();
+        if (box.done) {
+          lib = restartBox(lib, series.key);
+          saveLib();
+        }
+        playBox(series.key);
+      },
+    });
+    if (!box.done && box.ep + 1 < box.eps.length) {
+      buttons.push({
+        label: "⏭ Skip to episode " + (box.ep + 2),
+        action: function (d) {
+          if (app.box === series.key) ejectBox();
+          lib = setBoxPlace(lib, series.key, box.ep + 1, 0);
+          saveLib();
+          d.close();
+          openBox(series, "▶ Play episode " + (box.ep + 2));
+        },
+      });
+    }
+    if (!box.done && (box.ep > 0 || box.pos > 2)) {
+      buttons.push({
+        label: "⏮ Back to episode 1",
+        action: function (d) {
+          if (app.box === series.key) ejectBox();
+          lib = restartBox(lib, series.key);
+          saveLib();
+          d.close();
+          openBox(series, "▶ Play episode 1");
+        },
+      });
+    }
+    buttons.push({
+      label: "⏏ Return box set",
+      action: function (d) {
+        returnBoxNow(series.key);
+        d.close();
+      },
+    });
+  } else if (!lib.card) {
+    note = "On the shelf · a free library card checks it out";
+    buttons.push({
+      label: "📇 Get a library card",
+      action: function (d) {
+        d.close();
+        openSignup(0, { label: "📦 Back to " + shortTitle(series.show), go: function () { openBox(series); } }, false);
+      },
+    });
+  } else if ((lib.boxes || []).length >= MAX_BOXES) {
+    note = "You have a box set out (" + lib.boxes[0].t + "). Return it to take this one.";
+    buttons.push({
+      label: "📦 Your box set",
+      action: function (d) {
+        d.close();
+        const other = findSeries(lib.boxes[0].key);
+        if (other) openBox(other);
+      },
+    });
+  } else {
+    note = "On the shelf · " + BOX_DAYS + "-day loan · doesn't count against your " + MAX_TAPES + " tapes";
+    buttons.push({
+      label: "📦 Check out & play",
+      action: function (d) {
+        const r = checkOutBox(lib, series, Date.now());
+        if (r.error) {
+          d.status(r.text);
+          return;
+        }
+        lib = r.lib;
+        saveLib();
+        d.close();
+        playBox(series.key);
+        V.toast("📦 Checked out " + series.show + " · " + series.eps.length + " episodes · due back " + dueDay(r.box.due), 5000);
+      },
+    });
+  }
+  buttons.push({
+    label: "Close",
+    action: function (d) {
+      d.close();
+    },
+  });
+  dialog.open({ title: "📦 Box set", html: Club.boxSetHtml(series, box, now, note), buttons: buttons });
+  if (focusLabel) {
+    for (let i = 0; i < buttons.length; i++) {
+      if (buttons[i].label === focusLabel) {
+        dialog.focus = i;
+        dialog.paint();
+      }
+    }
+  }
+}
+
+// The box set's episode, from where the viewer left it, off the schedule. When it ends the next one
+// starts (boxEpisodeEnded).
+function playBox(key) {
+  const box = boxFor(lib, key);
+  const series = findSeries(key);
+  if (!box || !series) return;
+  if (app.tape) ejectTape();
+  if (app.box && app.box !== key) ejectBox();
+  closeOverlays();
+  let ch = series.ch;
+  if (!ch || isLinkChannel(ch)) ch = isLinkChannel(current()) ? visibleChannels()[0] : current();
+  if (ch && ch !== current()) tuneTo(ch, { quiet: true });
+  const ep = box.eps[box.ep];
+  const at = box.pos >= ep.d - Math.min(20, ep.d * 0.1) ? 0 : box.pos; // at its very end: from the top
+  if (player.playFromStart(ep, at)) {
+    app.box = key;
+    app.boxPos = at;
+    app.boxSavedAt = Date.now();
+    showBanner(5000);
+    V.toast("📦 " + box.t + " · episode " + (box.ep + 1) + " of " + box.eps.length + ": " + Club.episodeTitle(ep, box.t) + (at > 2 ? " · from " + fmtDuration(at) : ""), 5000);
+  }
+}
+
+// The episode leaves the screen (back to the schedule, a tape, a phone's link): remember where it was.
+function ejectBox() {
+  if (!app.box) return;
+  const key = app.box;
+  app.box = "";
+  const box = boxFor(lib, key);
+  if (box && app.boxPos > 0) {
+    lib = setBoxPlace(lib, key, box.ep, app.boxPos);
+    saveLib();
+  }
+  app.boxPos = 0;
+}
+
+// The episode playing is the box's current one?
+function boxPlaying(item) {
+  const box = app.box ? boxFor(lib, app.box) : null;
+  return !!(box && item && programKey(item) === programKey(box.eps[box.ep]));
+}
+
+// An episode came to its end: on to the next, or (after the last) back to the schedule.
+function boxEpisodeEnded(item) {
+  if (!boxPlaying(item)) return false;
+  const key = app.box;
+  const n = nextEpisode(lib, key);
+  lib = n.lib;
+  saveLib();
+  const box = boxFor(lib, key);
+  if (n.done) {
+    app.box = "";
+    app.boxPos = 0;
+    V.toast("📦 That's the last episode of " + box.t + ". Return it, or watch it again: Menu ▸ 📼 Video Club", 7000);
+    return false;
+  }
+  const ep = box.eps[box.ep];
+  if (!player.playFromStart(ep, 0)) {
+    app.box = "";
+    return false;
+  }
+  app.boxPos = 0;
+  app.boxSavedAt = Date.now();
+  V.toast("📦 Next: episode " + (box.ep + 1) + " of " + box.eps.length + " · " + Club.episodeTitle(ep, box.t), 5000);
+  return true;
+}
+
+function returnBoxNow(key) {
+  const box = boxFor(lib, key);
+  if (app.box === key) {
+    ejectBox();
+    player.goLive();
+  }
+  const r = returnBox(lib, key, Date.now(), false);
+  if (r.error) return r;
+  lib = r.lib;
+  saveLib();
+  V.toast("⏏ Returned " + (box ? box.t : "the box set") + ". Thanks!", 4000);
+  return r;
 }
 
 // A tape's box, with what you can do with it.
@@ -1824,6 +2100,7 @@ function playTape(key) {
   const film = findFilm(key);
   if (!loan || !film) return;
   if (app.tape && app.tape !== key) ejectTape(); // the other tape comes out first, keeping its place
+  if (app.box) ejectBox();
   closeOverlays();
   let ch = film.ch;
   if (!ch || isLinkChannel(ch)) ch = isLinkChannel(current()) ? visibleChannels()[0] : current();
@@ -1884,8 +2161,32 @@ function clubTick(now) {
       }
     } else ejectTape();
   }
+  if (app.box) {
+    const sl = player.slot;
+    if (sl && sl.onDemand && boxPlaying(sl.item) && player.mode !== "off" && player.mode !== "gap" && player.mode !== "empty") {
+      if (player.mode === "playing" || player.mode === "paused") {
+        const t = player.v.currentTime;
+        if (isFinite(t) && t > 0) app.boxPos = t;
+      }
+      if (now - app.boxSavedAt > 5000 && app.boxPos > 0) {
+        app.boxSavedAt = now;
+        const b = boxFor(lib, app.box);
+        lib = setBoxPlace(lib, app.box, b.ep, app.boxPos);
+        saveLib();
+      }
+    } else if (!(sl && sl.onDemand && player.mode === "tuning")) ejectBox();
+  }
   if (now - (app.dueCheckedAt || 0) > 30000) {
     app.dueCheckedAt = now;
+    overdueBoxes(lib, now)
+      .filter(function (b) {
+        return b.key !== app.box; // the one playing goes back when it's off the screen
+      })
+      .forEach(function (b) {
+        lib = returnBox(lib, b.key, now, true).lib;
+        saveLib();
+        V.toast("📦 " + b.t + " was due back, so it went back on the shelf. No late fees.", 6000);
+      });
     const late = overdue(lib, now).filter(function (l) {
       return l.key !== app.tape; // the one playing goes back when it's over
     });
@@ -5295,6 +5596,10 @@ window.NP = {
       club: {
         card: lib.card ? lib.card.name : "",
         tape: app.tape,
+        box: app.box || "",
+        boxes: (lib.boxes || []).map(function (b) {
+          return { key: b.key, t: b.t, ep: b.ep, pos: Math.round(b.pos), n: b.eps.length, done: !!b.done };
+        }),
         loans: lib.loans.map(function (l) {
           return { t: l.t, pos: Math.round(l.pos), rewound: isRewound(l) };
         }),

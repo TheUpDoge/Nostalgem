@@ -17,10 +17,17 @@ const MARKS_KEPT = 60; // bookmarks remembered, for books read before too
 export const TERMS_VERSION = 1; // bump when the fine print changes: members sign again
 export const FILM_MIN_SECONDS = 40 * 60; // the store stocks features, not shorts
 const HISTORY_KEPT = 30;
+// Box sets: a whole series checked out as one loan, apart from the tapes (it doesn't take a tape's
+// place). One out at a time, for a week: a series takes longer than a film.
+export const MAX_BOXES = 1;
+export const BOX_DAYS = 7;
+export const BOX_MIN_EPISODES = 3; // fewer than this on a channel isn't a box set
+const BOX_MAX_EPISODES = 60; // a box holds at most this many (the first ones, in order)
+const EPISODE_MAX_SECONDS = 40 * 60; // episodes are shorter than the features the store stocks
 const REWOUND_AT = 2; // a tape this close to the start counts as rewound (seconds)
 
 export function emptyLibrary() {
-  return { card: null, loans: [], history: [], books: [], marks: {} };
+  return { card: null, loans: [], history: [], books: [], marks: {}, boxes: [] };
 }
 
 // A copy of the library with some parts changed (the rest — books, bookmarks… — carried over).
@@ -52,6 +59,10 @@ export function cleanLibrary(raw) {
       return b && typeof b.id === "string" && typeof b.t === "string" && b.due > 0;
     })
     .slice(0, MAX_BOOKS);
+  lib.boxes = (Array.isArray(raw.boxes) ? raw.boxes : []).filter(validBox).slice(0, MAX_BOXES).map(function (b) {
+    const ep = Math.max(0, Math.min(b.eps.length - 1, Math.floor(Number(b.ep) || 0)));
+    return Object.assign({}, b, { ep: ep, pos: Math.max(0, Number(b.pos) || 0) });
+  });
   const marks = raw.marks && typeof raw.marks === "object" ? raw.marks : {};
   Object.keys(marks).forEach(function (id) {
     const m = marks[id];
@@ -88,7 +99,10 @@ export function cancelCard(lib, now) {
   (lib.books || []).forEach(function (b) {
     out = returnBook(out, b.id, now, true).lib || out;
   });
-  return change(out, { card: null, loans: [], books: [] });
+  (lib.boxes || []).forEach(function (b) {
+    out = returnBox(out, b.key, now, true).lib || out;
+  });
+  return change(out, { card: null, loans: [], books: [], boxes: [] });
 }
 
 export function loanFor(lib, key) {
@@ -185,6 +199,267 @@ export function dueText(ms) {
 
 // The store stocks the Archive's feature films (no YouTube, no live streams, nothing short, and not a
 // pack's direct links: the store's tapes and boxes are Archive items).
+// ---------- box sets: a series as one loan ----------
+// Where a channel's episodes come from: the series channels, and every channel a pack (or the viewer)
+// added. Films stay on the tape shelves; the rest of the dial isn't series.
+export const SERIES_CHANNELS = ["saturday-morning", "rerun-city", "game-night", "trail-tv", "cliffhangers", "space-cadets", "twilight-hour"];
+
+function validEpisode(e) {
+  return !!e && typeof e.id === "string" && typeof e.f === "string" && typeof e.t === "string" && e.d > 0;
+}
+function validBox(b) {
+  return !!b && typeof b.key === "string" && typeof b.t === "string" && Array.isArray(b.eps) && b.eps.length > 0 && b.eps.every(validEpisode) && b.due > 0;
+}
+
+// A program's show: "Meet Corliss Archer' - Quaranteened (1954)" -> "Meet Corliss Archer",
+// "Space Patrol aka Planet Patrol s01e02" -> "Space Patrol", "Tom Corbett, Space Cadet serial" ->
+// "Tom Corbett, Space Cadet". "" when it can't tell.
+export function showName(item) {
+  let t = String((item && item.t) || "")
+    .replace(/\s*\((?:19|20)\d\d\)\s*/g, " ")
+    .replace(/^\W+/, "")
+    .trim();
+  const m = /^(.+?)(?:'?\s+[-–—:]\s+|:\s+|\s+#\s*\d|\s+(?:no\.?|ep\.?|episode|chapter|chap\.?|part|pt\.?)\s*\d)/i.exec(t);
+  if (m) t = m[1];
+  t = t
+    .replace(/\s+aka\s+.*$/i, "")
+    .replace(/\s*\(.*\)\s*$/, "")
+    .replace(/\s+(?:s\d+e\d+|\d{1,3})$/i, "")
+    .replace(/['"]+$/g, "")
+    .trim();
+  // "… 1950", "… 24 episodes", "… serials", "… TV series": not part of the name. Twice, for "… 1950 TV Series".
+  for (let i = 0; i < 2; i++) {
+    t = t
+      .replace(/\s+(?:the\s+)?(?:(?:\d+\s+)?(?:misc\.?\s+)?episodes?|serials?|(?:tv\s+)?series|complete series|incomplete series|tv show|(?:19|20)\d\d|[a-z])$/i, "")
+      .trim();
+  }
+  return t;
+}
+
+// "Episode 2" before "Episode 10": numbers compare as numbers.
+function natural(a, b) {
+  const x = foldText(a).split(/(\d+)/);
+  const y = foldText(b).split(/(\d+)/);
+  for (let i = 0; i < Math.min(x.length, y.length); i++) {
+    if (x[i] === y[i]) continue;
+    const nx = Number(x[i]);
+    const ny = Number(y[i]);
+    if (i % 2 && !isNaN(nx) && !isNaN(ny)) return nx - ny;
+    return x[i] < y[i] ? -1 : 1;
+  }
+  return x.length - y.length;
+}
+
+// "Les Vampires - Episode 3", "Burns and Allen # 68", "Beverly Hillbillies Ep02", "… serial #1 …",
+// "Chapter 4" -> the number; 0 when the title doesn't say.
+export function episodeNumber(item, field) {
+  const t = String((item && item[field || "t"]) || "");
+  // S03E07: season 3 before season 4, whatever the episode.
+  const se = /\bs(\d{1,2})\s*e(\d{1,3})\b/i.exec(t);
+  if (se) return Number(se[1]) * 1000 + Number(se[2]);
+  const m = /(?:\bepisode|\bep\.?|\bchapter|\bchap\.?|#|\bno\.|\bpart)\s*(\d{1,4})\b/i.exec(t);
+  if (m) return Number(m[1]);
+  const season = /\bseason\s*(\d{1,2})\b/i.exec(t);
+  return season ? Number(season[1]) * 1000 : 0;
+}
+// The order of two episodes: the number in their titles, then in their parts' names (one upload in
+// several files), then year, then title.
+function episodeOrder(a, b) {
+  for (const f of ["t", "e"]) {
+    const x = episodeNumber(a, f);
+    const y = episodeNumber(b, f);
+    if (x && y && x !== y) return x - y;
+    if (!x !== !y) return x ? -1 : 1;
+  }
+  return (a.y || 0) - (b.y || 0) || natural(a.t || a.f, b.t || b.f) || natural(a.e || a.f, b.e || b.f);
+}
+
+const GENERIC_SHOW = /^(classic|vintage|old|retro|fifties|sixties|1950s|1960s|golden age)( time)? (tv|television|comedy|cartoons?|shows?)\b/;
+
+function isEpisode(item) {
+  return !!item && !item.live && !item.u && typeof item.id === "string" && item.id.indexOf("yt:") !== 0 && item.d > 0 && item.d < EPISODE_MAX_SECONDS;
+}
+
+function seriesChannel(ch) {
+  return !!ch && !ch.secret && ch.kind !== "audio" && (SERIES_CHANNELS.indexOf(ch.slug) >= 0 || !!ch.custom);
+}
+
+// The box sets on the shelf: a series is three or more episodes of one show on a series channel or a
+// pack's channel, in order (by year, then episode number or title). A show that turns up under a longer
+// name too ("Captain Video" and "Captain Video and His Video Rangers") is one box. A compilation upload
+// (one Archive item of unrelated shorts) isn't a series unless it says it is.
+//   -> [{ key, show, ch, eps: [items] }], biggest first within each channel
+export function seriesShelves(channels, opts) {
+  const skip = (opts && opts.skip) || null;
+  const out = [];
+  const seenKey = {};
+  channels.forEach(function (ch) {
+    if (!seriesChannel(ch)) return;
+    const groups = {};
+    (ch.items || []).forEach(function (item) {
+      if (!isEpisode(item) || (skip && skip(item))) return;
+      const name = showName(item);
+      const k = foldText(name).replace(/^the /, ""); // "The Beverly Hillbillies" is "Beverly Hillbillies"
+      if (!k || k.length < 3) return;
+      const g = (groups[k] = groups[k] || { names: {}, items: [], ids: {} });
+      g.names[name] = (g.names[name] || 0) + 1;
+      g.items.push(item);
+      g.ids[item.id] = 1;
+    });
+    // A name that starts with a shorter one is the same show.
+    const keys = Object.keys(groups).sort(function (a, b) {
+      return a.length - b.length;
+    });
+    keys.forEach(function (k) {
+      if (!groups[k]) return;
+      keys.forEach(function (j) {
+        if (j === k || !groups[j] || j.indexOf(k + " ") !== 0) return;
+        const a = groups[k];
+        const b = groups[j];
+        // "X and …" is X ("Captain Video and His Video Rangers"). Otherwise only a stray episode or two
+        // joins, and only a show that is a series already ("Captain Z Ro Attila The Hun"): a group that
+        // stands on its own is another show, and strays under a one-off name are other films ("The
+        // Phantom of the West", "The Phantom of the Air", "The Phantom Creeps" are three serials).
+        const and = j.slice(k.length + 1).indexOf("and ") === 0;
+        if (!and && (b.items.length >= BOX_MIN_EPISODES || a.items.length < BOX_MIN_EPISODES)) return;
+        Object.keys(b.names).forEach(function (n) {
+          a.names[n] = (a.names[n] || 0) + b.names[n];
+        });
+        a.items = a.items.concat(b.items);
+        Object.keys(b.ids).forEach(function (id) {
+          a.ids[id] = 1;
+        });
+        delete groups[j];
+      });
+    });
+    const found = [];
+    Object.keys(groups).forEach(function (k) {
+      const g = groups[k];
+      // In order: by episode number where the titles have one, then by year, then by title. The same
+      // numbered episode uploaded twice goes in once.
+      g.items.sort(episodeOrder);
+      const seen = {};
+      const items = g.items.filter(function (it) {
+        const pk = programKey(it);
+        const n = it.e ? 0 : episodeNumber(it); // a one-file episode uploaded twice
+        if (seen[pk] || (n && seen["#" + n])) return false;
+        seen[pk] = 1;
+        if (n) seen["#" + n] = 1;
+        return true;
+      });
+      if (items.length < BOX_MIN_EPISODES) return;
+      const names = Object.keys(g.names);
+      // A collection's label isn't a show ("Classic TV Comedy: …", "Fifties Television: …").
+      if (GENERIC_SHOW.test(k)) return;
+      // One upload holding everything: a series only if it says so.
+      if (Object.keys(g.ids).length === 1 && !/series|serial|episode|season|chapter/i.test(items[0].t + " " + names.join(" "))) return;
+      // The name it goes by most often; the shorter one when that's a tie ("Captain Video").
+      names.sort(function (a, b) {
+        return g.names[b] - g.names[a] || a.length - b.length;
+      });
+      const key = "box:" + ch.slug + ":" + k;
+      if (seenKey[key]) return;
+      seenKey[key] = 1;
+      found.push({ key: key, show: names[0], ch: ch, eps: items.slice(0, BOX_MAX_EPISODES) });
+    });
+    found.sort(function (a, b) {
+      return b.eps.length - a.eps.length || (a.show < b.show ? -1 : 1);
+    });
+    found.forEach(function (f) {
+      out.push(f);
+    });
+  });
+  return out;
+}
+
+export function boxFor(lib, key) {
+  const boxes = lib.boxes || [];
+  for (let i = 0; i < boxes.length; i++) if (boxes[i].key === key) return boxes[i];
+  return null;
+}
+
+function episodeCopy(it) {
+  const e = { id: it.id, f: it.f, t: it.t, d: it.d };
+  if (it.y) e.y = it.y;
+  if (it.e) e.e = it.e;
+  if (it.cc) e.cc = it.cc;
+  return e;
+}
+
+// Checking out a box set: { key, show, ch, eps }. Returns { lib, box } or { error, text }. It doesn't take
+// a tape's place: tapes and box sets have limits of their own.
+export function checkOutBox(lib, series, now) {
+  if (!lib.card) return { error: "card", text: "You need a library card first. It's free." };
+  if (boxFor(lib, series.key)) return { error: "out", text: "You already have this box set." };
+  const boxes = lib.boxes || [];
+  if (boxes.length >= MAX_BOXES) {
+    return { error: "full", text: "You have a box set out (" + boxes[0].t + "). Return it to take another." };
+  }
+  const box = {
+    key: series.key,
+    t: series.show,
+    ch: series.ch ? series.ch.slug : "",
+    eps: series.eps.slice(0, BOX_MAX_EPISODES).map(episodeCopy),
+    ep: 0,
+    pos: 0,
+    out: now,
+    due: now + BOX_DAYS * 86400000,
+  };
+  return { lib: change(lib, { boxes: boxes.concat([box]) }), box: box };
+}
+
+function withBox(lib, key, parts) {
+  return change(lib, {
+    boxes: (lib.boxes || []).map(function (b) {
+      return b.key === key ? Object.assign({}, b, parts) : b;
+    }),
+  });
+}
+
+// Where the viewer is in the box: which episode, and how far in.
+export function setBoxPlace(lib, key, ep, pos) {
+  const b = boxFor(lib, key);
+  if (!b) return lib;
+  const i = Math.max(0, Math.min(b.eps.length - 1, Math.floor(Number(ep) || 0)));
+  return withBox(lib, key, { ep: i, pos: Math.max(0, Math.min(b.eps[i].d, Number(pos) || 0)) });
+}
+
+// The episode that follows this one: { lib, ep } , or { lib, done: true } after the last (the box keeps
+// its place at the end of the last episode).
+export function nextEpisode(lib, key) {
+  const b = boxFor(lib, key);
+  if (!b) return { lib: lib, done: true };
+  if (b.ep + 1 >= b.eps.length) return { lib: withBox(lib, key, { pos: b.eps[b.ep].d, done: true }), done: true };
+  return { lib: withBox(lib, key, { ep: b.ep + 1, pos: 0, done: false }), ep: b.ep + 1 };
+}
+
+// Start the box over from the first episode.
+export function restartBox(lib, key) {
+  return boxFor(lib, key) ? withBox(lib, key, { ep: 0, pos: 0, done: false }) : lib;
+}
+
+// Back to the shelf, wherever the viewer got to (a box set has no rewinding). Returns { lib } or { error }.
+export function returnBox(lib, key, now, late) {
+  const b = boxFor(lib, key);
+  if (!b) return { error: "none", text: "That box set isn't checked out." };
+  const entry = { kind: "box", t: b.t, key: b.key, out: b.out, back: now, late: !!late, seen: b.done ? b.eps.length : b.ep };
+  return {
+    lib: change(lib, {
+      boxes: (lib.boxes || []).filter(function (x) {
+        return x.key !== key;
+      }),
+      history: [entry].concat(lib.history).slice(0, HISTORY_KEPT),
+    }),
+  };
+}
+
+export function overdueBoxes(lib, now) {
+  return (lib.boxes || []).filter(function (b) {
+    return now >= b.due;
+  });
+}
+
+// The store stocks the Archive's feature films (no YouTube, no live streams, nothing short).
 export function isFilm(item) {
   return !!item && !item.live && !item.u && typeof item.id === "string" && item.id.indexOf("yt:") !== 0 && item.d >= FILM_MIN_SECONDS;
 }
@@ -275,7 +550,7 @@ export const SHELF_PLAN = [
   { id: "world", name: "World Row", icon: "💬", blurb: "Subtítulos.", channels: ["23"] },
   { id: "eighties", name: "80s Row", icon: "📼", blurb: "80s packs, when they're loaded.", channels: ["33", "34", "43", "44"] },
   { id: "nineties", name: "90s Row", icon: "📼", blurb: "90s packs, when they're loaded.", channels: ["35", "36", "45", "46"] },
-  { id: "anime", name: "Anime Row", icon: "🗾", blurb: "Anime films, when that pack is loaded. Series stay on the air, not on a tape.", channels: ["40"] },
+  { id: "anime", name: "Anime Row", icon: "🗾", blurb: "Anime films, when that pack is loaded. Series are box sets.", channels: ["40"] },
 ];
 
 // A film on the shelf and the catalog book it comes from, or 111 and A Christmas Carol.

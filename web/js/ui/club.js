@@ -3,7 +3,7 @@
 // them to the menu, the dialog and the player.
 
 import { escapeHtml as esc, fmtDuration, hash32 } from "../util.js";
-import { MAX_TAPES, LOAN_HOURS, isRewound, dueText, filmTags } from "../library.js";
+import { MAX_TAPES, LOAN_HOURS, BOX_DAYS, isRewound, dueText, filmTags } from "../library.js";
 import { thumbUrl, detailsUrl } from "../archive.js";
 
 const DAYS = LOAN_HOURS / 24;
@@ -55,6 +55,7 @@ export const SIGNUP_PAGES = [
         "A tape you have out is yours to play, pause and pick up where you left off: Menu ▸ 📼 Video Club.",
         "When you're done, <b>◀◀ rewind</b> it and <b>⏏ return</b> it to make room for the next one.",
         "A tape still out when it's due goes back by itself. No late fees, ever.",
+        "A whole series goes out as a <b>box set</b>: one at a time, for " + BOX_DAYS + " days, on top of your tapes. It plays the episodes in order and remembers where you got to.",
         "The same card borrows <b>books, comics, manga and magazines</b> in the 📚 Reading Room: up to three at a time, for two weeks.",
       ]),
   },
@@ -259,4 +260,77 @@ export function whirr(ms) {
   } catch (e) {
     /* no sound: the picture still rewinds */
   }
+}
+
+// ---------- box sets ----------
+// An episode's own name, without the show's: "My Hero - Bum for a Day" -> "Bum for a Day".
+export function episodeTitle(ep, show) {
+  const t = String(ep.e || ep.t || "").replace(/\s*\((?:19|20)\d\d\)\s*/g, " ").trim();
+  const low = t.toLowerCase();
+  const name = String(show || "").toLowerCase();
+  if (name && low.indexOf(name) === 0) {
+    const rest = t.slice(name.length).replace(/^['"]?\s*[-–—:]?\s*/, "").trim();
+    if (rest) return rest;
+  }
+  return t || "Episode";
+}
+
+// Where a box set stands: "episode 3 of 13 at 12:40 · due back in 6 days", "finished · due back in 2 days".
+export function boxState(box, now) {
+  const n = box.eps.length;
+  const where = box.done ? "finished" : "episode " + (box.ep + 1) + " of " + n + (box.pos > 2 ? " at " + fmtDuration(box.pos) : "");
+  return where + " · " + dueText(box.due - now);
+}
+
+// A box set: a slipcase, not a tape box. The show's name across the front, a row of numbered spines
+// (the episodes, the watched ones ticked off and the next one lit), and the episodes around where the
+// viewer is.
+export function boxSetHtml(series, box, now, note) {
+  const color = spineColor(series.key);
+  const n = series.eps.length;
+  const at = box ? (box.done ? n : box.ep) : -1;
+  const SHOWN = 24;
+  let spines = "";
+  for (let i = 0; i < Math.min(n, SHOWN); i++) {
+    spines += '<i class="' + (i < at ? "seen" : i === at ? "now" : "") + '">' + (i + 1) + "</i>";
+  }
+  if (n > SHOWN) spines += '<i class="more">+' + (n - SHOWN) + "</i>";
+  const from = Math.max(0, Math.min(n - 5, (at < 0 ? 0 : at) - 1));
+  const rows = series.eps
+    .slice(from, from + 5)
+    .map(function (ep, k) {
+      const i = from + k;
+      const mark = i < at ? "✓" : i === at ? "▶" : "·";
+      return '<li class="' + (i < at ? "seen" : i === at ? "now" : "") + '"><b>' + mark + " " + (i + 1) + ".</b> " + esc(episodeTitle(ep, series.show)) + ' <span>' + fmtDuration(ep.d) + "</span></li>";
+    })
+    .join("");
+  const state = box ? "📦 You have this box set · " + boxState(box, now) : note || "On the shelf · " + BOX_DAYS + "-day loan";
+  return (
+    '<div class="boxset' +
+    (box ? " out" : "") +
+    '" style="--case:' +
+    color +
+    '">' +
+    '<div class="bs-case"><div class="bs-front"><span class="bs-kicker">THE BOX SET</span><span class="bs-title">' +
+    esc(series.show) +
+    '</span><span class="bs-count">' +
+    n +
+    (n === 1 ? " EPISODE" : " EPISODES") +
+    '</span></div><div class="bs-spines" aria-hidden="true">' +
+    spines +
+    "</div></div>" +
+    '<div class="bs-text">' +
+    '<div class="club-box-title">' +
+    esc(series.show) +
+    "</div>" +
+    '<div class="club-box-meta">' +
+    esc(n + " episodes" + (series.ch ? " · from " + series.ch.name : "")) +
+    "</div>" +
+    '<ol class="bs-eps">' +
+    rows +
+    "</ol>" +
+    '<div class="club-box-state">' +
+    esc(state) +
+    "</div></div></div>"
+  );
 }

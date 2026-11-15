@@ -307,3 +307,133 @@ test("a tape's TV-safe cut is off until the viewer turns it on, and it's remembe
   assert.equal(loanFor(lib, film.key).cut, false);
   assert.equal(setSafeCut(lib, "nope/x.mp4", true), lib, "no such tape: nothing changes");
 });
+
+// ---------- box sets ----------
+import { MAX_BOXES, BOX_DAYS, seriesShelves, showName, episodeNumber, checkOutBox, boxFor, setBoxPlace, nextEpisode, restartBox, returnBox, overdueBoxes } from "../web/js/library.js";
+
+const ep = (t, extra) => Object.assign({ id: "id_" + t.replace(/\W+/g, "_"), f: "a.mp4", t: t, d: 1500 }, extra || {});
+const sitcoms = {
+  slug: "rerun-city",
+  number: 11,
+  kind: "video",
+  items: [
+    ep("My Hero - Bum for a Day"),
+    ep("Meet Corliss Archer - Episode 3 (1954)"),
+    ep("My Hero - Arabian Nights"),
+    ep("Meet Corliss Archer - Episode 1 (1954)"),
+    ep("My Hero - El Toro"),
+    ep("Meet Corliss Archer - Episode 2 (1954)"),
+    ep("Meet Corliss Archer - Episode 2 (1954)", { id: "another_upload" }), // the same episode twice
+    ep("A Feature Film (1950)", { d: 5400 }), // a film: the tape shelves'
+    ep("Only Once - Pilot"),
+    ep("Twice - One"),
+    ep("Twice - Two"),
+    ep("yt:abc", { id: "yt:abc" }),
+  ],
+};
+const lib0 = () => issueCard(emptyLibrary(), "Mitch", 1000, () => 0.5).lib;
+
+test("box sets: a series is three or more episodes of a show on a series channel, in order", () => {
+  const sets = seriesShelves([sitcoms]);
+  assert.deepEqual(sets.map((s) => [s.show, s.eps.length]), [["Meet Corliss Archer", 3], ["My Hero", 3]]);
+  assert.deepEqual(sets[0].eps.map((e) => episodeNumber(e)), [1, 2, 3], "numbered episodes in number order, the second upload of 2 left out");
+  assert.equal(sets[0].key, "box:rerun-city:meet corliss archer");
+  // Not a series channel: no box sets. A pack's channel (custom): box sets.
+  assert.deepEqual(seriesShelves([Object.assign({}, sitcoms, { slug: "high-noon" })]), []);
+  assert.equal(seriesShelves([Object.assign({}, sitcoms, { slug: "p-sitcoms-47", custom: true })]).length, 2);
+  // Radio isn't a box set.
+  assert.deepEqual(seriesShelves([Object.assign({}, sitcoms, { kind: "audio" })]), []);
+});
+
+test("box sets: a show's name, whatever the upload calls it", () => {
+  const names = {
+    "Meet Corliss Archer' - Quaranteened (1954)": "Meet Corliss Archer",
+    "Space Patrol aka Planet Patrol s01e02": "Space Patrol",
+    "Tom Corbett, Space Cadet (1950) serial #1 The Mercurian Invasion": "Tom Corbett, Space Cadet",
+    "Captain Z-Ro (24 Episodes)": "Captain Z-Ro",
+    "Burns and Allen # 68": "Burns and Allen",
+    "Betty Boop: Chess Nuts": "Betty Boop",
+    "Space Patrol 1950 TV Series": "Space Patrol",
+  };
+  for (const [t, want] of Object.entries(names)) assert.equal(showName({ t: t }), want, t);
+  assert.equal(episodeNumber({ t: "Lights Out - S03E07 - Just What Happened" }), 3007);
+  assert.equal(episodeNumber({ t: "Beverly Hillbillies Ep02 Getting Settled" }), 2);
+  assert.equal(episodeNumber({ t: "Lights Out - Another Country" }), 0);
+});
+
+test("box sets: on the real lineup, the series channels have box sets and the film channels don't", async () => {
+  const { readFileSync } = await import("node:fs");
+  const lineup = JSON.parse(readFileSync(new URL("../web/data/lineup.json", import.meta.url), "utf8"));
+  const sets = seriesShelves(lineup.channels);
+  const on = (slug) => sets.filter((s) => s.ch.slug === slug).map((s) => s.show);
+  assert.ok(on("rerun-city").includes("My Hero"), "Rerun City: " + on("rerun-city"));
+  assert.ok(on("game-night").includes("What's My Line"), "Game Night: " + on("game-night"));
+  assert.ok(on("saturday-morning").includes("Betty Boop"));
+  assert.ok(on("cliffhangers").some((n) => /vampires/i.test(n)));
+  assert.ok(sets.every((s) => s.eps.length >= 3 && s.eps.every((e) => e.d < 2400 && !String(e.id).startsWith("yt:"))));
+  assert.deepEqual(on("high-noon"), []);
+  const vamp = sets.find((s) => /vampires/i.test(s.show));
+  assert.deepEqual(vamp.eps.map((e) => episodeNumber(e)).slice(0, 5), [1, 2, 3, 4, 5]);
+});
+
+test("box sets: checkout needs a card, one out at a time, apart from the tapes", () => {
+  const [a, b] = seriesShelves([sitcoms]);
+  assert.equal(checkOutBox(emptyLibrary(), a, 1).error, "card");
+  let lib = lib0();
+  // Two tapes out doesn't stop a box set: it has its own limit.
+  const film = (k) => ({ key: k, item: { id: k, f: "f.mp4", t: k, d: 5400 }, ch: { slug: "x" } });
+  lib = checkOut(lib, film("t1"), 1).lib;
+  lib = checkOut(lib, film("t2"), 1).lib;
+  const r = checkOutBox(lib, a, 5000);
+  assert.ok(r.lib && r.box, "a box set goes out with two tapes out");
+  lib = r.lib;
+  assert.equal(lib.loans.length, 2);
+  assert.equal(r.box.due, 5000 + BOX_DAYS * 86400000);
+  assert.deepEqual([r.box.ep, r.box.pos, r.box.eps.length, r.box.t], [0, 0, 3, "Meet Corliss Archer"]);
+  assert.equal(MAX_BOXES, 1);
+  assert.equal(checkOutBox(lib, a, 6000).error, "out");
+  const full = checkOutBox(lib, b, 6000);
+  assert.equal(full.error, "full");
+  assert.match(full.text, /You have a box set out \(Meet Corliss Archer\)/);
+  // A third tape is still refused: the box set didn't change the tape limit.
+  assert.equal(checkOut(lib, film("t3"), 1).error, "full");
+});
+
+test("box sets: the place is kept, episodes follow in order, and it goes back from anywhere", () => {
+  const [a] = seriesShelves([sitcoms]);
+  let lib = checkOutBox(lib0(), a, 1).lib;
+  lib = setBoxPlace(lib, a.key, 0, 600);
+  assert.deepEqual([boxFor(lib, a.key).ep, boxFor(lib, a.key).pos], [0, 600]);
+  lib = setBoxPlace(lib, a.key, 0, 99999);
+  assert.equal(boxFor(lib, a.key).pos, 1500, "never past the episode's end");
+  let n = nextEpisode(lib, a.key);
+  lib = n.lib;
+  assert.deepEqual([n.ep, boxFor(lib, a.key).ep, boxFor(lib, a.key).pos], [1, 1, 0]);
+  lib = setBoxPlace(lib, a.key, 2, 30);
+  n = nextEpisode(lib, a.key);
+  lib = n.lib;
+  assert.ok(n.done && boxFor(lib, a.key).done && boxFor(lib, a.key).ep === 2, "after the last episode the box is finished");
+  lib = restartBox(lib, a.key);
+  assert.deepEqual([boxFor(lib, a.key).ep, boxFor(lib, a.key).pos, boxFor(lib, a.key).done], [0, 0, false]);
+  // Back to the shelf mid-episode: no rewinding for a box set.
+  lib = setBoxPlace(lib, a.key, 1, 700);
+  const back = returnBox(lib, a.key, 9000, false);
+  assert.ok(back.lib && !boxFor(back.lib, a.key));
+  assert.deepEqual(back.lib.history[0], { kind: "box", t: "Meet Corliss Archer", key: a.key, out: 1, back: 9000, late: false, seen: 1 });
+  assert.equal(returnBox(back.lib, a.key, 9000).error, "none");
+});
+
+test("box sets: overdue ones are found; they're stored and read back clean; the card takes them back", () => {
+  const [a] = seriesShelves([sitcoms]);
+  let lib = checkOutBox(lib0(), a, 1).lib;
+  assert.deepEqual(overdueBoxes(lib, 1 + BOX_DAYS * 86400000 - 1), []);
+  assert.equal(overdueBoxes(lib, 1 + BOX_DAYS * 86400000).length, 1);
+  const stored = JSON.parse(JSON.stringify(setBoxPlace(lib, a.key, 2, 99)));
+  const clean = cleanLibrary(stored);
+  assert.deepEqual([clean.boxes.length, clean.boxes[0].ep, clean.boxes[0].pos], [1, 2, 99]);
+  assert.deepEqual(cleanLibrary({ card: stored.card, boxes: [{ key: "x", t: "Bad", eps: [], due: 1 }, "junk"] }).boxes, []);
+  assert.deepEqual(cleanLibrary({ card: stored.card }).boxes, [], "an older library has no box sets");
+  const cut = cancelCard(lib, 50);
+  assert.deepEqual(cut.boxes, []);
+  assert.equal(cut.history[0].kind, "box");
+});
