@@ -3,104 +3,104 @@
   "version": 1,
   "families": {
     "western": {
-      "kickers": ["SUNDOWN ON CH {ch} · UP NEXT", "NEXT UP ON THE TRAIL", "THE STAGE PULLS IN AT {time}", "RIDING IN NEXT ON {name}", "SADDLE UP · UP NEXT"],
-      "loading": ["SADDLING UP…", "ROUNDING UP THE REEL…", "THE SHERIFF IS ON HIS WAY", "HOLD YOUR HORSES", "WAITING ON THE STAGECOACH"],
+      "kickers": ["SUNDOWN ON CH {ch} · UP NEXT", "NEXT UP ON THE TRAIL", "THE STAGE PULLS IN AT {time}", "RIDING IN NEXT ON {name}", "SADDLE UP · UP NEXT", "COMING DOWN THE PASS AT {time}", "THE NEXT POSSE RIDES ON CH {ch}", "DUST ON THE HORIZON · UP NEXT"],
+      "loading": ["SADDLING UP…", "ROUNDING UP THE REEL…", "THE SHERIFF IS ON HIS WAY", "HOLD YOUR HORSES", "WAITING ON THE STAGECOACH", "FILLING THE CANTEENS…", "LIGHTING THE CAMPFIRE…", "THE STAGE IS JUST OVER THE RIDGE"],
       "ad": ["the saloon's running a commercial. we're outside with the horses.", "an ad rides through town. it won't stay long.", "somebody's selling snake oil. your picture's right behind it."],
       "count": "SHOWDOWN IN"
     },
     "serial": {
-      "kickers": ["TO BE CONTINUED… NEXT CHAPTER", "NEXT CHAPTER AT {time}", "DON'T MISS THE NEXT THRILLING CHAPTER", "WILL OUR HERO ESCAPE? FIND OUT NEXT"],
-      "loading": ["CHAPTER LOADING…", "THE HERO IS DANGLING. HOLD ON.", "REWINDING LAST WEEK'S PERIL", "THE SERIAL IS AT THE CLIFF'S EDGE"],
+      "kickers": ["TO BE CONTINUED… NEXT CHAPTER", "NEXT CHAPTER AT {time}", "DON'T MISS THE NEXT THRILLING CHAPTER", "WILL OUR HERO ESCAPE? FIND OUT NEXT", "WILL THEY ESCAPE? FIND OUT AT {time}", "NEXT WEEK'S THRILLING CHAPTER · NOW", "THE SAGA CONTINUES ON CH {ch}"],
+      "loading": ["CHAPTER LOADING…", "THE HERO IS DANGLING. HOLD ON.", "REWINDING LAST WEEK'S PERIL", "THE SERIAL IS AT THE CLIFF'S EDGE", "UNTYING THE HERO…", "THE BRIDGE IS STILL STANDING. FOR NOW.", "THREADING CHAPTER TWELVE…"],
       "ad": ["an ad has our hero tied to the tracks. he's fine. muted.", "a sponsor interrupts the peril. the next chapter follows.", "cliffhanger: will this ad end? yes."],
       "count": "NEXT CHAPTER IN"
     },
     "noir": {
-      "kickers": ["IN THE SHADOWS NEXT", "THE CASE CONTINUES AT {time}", "COMING UP, OUT OF THE RAIN", "NEXT ON {name}", "UP NEXT · DOWN THESE MEAN STREETS"],
-      "loading": ["WAITING ON A TIP…", "THE REEL IS IN A LOCKER AT THE STATION", "SOMEBODY'S DEVELOPING THE NEGATIVES", "LIGHTING A CIGARETTE. METAPHORICALLY."],
+      "kickers": ["IN THE SHADOWS NEXT", "THE CASE CONTINUES AT {time}", "COMING UP, OUT OF THE RAIN", "NEXT ON {name}", "UP NEXT · DOWN THESE MEAN STREETS", "THE NEXT CASE OPENS AT {time}", "A NEW CLIENT WALKS IN · UP NEXT", "RAIN ON THE WINDOW · CH {ch} CONTINUES"],
+      "loading": ["WAITING ON A TIP…", "THE REEL IS IN A LOCKER AT THE STATION", "SOMEBODY'S DEVELOPING THE NEGATIVES", "LIGHTING A CIGARETTE. METAPHORICALLY.", "LIGHTING ONE IN THE DARK…", "THE TRAIL'S GONE COLD. WARMING IT UP.", "SOMEBODY'S KNOCKING ON THE DOOR…"],
       "ad": ["an ad walked in. trouble usually does.", "we muted it. it had a face you couldn't trust.", "the ad says it's just passing through. they all say that."],
       "count": "BACK IN"
     },
     "horror": {
-      "kickers": ["IF YOU DARE… UP NEXT", "SOMETHING STIRS AT {time}", "NEXT, FROM BEYOND", "DON'T TURN AROUND · UP NEXT", "THE NIGHT IS YOUNG ON {name}"],
-      "loading": ["DIGGING IT UP…", "THE REEL IS COMING BACK FROM THE DEAD", "DO NOT ADJUST YOUR SET. IT'S ALREADY TOO LATE.", "SOMETHING'S IN THE PROJECTION BOOTH", "IT'S BEHIND YOU. NO, THE PICTURE."],
+      "kickers": ["IF YOU DARE… UP NEXT", "SOMETHING STIRS AT {time}", "NEXT, FROM BEYOND", "DON'T TURN AROUND · UP NEXT", "THE NIGHT IS YOUNG ON {name}", "THE CRYPT OPENS AGAIN ON CH {ch}", "THE FOG ROLLS IN · UP NEXT", "LOCK THE DOORS · {time}"],
+      "loading": ["DIGGING IT UP…", "THE REEL IS COMING BACK FROM THE DEAD", "DO NOT ADJUST YOUR SET. IT'S ALREADY TOO LATE.", "SOMETHING'S IN THE PROJECTION BOOTH", "IT'S BEHIND YOU. NO, THE PICTURE.", "THE CANDLES ARE FLICKERING…", "OILING THE COFFIN HINGES…", "IT'S RIGHT BEHIND THE CURTAIN"],
       "ad": ["an ad. the real horror.", "it came from the ad server. we locked the door.", "the ad is hungry. feed it nothing. it leaves soon."],
       "count": "RISING IN"
     },
     "scifi": {
-      "kickers": ["TRANSMISSION INCOMING · UP NEXT", "NEXT FROM THE OUTER REACHES", "DOCKING AT {time}", "STAND BY FOR THE NEXT SIGNAL", "UP NEXT ON {name} · SET PHASERS TO WATCH"],
-      "loading": ["WARMING UP THE REACTOR…", "ALIGNING THE DISH…", "THE SIGNAL IS CROSSING A FEW LIGHT-YEARS", "RECALIBRATING THE PICTURE TUBE", "GREETINGS, EARTHLING. ONE MOMENT."],
+      "kickers": ["TRANSMISSION INCOMING · UP NEXT", "NEXT FROM THE OUTER REACHES", "DOCKING AT {time}", "STAND BY FOR THE NEXT SIGNAL", "UP NEXT ON {name} · SET PHASERS TO WATCH", "INCOMING TRANSMISSION AT {time}", "THE SAUCERS LAND NEXT ON CH {ch}", "BEYOND THE STARS · UP NEXT"],
+      "loading": ["WARMING UP THE REACTOR…", "ALIGNING THE DISH…", "THE SIGNAL IS CROSSING A FEW LIGHT-YEARS", "RECALIBRATING THE PICTURE TUBE", "GREETINGS, EARTHLING. ONE MOMENT.", "CALIBRATING THE RAY GUN…", "THE MOTHERSHIP IS DOCKING…", "DECODING THE SIGNAL FROM SPACE…"],
       "ad": ["an advertisement from a lesser civilization. muted.", "we jammed the ad's audio. the picture is theirs, the silence is ours.", "the show is in hyperspace. arriving shortly."],
       "count": "LAUNCH IN"
     },
     "space": {
-      "kickers": ["MISSION CONTROL · UP NEXT", "GO FOR LAUNCH AT {time}", "NEXT ON THE FLIGHT PLAN", "ALL STATIONS, STAND BY", "UP NEXT · THE EAGLE HAS NOT LANDED YET"],
-      "loading": ["HOLD AT T-MINUS…", "WAITING ON TELEMETRY…", "THE CAPCOM HAS THE REEL", "POLLING THE ROOM: GO, GO, GO", "DOWNLINK FROM THE ARCHIVE"],
+      "kickers": ["MISSION CONTROL · UP NEXT", "GO FOR LAUNCH AT {time}", "NEXT ON THE FLIGHT PLAN", "ALL STATIONS, STAND BY", "UP NEXT · THE EAGLE HAS NOT LANDED YET", "NEXT MISSION · LIFTOFF AT {time}", "HOUSTON, WE HAVE A PROGRAM", "ALL SYSTEMS GO ON CH {ch}"],
+      "loading": ["HOLD AT T-MINUS…", "WAITING ON TELEMETRY…", "THE CAPCOM HAS THE REEL", "POLLING THE ROOM: GO, GO, GO", "DOWNLINK FROM THE ARCHIVE", "FUELING THE BOOSTERS…", "CHECKING THE TELEMETRY…", "WAITING FOR A GO FROM THE FLIGHT DIRECTOR"],
       "ad": ["an unscheduled burn. muted. nominal.", "houston, we have an ad. we're muting it.", "the ad is in a parking orbit. your show lands next."],
       "count": "T-MINUS"
     },
     "toon": {
-      "kickers": ["AND NOW… UP NEXT!", "NEXT, A CARTOON", "HOLD ON TO YOUR HAT · {time}", "RIGHT AFTER THIS ON {name}", "TH-TH-THAT'S NOT ALL, FOLKS · UP NEXT"],
-      "loading": ["WINDING UP THE PROJECTOR…", "THE CARTOON IS PUTTING ITS SHOES ON", "ONE SEC, THE RABBIT'S LATE", "DRAWING THE NEXT ONE BY HAND", "COLORING INSIDE THE LINES…"],
+      "kickers": ["AND NOW… UP NEXT!", "NEXT, A CARTOON", "HOLD ON TO YOUR HAT · {time}", "RIGHT AFTER THIS ON {name}", "TH-TH-THAT'S NOT ALL, FOLKS · UP NEXT", "DON'T TOUCH THAT DIAL! UP NEXT", "MORE CARTOONS AT {time}", "THE FUN KEEPS ROLLING ON CH {ch}"],
+      "loading": ["WINDING UP THE PROJECTOR…", "THE CARTOON IS PUTTING ITS SHOES ON", "ONE SEC, THE RABBIT'S LATE", "DRAWING THE NEXT ONE BY HAND", "COLORING INSIDE THE LINES…", "DRAWING THE NEXT FRAME…", "INKING THE OUTLINES…", "POURING THE CEREAL…"],
       "ad": ["an ad! muted! phooey!", "a commercial snuck in. it has a big nose and no sound.", "the cartoon is right behind this. it's hiding."],
       "count": "BACK IN"
     },
     "anime": {
-      "kickers": ["次回 · NEXT EPISODE", "TO BE CONTINUED AT {time}", "NEXT TRANSMISSION", "UP NEXT · 放送", "NEXT ON {name}"],
-      "loading": ["ローディング… LOADING…", "THE TAPE IS REWINDING ITSELF", "POWERING UP…", "お待ちください · ONE MOMENT", "HENSHIN IN PROGRESS"],
+      "kickers": ["次回 · NEXT EPISODE", "TO BE CONTINUED AT {time}", "NEXT TRANSMISSION", "UP NEXT · 放送", "NEXT ON {name}", "NEXT EPISODE AT {time}", "TO BE CONTINUED… ON CH {ch}", "THE NEXT ARC BEGINS · UP NEXT"],
+      "loading": ["ローディング… LOADING…", "THE TAPE IS REWINDING ITSELF", "POWERING UP…", "お待ちください · ONE MOMENT", "HENSHIN IN PROGRESS", "CHARGING THE SPECIAL MOVE…", "THE OPENING THEME IS STARTING…"],
       "ad": ["an ad. 広告. muted.", "the ad is a filler episode. the real one's next.", "we muted the ad. it transformed into silence."],
       "count": "NEXT IN"
     },
     "comedy": {
-      "kickers": ["LIVE FROM THE STAGE · UP NEXT", "NEXT, THE LAUGHS", "COMING UP AT {time}", "AND NOW, FOR SOMETHING NEARLY THE SAME", "UP NEXT ON {name} · NO REFUNDS"],
-      "loading": ["WARMING UP THE AUDIENCE…", "THE COMEDIAN IS FINDING THE MIC", "ADJUSTING THE LAUGH TRACK…", "ONE SEC, SOMEONE SLIPPED ON A BANANA", "TESTING. IS THIS THING ON?"],
+      "kickers": ["LIVE FROM THE STAGE · UP NEXT", "NEXT, THE LAUGHS", "COMING UP AT {time}", "AND NOW, FOR SOMETHING NEARLY THE SAME", "UP NEXT ON {name} · NO REFUNDS", "MORE LAUGHS AT {time}", "THE NEXT BIT IS ON CH {ch}", "STAY TUNED, IT GETS FUNNIER"],
+      "loading": ["WARMING UP THE AUDIENCE…", "THE COMEDIAN IS FINDING THE MIC", "ADJUSTING THE LAUGH TRACK…", "ONE SEC, SOMEONE SLIPPED ON A BANANA", "TESTING. IS THIS THING ON?", "WAXING THE BANANA PEEL…", "THE AUDIENCE IS FINDING ITS SEATS…", "CUE THE LAUGH TRACK…"],
       "ad": ["an ad. we've heard it. it isn't funny.", "the ad's doing a bit. we muted the bit.", "hecklers, please hold. the show's next."],
       "count": "BACK IN"
     },
     "music": {
-      "kickers": ["NOW SPINNING · UP NEXT", "NEXT ON THE HIT PARADE", "DROPPING THE NEEDLE AT {time}", "THE BAND IS BACK AT {time}", "UP NEXT ON {name} · TURN IT UP"],
-      "loading": ["CUEING THE RECORD…", "TUNING THE BAND…", "THE NEEDLE IS LOOKING FOR THE GROOVE", "ONE MORE SOUND CHECK", "WARMING UP THE AMPS"],
+      "kickers": ["NOW SPINNING · UP NEXT", "NEXT ON THE HIT PARADE", "DROPPING THE NEEDLE AT {time}", "THE BAND IS BACK AT {time}", "UP NEXT ON {name} · TURN IT UP", "THE NEXT SPIN IS AT {time}", "ON THE TURNTABLE NEXT · CH {ch}", "KEEP IT ON THIS STATION"],
+      "loading": ["CUEING THE RECORD…", "TUNING THE BAND…", "THE NEEDLE IS LOOKING FOR THE GROOVE", "ONE MORE SOUND CHECK", "WARMING UP THE AMPS", "DROPPING THE NEEDLE…", "TUNING THE GUITARS…", "THE BAND IS TAKING THE STAGE…"],
       "ad": ["an ad with a jingle. we muted the jingle.", "the ad can't carry a tune. it's gone soon.", "your song is up next. this one isn't a song."],
       "count": "BACK IN"
     },
     "silent": {
-      "kickers": ["— INTERMISSION —", "— NEXT ATTRACTION —", "— COMING AT {time} —", "— THE PROGRAMME CONTINUES —", "— MEANWHILE, ON {name} —"],
-      "loading": ["— ONE MOMENT, PLEASE —", "— THE PIANIST IS TAKING HIS SEAT —", "— THREADING THE PROJECTOR —", "— KINDLY REMAIN SEATED —"],
+      "kickers": ["— INTERMISSION —", "— NEXT ATTRACTION —", "— COMING AT {time} —", "— THE PROGRAMME CONTINUES —", "— MEANWHILE, ON {name} —", "— THE NEXT PICTURE AT {time} —", "— THE ORGANIST RETURNS —", "— MORE FROM THE SILENT SCREEN —"],
+      "loading": ["— ONE MOMENT, PLEASE —", "— THE PIANIST IS TAKING HIS SEAT —", "— THREADING THE PROJECTOR —", "— KINDLY REMAIN SEATED —", "CRANKING THE PROJECTOR…", "THE PIANIST IS WARMING UP…", "PLEASE REMOVE YOUR HAT"],
       "ad": ["an advertisement. mercifully silent.", "the ad has no title cards. we gave it no sound.", "the feature follows this interruption."],
       "count": "RESUMING IN"
     },
     "reel": {
-      "kickers": ["NEXT ON THE REEL", "UP NEXT · FROM THE ARCHIVE", "THE NEXT REEL STARTS AT {time}", "NEXT ON {name}", "ROLL THE NEXT ONE · {time}"],
-      "loading": ["THREADING THE REEL…", "THE PROJECTIONIST IS LOOKING FOR THE CAN", "LEADER… LEADER… PICTURE", "WAITING FOR THE ARCHIVE TO HAND IT OVER", "SPLICING…"],
+      "kickers": ["NEXT ON THE REEL", "UP NEXT · FROM THE ARCHIVE", "THE NEXT REEL STARTS AT {time}", "NEXT ON {name}", "ROLL THE NEXT ONE · {time}", "THE NEXT REEL ROLLS AT {time}", "FROM THE VAULT · UP NEXT ON CH {ch}", "MORE FROM THE FILM LIBRARY"],
+      "loading": ["THREADING THE REEL…", "THE PROJECTIONIST IS LOOKING FOR THE CAN", "LEADER… LEADER… PICTURE", "WAITING FOR THE ARCHIVE TO HAND IT OVER", "SPLICING…", "LACING THE PROJECTOR…", "FOCUSING THE LENS…", "DUSTING OFF THE FILM CAN…"],
       "ad": ["an ad from this century. muted.", "a word from a sponsor nobody asked.", "the archive's next film follows this."],
       "count": "PICTURE IN"
     },
     "tech": {
-      "kickers": ["LOADING NEXT PROGRAM…", "C:\\> NEXT", "UP NEXT · PRESS ANY KEY", "NEXT ON THE NET", "UP NEXT ON {name} · NO CARRIER"],
-      "loading": ["CONNECTING AT 56K…", "HANDSHAKE… CARRIER… PICTURE", "DOWNLOADING THE REEL (3 OF 3)", "DEFRAGMENTING THE BROADCAST", "INSERT DISK 2"],
+      "kickers": ["LOADING NEXT PROGRAM…", "C:\\> NEXT", "UP NEXT · PRESS ANY KEY", "NEXT ON THE NET", "UP NEXT ON {name} · NO CARRIER", "NEXT FILE LOADS AT {time}", "RUN NEXT.EXE ON CH {ch}", "BUFFERING THE NEXT PROGRAM"],
+      "loading": ["CONNECTING AT 56K…", "HANDSHAKE… CARRIER… PICTURE", "DOWNLOADING THE REEL (3 OF 3)", "DEFRAGMENTING THE BROADCAST", "INSERT DISK 2", "DIALING IN… 56K", "DEFRAGMENTING…", "INSERT DISK 2 AND PRESS ANY KEY"],
       "ad": ["an ad. pop-up blocked, sound blocked.", "a banner ad with video. muted. you've seen worse.", "buffering your show behind this ad… 99%"],
       "count": "READY IN"
     },
     "gameshow": {
-      "kickers": ["NEXT CONTESTANT · UP NEXT", "BEHIND DOOR NUMBER TWO AT {time}", "AND THE NEXT ROUND IS…", "STAY TUNED FOR THE BONUS ROUND", "UP NEXT ON {name} · PLAY ALONG AT HOME"],
-      "loading": ["LIGHTING THE BOARD…", "THE HOST IS FIXING HIS TIE", "SHUFFLING THE CARDS…", "THE APPLAUSE SIGN IS WARMING UP", "SPINNING THE WHEEL… ONE MOMENT"],
+      "kickers": ["NEXT CONTESTANT · UP NEXT", "BEHIND DOOR NUMBER TWO AT {time}", "AND THE NEXT ROUND IS…", "STAY TUNED FOR THE BONUS ROUND", "UP NEXT ON {name} · PLAY ALONG AT HOME", "THE NEXT ROUND STARTS AT {time}", "COME ON DOWN! UP NEXT ON CH {ch}"],
+      "loading": ["LIGHTING THE BOARD…", "THE HOST IS FIXING HIS TIE", "SHUFFLING THE CARDS…", "THE APPLAUSE SIGN IS WARMING UP", "SPINNING THE WHEEL… ONE MOMENT", "COUNTING THE PRIZE MONEY…", "TESTING THE BUZZERS…", "THE CONTESTANTS ARE TAKING THEIR PLACES"],
       "ad": ["an ad is our sponsor. muted, for the home game.", "a word from a sponsor. no points awarded.", "the ad wins nothing. your show is next."],
       "count": "ROUND STARTS IN"
     },
     "desk": {
-      "kickers": ["COMING UP ON THE DESK", "NEXT, AT THE TOP OF THE HOUR", "STAY WITH US · UP NEXT AT {time}", "NEXT ON {name}", "MORE AFTER THIS · {time}"],
-      "loading": ["GOING LIVE IN A MOMENT…", "THE DESK IS CHECKING ITS NOTES", "STANDING BY FOR THE FEED", "MIC CHECK, ONE, TWO", "WAITING ON THE SATELLITE"],
+      "kickers": ["COMING UP ON THE DESK", "NEXT, AT THE TOP OF THE HOUR", "STAY WITH US · UP NEXT AT {time}", "NEXT ON {name}", "MORE AFTER THIS · {time}", "NEXT ON THE DESK AT {time}", "THE CONVERSATION CONTINUES ON CH {ch}", "STAY WITH US · UP NEXT"],
+      "loading": ["GOING LIVE IN A MOMENT…", "THE DESK IS CHECKING ITS NOTES", "STANDING BY FOR THE FEED", "MIC CHECK, ONE, TWO", "WAITING ON THE SATELLITE", "CLIPPING ON THE MICROPHONES…", "THE GUEST IS IN MAKEUP…", "ROLLING THE TELEPROMPTER…"],
       "ad": ["a paid message. we didn't pay. muted.", "an ad is at the desk. its mic is off.", "we'll be right back. we mean it."],
       "count": "LIVE IN"
     },
     "radio": {
-      "kickers": ["ON THE AIR NEXT", "NEXT ON THE DIAL", "STAY TUNED · {time}", "THE NEXT BROADCAST ON {name}"],
-      "loading": ["WARMING UP THE TUBES…", "FINDING THE STATION…", "ADJUSTING THE DIAL", "STATIC… STATIC… SIGNAL"],
+      "kickers": ["ON THE AIR NEXT", "NEXT ON THE DIAL", "STAY TUNED · {time}", "THE NEXT BROADCAST ON {name}", "NEXT ON THE AIR AT {time}", "STAY TUNED TO CH {ch}"],
+      "loading": ["WARMING UP THE TUBES…", "FINDING THE STATION…", "ADJUSTING THE DIAL", "STATIC… STATIC… SIGNAL", "FINDING THE STATION ON THE DIAL…"],
       "ad": [],
       "count": "BACK IN"
     },
     "retro": {
-      "kickers": ["UP NEXT ON CH {ch} · {name}", "COMING UP ON CH {ch}", "NEXT ON {name} · {time}"],
-      "loading": ["TUNING IN…", "ADJUSTING THE ANTENNA…", "ONE MOMENT PLEASE", "WARMING UP THE TUBE", "FINDING THE PICTURE"],
+      "kickers": ["UP NEXT ON CH {ch} · {name}", "COMING UP ON CH {ch}", "NEXT ON {name} · {time}", "NEXT ON NOSTALGEM AT {time}", "STAY TUNED TO CH {ch}"],
+      "loading": ["TUNING IN…", "ADJUSTING THE ANTENNA…", "ONE MOMENT PLEASE", "WARMING UP THE TUBE", "FINDING THE PICTURE", "SETTLING THE PICTURE…"],
       "ad": [],
       "count": ""
     },

@@ -734,7 +734,7 @@ function onPlayerState(mode, extra) {
           fx.release();
           if (item && item.sent) V.showCard("tuning", V.sentLoadingCard(item));
           else {
-            V.showCard("tuning", V.loadingCard(ch, app.cards, tunedAt), cardClass(ch));
+            V.showCard("tuning", V.loadingCard(ch, app.cards, tunedAt), cardClass(ch, tunedAt));
             // The ident plays once, with the light sweep. Muted, or a blocked audio context: silence.
             if (familyOf(ch).id === "crystalsignal") crystalChime({ muted: player.muted, volume: player.v && typeof player.v.volume === "number" ? player.v.volume : 1 });
           }
@@ -760,7 +760,7 @@ function onPlayerState(mode, extra) {
     case "gap":
       fx.release();
       hideRadio();
-      if (player.slot) V.showCard("gap", V.gapCard(ch, player.slot, s.clock24, app.bumpers, app.cards), cardClass(ch));
+      if (player.slot) V.showCard("gap", V.gapCard(ch, player.slot, s.clock24, app.bumpers, app.cards), cardClass(ch, V.breakStartOf(player.slot)));
       break;
     case "standby":
       fx.release();
@@ -4531,7 +4531,7 @@ function openLinkOut(ch) {
 
 function restoreCard() {
   const ch = current();
-  if (player.mode === "gap" && player.slot) V.showCard("gap", V.gapCard(ch, player.slot, s.clock24, app.bumpers, app.cards), cardClass(ch));
+  if (player.mode === "gap" && player.slot) V.showCard("gap", V.gapCard(ch, player.slot, s.clock24, app.bumpers, app.cards), cardClass(ch, V.breakStartOf(player.slot)));
   else if (player.mode === "standby") V.showCard("standby", V.standbyCard(app.standby));
   else if (player.mode === "empty") V.showCard("empty", V.emptyCard(ch, app.emptyWhy));
   else if (player.mode === "adbreak") showAdCard(ch);
@@ -5287,7 +5287,8 @@ async function boot() {
     const item = player.slot ? player.slot.item : null;
     const ch = current();
     if (player.mode === "tuning" && ch && !card.hidden && /\bcard-tuning\b/.test(card.className) && !/\bcard-leave\b/.test(card.className) && !(item && item.sent)) {
-      V.showCard("tuning", V.loadingCard(ch, app.cards, Date.now()), cardClass(ch));
+      const at = Date.now();
+      V.showCard("tuning", V.loadingCard(ch, app.cards, at), cardClass(ch, at));
     }
   };
   // House bumpers for the station breaks. Loads in the background; a missing

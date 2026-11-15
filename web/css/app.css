@@ -5344,3 +5344,74 @@ body {
   font-size: 1.05rem;
   color: #b9b9c6;
 }
+
+/* Card layouts (cards.js CARD_LAYOUTS). The family's look (.fam-*) keeps its colors and type; these only
+   move things. "panel" is the card as it always was; "title" and "marquee" keep clear of the info banner
+   at the bottom, which comes up with a break. */
+.card.cv-title .card-panel {
+  background: none;
+  border: 0;
+  box-shadow: none;
+  margin-top: -20vh; /* above the info banner, which comes up with the break */
+  max-width: 80rem;
+}
+.card.cv-title .card-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+.card.cv-title .card-kicker::before,
+.card.cv-title .card-kicker::after {
+  content: "";
+  width: 3rem;
+  height: 0.12rem;
+  background: currentColor;
+  opacity: 0.7;
+}
+.card.cv-title .card-title {
+  font-size: 4rem;
+  line-height: 1.05;
+  text-shadow: 0 0.2rem 0 rgba(0, 0, 0, 0.55), 0 0 1.2rem rgba(0, 0, 0, 0.6);
+}
+.card.cv-title .card-sub {
+  text-shadow: 0 0.1rem 0.4rem rgba(0, 0, 0, 0.8);
+}
+/* A band along the top: the info banner takes the bottom when a break starts. */
+.card.cv-marquee {
+  justify-content: flex-start;
+}
+.card.cv-marquee .card-panel {
+  align-self: stretch;
+  max-width: none;
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "kick count" "title count" "sub count";
+  column-gap: 2rem;
+  text-align: left;
+  padding: 1.1rem 1.8rem;
+  border-radius: 0.6rem;
+}
+.card.cv-marquee .card-kicker {
+  grid-area: kick;
+}
+.card.cv-marquee .card-title {
+  grid-area: title;
+  font-size: 2.2rem;
+  margin: 0.3rem 0 0.2rem;
+}
+.card.cv-marquee .card-sub {
+  grid-area: sub;
+}
+.card.cv-marquee .card-countlabel,
+.card.cv-marquee .card-count,
+.card.cv-marquee .card-dots {
+  grid-column: 2;
+  grid-row: 1 / 4;
+  align-self: center;
+  text-align: right;
+  margin: 0;
+}
+.card.cv-marquee .card-countlabel {
+  align-self: start;
+}
