@@ -195,7 +195,8 @@ export class Player {
     // A live stream has no "into the program": it is joined wherever it is now.
     const at = startAt > 2 && !item.live ? "#t=" + Math.floor(startAt) : "";
     if (v === this.video) this.setSpeed(v, this.rate());
-    v.src = isYouTube(item) ? "yt:" + videoIdOf(item) + at : downloadUrl(item.id, item.f) + at;
+    // A pack's direct link (item.u) plays from its own address; everything else from the Archive.
+    v.src = isYouTube(item) ? "yt:" + videoIdOf(item) + at : (item.u || downloadUrl(item.id, item.f)) + at;
     if (v === this.video) this.setSpeed(v, this.rate());
     this.tryPlay(token);
     this.applyCaptions(token);

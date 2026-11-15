@@ -183,7 +183,7 @@ export class Guide {
       const more = cell && cell.progs.length > 1 ? " · one of " + cell.progs.length + " shorts this half hour" : "";
       detail =
         '<div class="g-thumb" style="background-image:url(\'' +
-        esc(isYouTube(it) ? ytThumb(videoIdOf(it)) : thumbUrl(it.id)) +
+        esc(isYouTube(it) ? ytThumb(videoIdOf(it)) : it.u ? "" : thumbUrl(it.id)) +
         "')\"></div>" +
         '<div class="g-info"><div class="g-title">' +
         esc(it.t) +

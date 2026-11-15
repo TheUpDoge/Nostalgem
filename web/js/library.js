@@ -183,9 +183,10 @@ export function dueText(ms) {
   return "due back in " + Math.round(hr / 24) + " days";
 }
 
-// The store stocks the Archive's feature films (no YouTube, no live streams, nothing short).
+// The store stocks the Archive's feature films (no YouTube, no live streams, nothing short, and not a
+// pack's direct links: the store's tapes and boxes are Archive items).
 export function isFilm(item) {
-  return !!item && !item.live && typeof item.id === "string" && item.id.indexOf("yt:") !== 0 && item.d >= FILM_MIN_SECONDS;
+  return !!item && !item.live && !item.u && typeof item.id === "string" && item.id.indexOf("yt:") !== 0 && item.d >= FILM_MIN_SECONDS;
 }
 
 function sortTitle(t) {
