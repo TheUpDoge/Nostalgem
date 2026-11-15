@@ -101,9 +101,41 @@ export function familyOf(ch) {
   return FAMILY[ch.kind === "audio" ? "radio" : "retro"];
 }
 
-// The CSS class a card for this channel gets.
-export function cardClass(ch) {
-  return "fam-" + familyOf(ch).look;
+// More than one card per family. A break's card (and the card while a channel loads) is laid out one of
+// three ways, and some families now and then borrow one of the extra looks that suits them; both are
+// picked from the clock like the words, so every TV in the same break shows the same card. The words stay
+// the channel family's own whatever the look.
+//   panel   the framed card in the middle (as before)
+//   title   a title card: the program's name large across the scenery, the kicker as a ribbon over it
+//   marquee a band along the top, with the scenery open below it
+export const CARD_LAYOUTS = ["panel", "title", "marquee"];
+export const LOOK_ALTERNATES = {
+  tech: ["glowcircuit", "polygon"],
+  music: ["neonrain"],
+  scifi: ["hardchrome"],
+};
+
+// The look a card is drawn in: the family's own, or (seedMs given) now and then one of its alternates.
+// The family's own look comes up at least half the time.
+export function cardLook(ch, seedMs) {
+  const f = familyOf(ch);
+  const alts = LOOK_ALTERNATES[f.id];
+  if (!alts || seedMs == null) return f.look;
+  const pool = alts.map(function () {
+    return f.look;
+  });
+  return pickBy(pool.concat(alts), seedMs, "look:" + f.id);
+}
+
+// The layout of a card (seedMs: when the break started, or the channel was tuned). Without one: the panel.
+export function cardLayout(ch, seedMs) {
+  if (seedMs == null) return "panel";
+  return pickBy(CARD_LAYOUTS, seedMs, "layout:" + familyOf(ch).id);
+}
+
+// The CSS classes a card for this channel gets: its look and (seedMs given) its layout.
+export function cardClass(ch, seedMs) {
+  return "fam-" + cardLook(ch, seedMs) + (seedMs == null ? "" : " cv-" + cardLayout(ch, seedMs));
 }
 
 // Words when data/cards.json isn't there: one plain set for every family.

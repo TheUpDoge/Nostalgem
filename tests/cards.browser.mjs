@@ -12,7 +12,7 @@ import { join, extname, normalize, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { makeTimeline, slotAt } from "../web/js/schedule.js";
-import { parseCards, fill, familyOf } from "../web/js/cards.js";
+import { parseCards, fill, familyOf, cardLayout } from "../web/js/cards.js";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
@@ -97,6 +97,24 @@ check(kickers(ch, b.slot).some((k) => k && c.text.includes(k)) || /SUNDOWN|TRAIL
 check(/SHOWDOWN IN/.test(c.text) && (await page.isVisible("#card .card-count")), "…and SHOWDOWN IN over the countdown");
 check(c.text.includes(b.slot.next.t.slice(0, 20)), "…naming the next program: " + b.slot.next.t);
 await shot("card-western.png");
+// More than one card per family: the break's layout is the one the clock picks, on every TV alike.
+const want = cardLayout(ch, b.slot.endMs);
+check(c.cls.includes("cv-" + want), `…laid out as the clock says for this break (${want}): ${c.cls}`);
+// Each layout fits the screen: the title, the kicker and the countdown inside the picture.
+for (const lay of ["panel", "title", "marquee"]) {
+  const fit = await page.evaluate((l) => {
+    const el = document.getElementById("card");
+    el.className = el.className.replace(/cv-\w+/, "") + " cv-" + l;
+    const box = document.getElementById("tv").getBoundingClientRect();
+    const parts = ["card-title", "card-kicker", "card-count"].map((k) => el.querySelector("." + k).getBoundingClientRect());
+    // The info banner comes up with a break, at the bottom: the card's words stay clear of it.
+    const ban = document.getElementById("banner");
+    const banTop = ban && !ban.hidden ? ban.getBoundingClientRect().top : box.bottom;
+    return parts.every((r) => r.width > 0 && r.left >= box.left - 1 && r.right <= box.right + 1 && r.top >= box.top - 1 && r.bottom <= banTop + 1);
+  }, lay);
+  check(fit, `the ${lay} layout keeps the title, kicker and countdown on the screen, clear of the info banner`);
+  await shot("card-western-" + lay + ".png");
+}
 
 // With Screen shape on 4:3 the card and its scenery keep to the box in the middle of the screen.
 await page.evaluate(() => localStorage.setItem("nostalgem:settings", JSON.stringify({ staticFx: "silent", shape: "43" })));

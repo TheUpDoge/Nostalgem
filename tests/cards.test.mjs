@@ -113,3 +113,66 @@ test("the cards' markup: the family's scene and words, escaped; the ad quips mix
   assert.doesNotMatch(adBreakCard("x", { slug: "home-movies", name: "Home Movies", number: 31 }), /fscene/);
   assert.doesNotMatch(adBreakCard("x"), /fscene/, "no channel: the plain black card");
 });
+
+// More than one card per family (Task 7): layouts and borrowed looks, picked from the clock.
+import { CARD_LAYOUTS, LOOK_ALTERNATES, cardLook, cardLayout } from "../web/js/cards.js";
+import { readFileSync as readCardsFile } from "node:fs";
+
+test("a break's card is one of three layouts, the same on every TV for the same break", () => {
+  const ch = { slug: "high-noon" };
+  assert.deepEqual(CARD_LAYOUTS, ["panel", "title", "marquee"]);
+  const seen = {};
+  for (let i = 0; i < 60; i++) {
+    const t = 1700000000000 + i * 3600 * 1000;
+    const a = cardClass(ch, t);
+    assert.equal(cardClass(ch, t), a, "the same moment, the same card");
+    assert.match(a, /^fam-western cv-(panel|title|marquee)$/);
+    seen[cardLayout(ch, t)] = 1;
+  }
+  assert.deepEqual(Object.keys(seen).sort(), ["marquee", "panel", "title"], "every layout comes up over a day's breaks");
+  // No moment given (the sponsor card over a YouTube ad): the family's own look, the panel as before.
+  assert.equal(cardClass(ch), "fam-western");
+  assert.equal(cardLayout(ch), "panel");
+});
+
+test("computers, music and science fiction now and then borrow an extra look that suits them", () => {
+  const cases = { "byte-size": "tech", jukebox: "music", "atomic-drive-in": "scifi" };
+  for (const [slug, fam] of Object.entries(cases)) {
+    const ch = { slug: slug };
+    const own = familyOf(ch).look;
+    const looks = {};
+    let mine = 0;
+    for (let i = 0; i < 200; i++) {
+      const l = cardLook(ch, 1700000000000 + i * 997 * 1000);
+      looks[l] = (looks[l] || 0) + 1;
+      if (l === own) mine++;
+    }
+    assert.deepEqual(Object.keys(looks).sort(), [own].concat(LOOK_ALTERNATES[fam]).sort(), slug + ": " + JSON.stringify(looks));
+    assert.ok(mine >= 70, slug + " keeps its own look most of the time (" + mine + " of 200)");
+  }
+  // The others keep their own look; Crystal Signal (the heavy one) isn't borrowed.
+  for (const slug of ["high-noon", "creature-feature", "midnight-noir", "saturday-morning"]) {
+    for (let i = 0; i < 30; i++) assert.equal(cardLook({ slug }, 1700000000000 + i * 61000), familyOf({ slug }).look);
+  }
+  assert.ok(!Object.values(LOOK_ALTERNATES).some((a) => a.includes("crystalsignal")));
+});
+
+test("the card's scenery is drawn in the same look as its class", () => {
+  const ch = { slug: "byte-size", name: "Byte Size", number: 18 };
+  for (let i = 0; i < 40; i++) {
+    const t = 1700000000000 + i * 7919 * 1000;
+    const look = cardLook(ch, t);
+    const html = loadingCard(ch, DEFAULT_CARDS, t);
+    assert.ok(html.includes("fs-" + look) || (look === "retro" && /class="scene/.test(html)), look + " " + html.slice(0, 80));
+  }
+});
+
+test("every family on the dial has at least seven break lines and seven loading lines", () => {
+  const data = JSON.parse(readCardsFile(new URL("../web/data/cards.json", import.meta.url), "utf8"));
+  for (const f of ["western", "serial", "noir", "horror", "scifi", "space", "toon", "anime", "comedy", "music", "silent", "reel", "tech", "gameshow", "desk"]) {
+    const w = data.families[f];
+    assert.ok(w.kickers.length >= 7 && w.loading.length >= 7, f + ": " + w.kickers.length + " / " + w.loading.length);
+    assert.equal(new Set(w.kickers).size, w.kickers.length, f + " has no repeats");
+    for (const l of w.kickers.concat(w.loading)) assert.ok(l.length <= 80, l); // the cards escape them
+  }
+});
