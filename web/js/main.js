@@ -4120,7 +4120,7 @@ function phoneMessage(m, conn) {
     // Back only dismisses the ident: it must not also arm "press again to exit".
     if (m.type === "back") {
       if (turnOnUp) skipTurnOn();
-      else back();
+      else backOrExit();
       return;
     }
     handleAction({ type: m.type, digit: m.digit });
@@ -4584,7 +4584,7 @@ function handleAction(a) {
     return;
   }
   if (a.type === "back") {
-    back();
+    backOrExit();
     return;
   }
   if (dialog.isOpen) {
@@ -4736,6 +4736,14 @@ function back() {
     V.toast("Press BACK again to exit", 2500);
   }
   return true;
+}
+
+// BACK that came to the page itself (the phone remote, a controller, a keyboard), not through the TV app's
+// own BACK handling: with nothing left to close and the second press made, the page asks the TV app to
+// exit, the same as the TV remote's BACK. (The app's own BACK asks NP.back() and exits on false itself.)
+function backOrExit() {
+  if (back()) return;
+  if (ANDROID) sendApp({ t: "exit" });
 }
 
 document.addEventListener("keydown", function (e) {
