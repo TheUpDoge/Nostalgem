@@ -8,7 +8,7 @@ import { actionFor, isTypingTarget, registerTvKeys } from "./remote.js";
 import { load, save } from "./store.js";
 import { archiveLinkQuery, buildChannel, browserFetchJson, metadataUrl } from "./archive.js";
 import { archiveAboutHtml } from "./about.js";
-import { asPack, buildItemsChannel, packChannelDef, packFilesFromZip, packSkipLists, parsePack, validatePack } from "./packs.js";
+import { asPack, buildItemsChannel, buildLinkPrograms, mixPrograms, packChannelDef, packFilesFromZip, packSkipLists, parsePack, shortLink, validatePack } from "./packs.js";
 import { channelForDigits, moreToType, packNumberFor, typedLabel } from "./dial.js";
 import { LINK_CHANNELS, isLinkChannel, isGuideVisible, linkCardName, linkUrl, openLinkChannel } from "./linkout.js";
 import { createGamepad, samePress } from "./gamepad.js";
@@ -3557,7 +3557,8 @@ function showPackHelp() {
     title: "How channel packs work",
     html:
       "A channel pack is a small JSON file that adds channels from the <b>Internet Archive</b> — " +
-      "a collection search, or Archive item IDs. Nothing else: no YouTube, no other sites, no direct video links.<br><br>" +
+      "a collection search, or Archive item IDs — and from <b>direct links</b> to video files (.mp4, .webm, .m3u8). " +
+      "No YouTube or Vimeo pages: a link that won't play is left out, and the TV says which and why.<br><br>" +
       "Pack channels land on <b>CH 30–49</b>, <b>CH 100–199</b>, or <b>CH 200–299</b>, and are saved on this TV only, like channels you add by search. " +
       "Loading a pack never changes the shipped lineup.<br><br>" +
       "The format is in <b>PACKS.md</b>, with an example pack in <b>packs/example-pack.json</b>. " +
@@ -3849,6 +3850,47 @@ function keepSkipLists(lists) {
   skipLists.packs = checkSkipLists({ format: SKIP_FORMAT, lists: kept }).lists;
 }
 
+// Does this browser play an .m3u8 (HLS) stream in a <video>? Android's WebView and Safari do.
+function canPlayHls() {
+  const v = document.createElement("video");
+  return !!(v.canPlayType && (v.canPlayType("application/vnd.apple.mpegurl") || v.canPlayType("application/x-mpegURL")));
+}
+
+// A pack's direct link, loaded the way the player will (a <video> reading the file's details, so no
+// CORS is needed): { ok, d } or { ok: false, why }. Nothing plays and nothing is kept.
+function probeLink(url, kind) {
+  return new Promise(function (done) {
+    const v = document.createElement(kind === "audio" ? "audio" : "video");
+    let over = false;
+    const end = function (r) {
+      if (over) return;
+      over = true;
+      clearTimeout(timer);
+      v.removeAttribute("src");
+      try {
+        v.load();
+      } catch (e) {
+        /* fine */
+      }
+      done(r);
+    };
+    const timer = setTimeout(function () {
+      end({ ok: false, why: "it didn't answer in 20 seconds" });
+    }, 20000);
+    v.preload = "metadata";
+    v.muted = true;
+    v.onloadedmetadata = function () {
+      if (!(v.duration > 0)) return end({ ok: false, why: "it has no length (an empty or broken file)" });
+      end({ ok: true, d: v.duration });
+    };
+    v.onerror = function () {
+      const code = v.error ? v.error.code : 0;
+      end({ ok: false, why: code === 4 ? "it isn't a video this TV can play, or the link is dead or needs a login" : code === 2 ? "it couldn't be reached" : "it didn't load" });
+    };
+    v.src = url;
+  });
+}
+
 // Load packs, one channel after another (a zip can hold several; a number one pack took moves the next
 // one's channel along).
 function loadPacks(packs, report) {
@@ -3916,6 +3958,30 @@ function loadPacks(packs, report) {
     }
     const first = done[0];
     tuneTo(first);
+    // A link left out is the pack author's to fix: say which and why, where it can be read.
+    const linkNotes = notes.filter(function (n) {
+      return / left out /.test(n);
+    });
+    if (linkNotes.length) {
+      dialog.open({
+        title: (packs.length > 1 ? "Packs on the air" : "Pack on the air") + " — " + linkNotes.length + (linkNotes.length === 1 ? " link" : " links") + " left out",
+        html:
+          done.map(function (c) {
+            return "CH " + esc(chLabel(c)) + " " + esc(c.name);
+          }).join(", ") +
+          "<br><br>" +
+          notes.slice(0, 12).map(esc).join("<br>"),
+        buttons: [
+          {
+            label: "OK",
+            action: function (d) {
+              d.close();
+            },
+          },
+        ],
+      });
+      return;
+    }
     let msg = (packs.length > 1 ? "Packs on the air: " : "Pack on the air: ") + done.map(function (c) {
       return "CH " + chLabel(c) + " " + c.name;
     }).join(", ");
@@ -3930,11 +3996,32 @@ function loadPacks(packs, report) {
     i++;
     dialog.status("Building " + ch.name + " (" + i + " of " + queue.length + ")…");
     const def = packChannelDef(pack.pack, ch);
-    const job = def.items
+    const archive = def.items
       ? buildItemsChannel(def.items, def, channelCtx())
-      : fetchChannelPrograms(def, function (n, total) {
+      : def.sources
+      ? fetchChannelPrograms(def, function (n, total) {
           if (!cancelled) dialog.status("Checking " + n + " of " + total + " items for " + ch.name + "…");
+        })
+      : Promise.resolve({ items: [], about: {} });
+    // Direct links ride along with the Archive programs: each checked the way the player will load it.
+    const job = archive.then(function (res) {
+      if (!def.urls || cancelled) return res;
+      return buildLinkPrograms(def.urls, def, {
+        probe: probeLink,
+        secure: location.protocol === "https:",
+        hls: canPlayHls(),
+        progress: function (n, total) {
+          if (!cancelled) dialog.status("Checking link " + n + " of " + total + " for " + ch.name + "…");
+        },
+      }).then(function (links) {
+        links.skipped.forEach(function (sk) {
+          notes.push(ch.name + ": left out " + shortLink(sk.url) + " — " + sk.why);
+          if (window.console) console.info("NostalGem pack " + pack.pack + ", " + ch.name + ": left out " + sk.url + " — " + sk.why);
         });
+        app.linkSkips = (app.linkSkips || []).concat(links.skipped).slice(-50);
+        return { items: mixPrograms(res.items, links.items), about: res.about };
+      });
+    });
     job
       .then(function (res) {
         if (cancelled) return;
@@ -4996,6 +5083,17 @@ window.NP = {
     return true;
   },
   back: back,
+  // A channel's programs by number, for the tests: [{ t, u, id }] (u: a pack's direct link), or null.
+  programs: function (n) {
+    const ch = app.channels.filter(function (c) {
+      return String(c.number) === String(n);
+    })[0];
+    return ch
+      ? (ch.items || []).map(function (it) {
+          return { t: it.t, u: it.u || "", id: it.id };
+        })
+      : null;
+  },
   suspend: suspend,
   resume: resume,
   // Read-only snapshot for tests and debugging.
@@ -5011,6 +5109,8 @@ window.NP = {
       label: ch ? chLabel(ch) : "",
       name: ch ? ch.name : "",
       program: it ? it.t : "",
+      link: it && it.u ? it.u : "",
+      slotEnd: player.slot ? player.slot.slotEndMs : 0,
       channels: app.channels.length,
       overlay: dialog.isOpen ? "dialog" : menu.isOpen ? "menu" : guide.isOpen ? "guide" : "",
       phone: { on: s.phone, status: link.status, phones: link.phones(), code: link.code, lan: native.lan.length, calling: app.calling, why: app.callingWhy },

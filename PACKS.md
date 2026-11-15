@@ -83,11 +83,13 @@ work, then delete the channel from Menu ▸ Channel lineup if you don't want it.
 
 ### Sources
 
-Each channel lists at least one source. A source is either a search or an item list — never both:
+Each channel lists at least one source. A source is a search, an item list, or a list of direct links
+(a search and an item list never in the same source; links can go with either):
 
 ```json
 { "q": "collection:prelinger AND mediatype:movies", "rows": 60, "sort": "downloads desc" }
 { "items": ["identifier-one", "identifier-two"] }
+{ "urls": ["https://archive.org/download/ElephantsDream/ed_1024_512kb.mp4"] }
 ```
 
 - `q` — an [Internet Archive advanced search](https://archive.org/advancedsearch.php).
@@ -96,14 +98,32 @@ Each channel lists at least one source. A source is either a search or an item l
   also warns — it still works, but results may vary.
 - `items` — explicit Archive item IDs (at most 50 per source). The channel is built straight
   from those items' files.
+- `urls` — direct links to video files (at most 50 per source): `.mp4`, `.webm`, or an `.m3u8`
+  stream (which the TV app and Safari play; a computer's Chrome or Firefox leaves it out). Each link
+  is one program, in rotation with the channel's Archive programs; a channel can be links only. An
+  entry is the link as text, or `{ "url": "…", "title": "…" }` to give it a title (otherwise the
+  title comes from the file's name). An Archive item's page (`archive.org/details/<id>`) counts as
+  that item.
+
+  Every link is checked when the pack loads, the way the player will load it, and **a link that
+  won't play is left out with the reason, while the rest of the channel plays**: a dead link, one
+  that needs a login, one signed to expire (`X-Amz-Expires=`, `token=` and the like), an `http://`
+  link (the site is `https://`), and a web page instead of a file. **YouTube and Vimeo pages
+  (`youtube.com/watch?v=…`, `vimeo.com/…`) don't play from a pack**: YouTube belongs on a
+  sub-channel. The "Load these packs?" screen flags the ones it can tell from the address alone,
+  and after loading the TV lists every link it left out and why. A link that dies later is skipped
+  on the air like any program that won't play. Links aren't stocked in the Video Club, which lends
+  Archive films.
 
 ### What packs may not do
 
-Packs point at the Internet Archive and nothing else. The loader rejects a pack that has:
+Packs point at the Internet Archive, plus any direct links to video files in `urls`. The loader
+rejects a pack that has:
 
 - a number outside 30–49, 100–199 and 200–299, a duplicate number, or a missing name;
-- a source that is a link (`http://…`, `https://…`), a YouTube or other video-site address,
-  or a `url` / `youtube` / `playlist` field;
+- a search (`q`) that is a link or a video site's address, or a `url` / `youtube` / `playlist`
+  field (links go in `urls`);
+- an entry in `urls` that isn't a web link at all (a number, or text with no `https://`);
 - an item ID with spaces, slashes or anything that isn't an Archive identifier.
 
 A pack is loaded or it isn't — a rejected pack adds nothing, and the TV says why.
