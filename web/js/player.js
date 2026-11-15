@@ -34,6 +34,11 @@ const RETRY_AFTER = 30000; // standby retry interval
 const SKIPS_IN_A_ROW = 6; // this many programs in a row that can't play here: say so instead of trying them all
 const CUT_WATCH_MS = 100; // how often a film with a clean-cut list is checked against its scenes
 const UNKNOWN_LENGTH = 4 * 3600; // seconds an on-demand program is given until its real length is known
+// Fast-forward and rewind. FF runs the film faster, a step up for each press; RW jumps back, further when
+// pressed again soon after (a <video> can't play backwards, so RW is jumps, and says so by moving in them).
+export const FF_SPEEDS = [2, 4, 8];
+export const RW_STEPS = [10, 30]; // seconds: the first press, then each press within RW_AGAIN_MS of the last
+export const RW_AGAIN_MS = 1500;
 
 export class Player {
   constructor(video, hooks) {
@@ -44,7 +49,9 @@ export class Player {
     this.tl = null;
     this.slot = null;
     this.mode = "idle";
-    this.shifted = false; // paused or restarted: no longer following the live schedule
+    this.shifted = false; // paused, restarted or rewound: no longer following the live schedule
+    this.ff = 1; // fast-forward: how many times faster than the channel's own speed
+    this.rwAt = 0; // when RW was last pressed (a press soon after jumps further)
     this.token = 0;
     this.failures = [];
     this.skips = 0;
@@ -189,6 +196,8 @@ export class Player {
     this.stopFade();
     v.volume = 1;
     this.setCuts(this.hooks.cutsFor ? this.hooks.cutsFor(this.slot) : null);
+    this.ff = 1;
+    this.rwAt = 0;
     v.muted = this.muted;
     this.setMode("tuning");
     // The media fragment starts the download near the live point instead of at 0:00.
@@ -415,7 +424,9 @@ export class Player {
       // An on-demand program is over: the app may have the next one lined up (a sent item's next part),
       // or it's back to the schedule.
       if (this.slot && this.slot.onDemand && this.hooks.demandEnded && this.hooks.demandEnded(this.slot.item)) return;
+      const wasBehind = !!(this.slot && !this.slot.onDemand);
       this.syncToLive();
+      if (wasBehind) this.emit("shuttle", "rejoined"); // a program watched behind the clock ended: live again
       return;
     }
     if (Date.now() < this.slot.slotEndMs - 500) this.enterGap();
@@ -493,6 +504,7 @@ export class Player {
     // Nothing is playing now: back to as-made speed, so 666's slow-and-low doesn't hang about on a station
     // break or a stand-by card (the next film sets its own speed as it loads).
     if (v === this.video) this.setSpeed(v, 1);
+    this.ff = 1;
   }
 
   // Read-only, for the loading card (loadhold.js). Whether a frame is really on the way.
@@ -528,6 +540,20 @@ export class Player {
         if (v.paused && !v.ended && !v.seeking) this.tryPlay(this.token); // the TV paused us (audio focus etc.)
         if (this.routed && this.routed === this.video) this.church.context(); // woken if the TV put it to sleep
         else if (this.church) this.churchIn(); // the browser may let sound start now
+        // Fast-forwarding a scheduled program that's behind the clock: at the clock, it's live again.
+        if (this.ff > 1 && this.shifted && this.slot && !this.slot.onDemand && !v.seeking) {
+          const live = this.liveTarget(now);
+          if (v.currentTime >= live - this.ff * 0.6) {
+            this.playNormal();
+            try {
+              v.currentTime = live;
+            } catch (e) {
+              /* the drift check puts it right */
+            }
+            this.shifted = false;
+            this.emit("shuttle", "live");
+          }
+        }
         if (!this.shifted && this.slot) {
           if (now >= this.slot.endMs + 1500) {
             // the file runs longer than its listing: the schedule wins
@@ -646,9 +672,78 @@ export class Player {
     return isFinite(t) ? this.seekTo(t + (Number(sec) || 0)) : -1;
   }
 
+  // ---------- fast-forward and rewind ----------
+  // Why FF or RW can't go now ("" when it can): "live" a live broadcast, "wait" nothing playing yet.
+  shuttleWhy() {
+    const sl = this.slot;
+    if (!sl || (this.mode !== "playing" && this.mode !== "paused")) return "wait";
+    if (sl.item.live) return "live";
+    return "";
+  }
+
+  // A step up in speed: 2x, 4x, 8x (and 8x stays). Never ahead of the shared clock: on a scheduled
+  // program that is live, there's nothing ahead to go to ("atLive"). YouTube's player has no fast speeds.
+  // -> { speed } or { why }
+  fastForward() {
+    const why = this.shuttleWhy();
+    if (why) return { why: why };
+    if (isYouTube(this.slot.item)) return { why: "youtube" };
+    if (!this.slot.onDemand && !this.shifted) return { why: "atLive" };
+    this.rwAt = 0; // RW goes further only when pressed twice in a row
+    const i = FF_SPEEDS.indexOf(this.ff);
+    this.ff = FF_SPEEDS[Math.min(FF_SPEEDS.length - 1, i + 1)];
+    if (this.mode === "paused") {
+      this.tryPlay(this.token);
+      this.setMode("playing");
+    }
+    this.setSpeed(this.v, this.rate() * this.ff);
+    this.v.muted = true; // a tape winding on: picture, no sound
+    return { speed: this.ff };
+  }
+
+  // Back to the channel's own speed (play). -> whether it was fast-forwarding.
+  playNormal() {
+    if (this.ff === 1) return false;
+    this.ff = 1;
+    this.setSpeed(this.v, this.rate());
+    this.v.muted = this.muted || !!this.cutScene;
+    return true;
+  }
+
+  // A jump back: 10 seconds, or 30 when pressed again soon after. Never before the program's start. Leaves
+  // the shared clock (the viewer is behind it until Back to live, or until the program ends).
+  // -> { at, back } or { why }
+  rewind(now) {
+    const why = this.shuttleWhy();
+    if (why) return { why: why };
+    const t = Number(now) || Date.now();
+    const back = this.rwAt && t - this.rwAt < RW_AGAIN_MS ? RW_STEPS[1] : RW_STEPS[0];
+    this.rwAt = t;
+    this.playNormal();
+    const from = this.v.currentTime;
+    if (!isFinite(from)) return { why: "wait" };
+    const to = Math.max(0, from - back);
+    this.shifted = true;
+    try {
+      this.v.currentTime = to;
+    } catch (e) {
+      return { why: "wait" };
+    }
+    return { at: to, back: back };
+  }
+
+  // How far behind the shared clock (clock seconds), on a scheduled program; 0 when live or on demand.
+  behind() {
+    const sl = this.slot;
+    if (!sl || sl.onDemand || sl.item.live || !this.shifted) return 0;
+    const t = this.v.currentTime;
+    if (!isFinite(t)) return 0;
+    return Math.max(0, (this.liveTarget(Date.now()) - t) / this.rate());
+  }
+
   setMuted(m) {
     this.muted = !!m;
-    this.v.muted = this.muted || !!this.cutScene;
+    this.v.muted = this.muted || !!this.cutScene || this.ff > 1;
   }
 
   // ---------- clean cuts ----------
@@ -698,7 +793,7 @@ export class Player {
       }
     } else if (scene !== this.cutScene) {
       this.cutScene = scene;
-      v.muted = this.muted || !!scene;
+      v.muted = this.muted || !!scene || this.ff > 1;
       this.emit("cut", { card: !!scene, text: c.text, end: scene ? scene.end : 0 });
     }
     // A scene about to start gets a check right on time, not up to a tenth of a second late.

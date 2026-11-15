@@ -836,8 +836,11 @@ class MainActivity : Activity() {
             KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_HEADSETHOOK -> "playpause"
             KeyEvent.KEYCODE_MEDIA_PLAY -> "play"
             KeyEvent.KEYCODE_MEDIA_PAUSE, KeyEvent.KEYCODE_MEDIA_STOP -> "pause"
-            KeyEvent.KEYCODE_MEDIA_NEXT, KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> "chup"
-            KeyEvent.KEYCODE_MEDIA_PREVIOUS, KeyEvent.KEYCODE_MEDIA_REWIND -> "chdown"
+            KeyEvent.KEYCODE_MEDIA_NEXT -> "chup"
+            KeyEvent.KEYCODE_MEDIA_PREVIOUS -> "chdown"
+            // The page's shuttle bar: FF steps 2x/4x/8x, RW jumps back 10 s then 30 s (held, it keeps going).
+            KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> "ff"
+            KeyEvent.KEYCODE_MEDIA_REWIND -> "rw"
             KeyEvent.KEYCODE_INFO -> "info"
             KeyEvent.KEYCODE_GUIDE -> "guide"
             KeyEvent.KEYCODE_MENU -> "menu"

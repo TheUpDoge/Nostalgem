@@ -20,6 +20,7 @@
     "test:cards": "node tests/cards.browser.mjs",
     "test:sendto": "node tests/sendto.browser.mjs",
     "test:packlinks": "node tests/packlinks.browser.mjs",
+    "test:shuttle": "node tests/shuttle.browser.mjs",
     "lineup": "node tools/build-lineup.mjs"
   },
   "devDependencies": {

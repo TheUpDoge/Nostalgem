@@ -13,7 +13,8 @@ const BY_KEY = {
   PageDown: "chdown", ChannelDown: "chdown", "-": "chdown", _: "chdown",
   MediaPlayPause: "playpause", " ": "playpause", Spacebar: "playpause", k: "playpause", K: "playpause",
   MediaPlay: "play", MediaPause: "pause", MediaStop: "pause",
-  MediaTrackNext: "chup", MediaTrackPrevious: "chdown", MediaFastForward: "chup", MediaRewind: "chdown",
+  MediaTrackNext: "chup", MediaTrackPrevious: "chdown", MediaFastForward: "ff", MediaRewind: "rw",
+  "]": "ff", "[": "rw",
   Info: "info", i: "info", I: "info",
   Guide: "guide", g: "guide", G: "guide",
   ContextMenu: "menu", Menu: "menu", Settings: "menu", o: "menu", O: "menu", Tab: "menu",
@@ -32,7 +33,7 @@ const BY_CODE = {
   27: "back", 8: "back", 461: "back", 10009: "back", 166: "back",
   33: "chup", 34: "chdown", 427: "chup", 428: "chdown",
   179: "playpause", 10252: "playpause", 415: "play", 19: "pause", 413: "pause",
-  417: "chup", 412: "chdown",
+  417: "ff", 412: "rw",
   457: "info", 458: "guide", 18: "menu",
   403: "red", 404: "green", 405: "yellow", 406: "blue",
 };

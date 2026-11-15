@@ -50,6 +50,8 @@ jobs:
         run: npm run test:sendto
       - name: Packs with direct links (a links-only channel plays, a mixed channel rotates, dead and YouTube links left out)
         run: npm run test:packlinks
+      - name: Fast-forward and rewind (FF 2x/4x/8x, RW 10 s/30 s, catching up with live, back to live, the phone's buttons)
+        run: npm run test:shuttle
 
   # Publishes web/ to GitHub Pages from main. One-time setup: Settings → Pages → Source: GitHub Actions.
   deploy:

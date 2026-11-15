@@ -117,7 +117,7 @@ function whole(v, lo, hi) {
 // Actions a phone may send. Anything else is dropped.
 const KEYS = [
   "up", "down", "left", "right", "ok", "back", "chup", "chdown", "guide", "menu", "info",
-  "playpause", "play", "pause", "live", "last", "mute", "cc", "fav", "red", "green", "yellow", "blue", "digit", "look",
+  "playpause", "play", "pause", "live", "ff", "rw", "last", "mute", "cc", "fav", "red", "green", "yellow", "blue", "digit", "look",
 ];
 
 // Checks a message from a phone and returns a clean copy, or null.
