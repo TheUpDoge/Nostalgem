@@ -4251,15 +4251,33 @@ function awayAction(m) {
 // The phone sends the file in pieces (link.js); once it's all here, it goes through the same loader as a
 // file chosen on the TV — checked, then "Load these packs?" — and the phone hears what the TV made of it.
 const incoming = {}; // id -> { name, size, n, parts, got, at }
+// Packs from the phone arrive in pieces, each one answered. A piece can come twice (the phone sends again
+// what wasn't answered in time), so a pack already put together is only answered again, never reloaded.
+// The TV says when pieces start arriving, so it's plain whether it hears the phone at all.
+const finishedPacks = {}; // id -> when it was put together
 function packFromPhone(m, conn) {
   const now = Date.now();
   Object.keys(incoming).forEach(function (id) {
     if (now - incoming[id].at > 60000) delete incoming[id];
   });
+  Object.keys(finishedPacks).forEach(function (id) {
+    if (now - finishedPacks[id] > 120000) delete finishedPacks[id];
+  });
+  if (finishedPacks[m.id]) {
+    link.sendTo(conn, { t: "fileack", id: m.id, i: m.i });
+    return;
+  }
   let f = incoming[m.id];
   if (!f) {
-    if (Object.keys(incoming).length >= 3) return;
-    f = incoming[m.id] = { name: m.name, size: m.size, n: m.n, parts: [], got: 0, at: now };
+    // Room for three at once; a fourth sends away the one that has waited longest (a send given up on).
+    const ids = Object.keys(incoming);
+    if (ids.length >= 3) {
+      ids.sort(function (a, b) {
+        return incoming[a].at - incoming[b].at;
+      });
+      delete incoming[ids[0]];
+    }
+    f = incoming[m.id] = { name: m.name, size: m.size, n: m.n, parts: [], got: 0, at: now, shownAt: 0 };
   }
   if (f.n !== m.n || f.size !== m.size) return;
   f.at = now;
@@ -4268,8 +4286,15 @@ function packFromPhone(m, conn) {
     f.got++;
   }
   link.sendTo(conn, { t: "fileack", id: m.id, i: m.i });
-  if (f.got < f.n) return;
+  if (f.got < f.n) {
+    if (now - f.shownAt > 1500) {
+      f.shownAt = now;
+      V.toast("📱 A pack is coming from the phone: " + f.name + " (" + f.got + " of " + f.n + ")", 2500);
+    }
+    return;
+  }
   delete incoming[m.id];
+  finishedPacks[m.id] = now;
   const report = function (what) {
     link.sendTo(conn, Object.assign({ t: "packs", id: m.id, name: f.name }, what));
   };
