@@ -19,28 +19,31 @@ export const PAPERS = ["day", "sepia", "night"];
 const PAPER_NAMES = { day: "Day", sepia: "Sepia", night: "Night" };
 const HUD_MS = 2600;
 
-// The rustle of a page turning: a short burst of filtered noise.
+// The sound of a page turning: a soft page, a short burst of filtered noise, low and quick.
+export const FLIP = { seconds: 0.15, from: 1200, to: 800, q: 0.7, decay: 2, gain: 0.08 };
 let audio = null;
-function rustle() {
+// ctx: an AudioContext to use (tests); otherwise the page's own, made on the first turn.
+export function rustle(ctx) {
   try {
+    if (ctx) audio = ctx;
     const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
+    if (!audio && !AC) return;
     if (!audio) audio = new AC();
     if (audio.state === "suspended") audio.resume();
     const t = audio.currentTime;
-    const len = Math.floor(audio.sampleRate * 0.22);
+    const len = Math.floor(audio.sampleRate * FLIP.seconds);
     const buf = audio.createBuffer(1, len, audio.sampleRate);
     const d = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 1.6);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, FLIP.decay);
     const src = audio.createBufferSource();
     src.buffer = buf;
     const f = audio.createBiquadFilter();
     f.type = "bandpass";
-    f.frequency.setValueAtTime(2600, t);
-    f.frequency.exponentialRampToValueAtTime(1100, t + 0.2);
-    f.Q.value = 0.7;
+    f.frequency.setValueAtTime(FLIP.from, t);
+    f.frequency.exponentialRampToValueAtTime(FLIP.to, t + FLIP.seconds * 0.9);
+    f.Q.value = FLIP.q;
     const g = audio.createGain();
-    g.gain.value = 0.09;
+    g.gain.value = FLIP.gain;
     src.connect(f);
     f.connect(g);
     g.connect(audio.destination);
