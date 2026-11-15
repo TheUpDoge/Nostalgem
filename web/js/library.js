@@ -197,8 +197,6 @@ export function dueText(ms) {
   return "due back in " + Math.round(hr / 24) + " days";
 }
 
-// The store stocks the Archive's feature films (no YouTube, no live streams, nothing short, and not a
-// pack's direct links: the store's tapes and boxes are Archive items).
 // ---------- box sets: a series as one loan ----------
 // Where a channel's episodes come from: the series channels, and every channel a pack (or the viewer)
 // added. Films stay on the tape shelves; the rest of the dial isn't series.
@@ -459,7 +457,8 @@ export function overdueBoxes(lib, now) {
   });
 }
 
-// The store stocks the Archive's feature films (no YouTube, no live streams, nothing short).
+// The store stocks the Archive's feature films (no YouTube, no live streams, nothing short, and not a
+// pack's direct links: the store's tapes and boxes are Archive items).
 export function isFilm(item) {
   return !!item && !item.live && !item.u && typeof item.id === "string" && item.id.indexOf("yt:") !== 0 && item.d >= FILM_MIN_SECONDS;
 }

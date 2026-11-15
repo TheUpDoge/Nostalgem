@@ -360,6 +360,8 @@ test("mixPrograms: Archive programs and links share the rotation evenly", () => 
   const m = mixPrograms(a, ["L0", "L1", "L2"]);
   assert.equal(m.length, 13);
   assert.deepEqual(m.filter((x) => x[0] === "a"), a, "each list keeps its own order");
+});
+
 // ---------- the pack list (browsing packs on the TV) ----------
 import { parsePackIndex, packIndexLine, PACK_INDEX_FORMAT } from "../web/js/packs.js";
 import { execFileSync } from "node:child_process";
