@@ -54,6 +54,7 @@ const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gestur
 
 // ---------- 1. the brokers on their own ----------
 console.log("The brokers, live (each one alone, messages to ourselves):");
+const unreachable = {}; // brokers this machine can't reach at all (GitHub's runners can't reach Eclipse)
 {
   const page = await browser.newPage();
   await page.goto(site + "remote.html");
@@ -123,6 +124,7 @@ console.log("The brokers, live (each one alone, messages to ourselves):");
     );
     if (!r.up) {
       note(`${brokerName(url)}: couldn't connect from here`);
+      unreachable[url] = 1;
       continue;
     }
     note(`${brokerName(url)}: connected in ${r.connectMs} ms`);
@@ -211,7 +213,10 @@ async function sendBoth(label, brokers) {
   }
 }
 
-for (const url of RELAY_BROKERS) await sendBoth(`Packs through ${brokerName(url)} alone:`, [url]);
+for (const url of RELAY_BROKERS) {
+  if (unreachable[url]) note(`Packs through ${brokerName(url)} alone: not tried (this machine can't reach it)`);
+  else await sendBoth(`Packs through ${brokerName(url)} alone:`, [url]);
+}
 await sendBoth("Packs through all the brokers at once (how the app runs):", process.env.RELAY_BROKERS ? RELAY_BROKERS : null);
 
 await browser.close();
