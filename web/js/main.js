@@ -3557,7 +3557,8 @@ function showPackHelp() {
     title: "How channel packs work",
     html:
       "A channel pack is a small JSON file that adds channels from the <b>Internet Archive</b> — " +
-      "a collection search, or Archive item IDs. Nothing else: no YouTube, no other sites, no direct video links.<br><br>" +
+      "a collection search, or Archive item IDs — and from <b>direct links</b> to video files (.mp4, .webm, .m3u8). " +
+      "No YouTube or Vimeo pages: a link that won't play is left out, and the TV says which and why.<br><br>" +
       "Pack channels land on <b>CH 30–49</b>, <b>CH 100–199</b>, or <b>CH 200–299</b>, and are saved on this TV only, like channels you add by search. " +
       "Loading a pack never changes the shipped lineup.<br><br>" +
       "The format is in <b>PACKS.md</b>, with an example pack in <b>packs/example-pack.json</b>. " +
