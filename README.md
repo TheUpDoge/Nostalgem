@@ -132,6 +132,11 @@ YouTube's player) and rebuilt daily:
 - **Info banner**: title, year, episode, progress, time left, what's up next and the clock.
 - **Pause and back to live.** Pausing time-shifts the program, "Start this program over" rewinds,
   and L (or the menu) rejoins live.
+- **⏪ ⏩ Rewind and fast-forward.** The remote's ⏪ ⏩ keys (or [ and ], the phone's RW and FF, Menu ▸
+  Fast-forward / rewind) bring up a bar with the speed, the place in the program and how far behind
+  live. FF steps 2×, 4×, 8×; RW jumps back 10 s, then 30 s; with the bar up the d-pad drives it. The
+  shared schedule goes on: FF never goes ahead of live (it catches up and is live again), RW stops at
+  the program's start, and when a program you're behind on ends, the channel is live again.
 - **Radio channels** show an animated *ON THE AIR* card over the sunset.
 - **Subtitles**: human-made subtitles first (English, Español or any language), then the Archive's
   auto-captions. The Subtítulos channel turns Spanish subtitles on by itself.
@@ -165,7 +170,10 @@ YouTube's player) and rebuilt daily:
   Sign up for a free **library card** (three short pages: how the club works, what the Internet Archive
   is, and the fine print, signed with your name), then take up to **two tapes** at a time for **three
   days** each. A tape you have out plays from where you stopped it; when you're done, **◀◀ rewind** it
-  and **⏏ return** it. A tape still out when it's due goes back by itself, with no late fees. The card
+  and **⏏ return** it. A tape still out when it's due goes back by itself, with no late fees.
+  **📦 Box sets**: a whole series from the series channels or a pack, as one loan: one at a time, for
+  a week, on top of your tapes. The episodes play in order, the next starts by itself, and the box
+  remembers the episode and the place. The card
   lives on that TV only: it isn't an archive.org account and doesn't borrow from the Archive's own
   lending library. Any channel that's all feature films becomes a shelf of its own in the club, so
   any film on it can be checked out like a tape. The floor is laid out in **rows** by family (Western,
@@ -264,6 +272,7 @@ rewriting in Roku's own language (BrightScript), which would be a separate proje
 | ▶ · Menu | → · O | Menu |
 | ▶❚❚ | Space · K | Pause / resume |
 | | L | Back to live |
+| ⏪ ⏩ | [ · ] | Rewind 10 s / 30 s, fast-forward 2× / 4× / 8× |
 | Back | Esc | Close / back up. On the Android app, press twice to exit |
 | Red | F | ★ Favorite this channel |
 | Green · CC | C | Subtitles |
@@ -423,9 +432,11 @@ file picker (the newest app). A TV with no file picker says so, and points to th
 **Channels** page ▸ **📦 Send a pack to the TV**, which works on any TV. Pack channels land on CH 30–49, in the
 hundreds (CH 100–199), or on CH 200–299 and are saved on that TV only, like channels you add by search.
 
-A pack defines one or more channels — a name, a number (30–49, 100–199, or 200–299), and an Archive source:
-a collection search or explicit Archive item IDs. Nothing else is allowed: no YouTube, no
-other sites, no direct video links. The full format is in [PACKS.md](PACKS.md), with an
+A pack defines one or more channels — a name, a number (30–49, 100–199, or 200–299), and its sources:
+a collection search, explicit Archive item IDs, or direct links to video files (`urls`: .mp4, .webm,
+.m3u8). A link that won't play (dead, a login, a YouTube or Vimeo page) is left out, and the TV says
+which and why. A **pack list** on a website can be browsed and loaded on the TV: Menu ▸ Load a channel
+pack ▸ Browse the pack list. The full format is in [PACKS.md](PACKS.md), with an
 example in [packs/example-pack.json](packs/example-pack.json) (a western-features channel
 built from the same Archive query as CH 1 High Noon).
 
@@ -490,6 +501,10 @@ npm run test:tvlimits     # the TV path's limits on the filters, and nothing dif
 npm run perf              # not a test: measures what filters and channel switching cost on a TV-sized, slowed screen
 npm run test:cards        # station cards in the channel family's look: a break, and a slow load
 npm run test:sendto       # Send to TV: links from the phone played on demand, the seek bar, parts, Share
+npm run test:packlinks    # packs with direct links: a links-only channel, a mixed one, bad links left out
+npm run test:shuttle      # fast-forward and rewind on the TV path, and the phone's buttons
+npm run test:boxsets      # box sets in the Video Club: checkout, episodes in order, resume, limits, return
+npm run test:packbrowse   # browsing a pack list on the TV
 ```
 
 The browser test needs no network. Small local clips stand in for the Archive, and it checks
