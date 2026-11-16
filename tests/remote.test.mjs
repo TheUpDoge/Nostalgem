@@ -49,3 +49,15 @@ test("browser shortcuts are left alone", () => {
   assert.equal(actionFor({ key: "ArrowLeft", altKey: true }), null);
   assert.equal(actionFor({ key: "z" }), null);
 });
+
+test("the remote's fast-forward and rewind keys shuttle instead of changing channel", () => {
+  assert.deepEqual(actionFor({ key: "MediaFastForward" }), { type: "ff" });
+  assert.deepEqual(actionFor({ key: "MediaRewind" }), { type: "rw" });
+  assert.deepEqual(actionFor({ key: "]" }), { type: "ff" });
+  assert.deepEqual(actionFor({ key: "[" }), { type: "rw" });
+  assert.deepEqual(actionFor({ key: "Unidentified", keyCode: 417 }), { type: "ff" });
+  assert.deepEqual(actionFor({ key: "Unidentified", keyCode: 412 }), { type: "rw" });
+  // Next and previous track stay channel up and down.
+  assert.deepEqual(actionFor({ key: "MediaTrackNext" }), { type: "chup" });
+  assert.deepEqual(actionFor({ key: "MediaTrackPrevious" }), { type: "chdown" });
+});

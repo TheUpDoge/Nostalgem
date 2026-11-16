@@ -172,16 +172,58 @@ function gradientMap(id, stops, before) {
   return filter(id, '<feColorMatrix type="matrix" values="' + LUM + '"/>' + (before || "") + paletteFuncs(stops));
 }
 
-// Sin City: black and white with hard contrast, and one color left in. Each mask is an alpha row
-// (r g b a offset); a pixel keeps its color where both masks agree it's that color.
-const POP = {
-  red: ["6 -6 0 0 -1.5", "6 0 -6 0 -1.5"],
-  blue: ["-6 0 6 0 -1.2", "0 -6 6 0 -0.6"],
-  green: ["-7 7 0 0 -1.2", "0 7 -7 0 -0.8"],
-  yellow: ["6 0 -6 0 -1.5", "0 6 -6 0 -1.5"],
-  purple: ["7 -7 0 0 -0.9", "0 -7 7 0 -0.9"],
-  cyan: ["-7 7 0 0 -0.9", "-7 0 7 0 -0.9"],
+// Sin City: black and white with hard contrast, and one color left in. Each color is a window of hues
+// (degrees on the color wheel: red 0, yellow 60, green 120, cyan 180, blue 240, purple 300), and its two
+// masks are its two edges. A mask is an alpha row (r g b a offset) that is zero on the gray axis and
+// along its edge's hue, and grows toward the window's middle and with how colorful the pixel is. A pixel
+// keeps its color by both masks at once (the two alphas multiply), so a color fades out softly toward
+// either edge, and a muted one is kept weaker but still kept, instead of falling off a cliff.
+//   [low edge, middle, high edge]
+export const POP_WINDOWS = {
+  red: [-26, 0, 22], // orange (30) is out
+  blue: [196, 232, 268],
+  green: [76, 112, 160], // yellowish foliage in; lime (90) is green
+  yellow: [32, 50, 76], // golden and muted yellows and sand in late light; orange (30) and lime (90) out
+  purple: [252, 284, 328], // violet in
+  cyan: [158, 182, 204],
 };
+const POP_GAIN = 6; // how fast a mask fills as the color gets stronger
+const POP_FLOOR = 0.08; // below this much color, a pixel stays gray (grain, compression)
+
+// The most colorful sRGB color of a hue: the color wheel's hexagon.
+function hueColor(h) {
+  const x = (((h % 360) + 360) % 360) / 60;
+  const f = x - Math.floor(x);
+  return [[1, f, 0], [1 - f, 1, 0], [0, 1, f], [0, 1 - f, 1], [f, 0, 1], [1, 0, 1 - f]][Math.floor(x) % 6];
+}
+// The alpha row that is zero along the gray axis and the edge's hue, and 1 at the middle hue at full color.
+function popMask(edge, middle) {
+  const e = hueColor(edge);
+  // Across the plane through gray (1,1,1) and the edge color: (1,1,1) x e.
+  const w = [e[2] - e[1], e[0] - e[2], e[1] - e[0]];
+  const m = hueColor(middle);
+  const k = POP_GAIN / (w[0] * m[0] + w[1] * m[1] + w[2] * m[2]);
+  const n = function (v) {
+    return String(Math.round(v * 1000) / 1000);
+  };
+  return [n(w[0] * k), n(w[1] * k), n(w[2] * k), "0", n(-POP_FLOOR * POP_GAIN)].join(" ");
+}
+const POP = {};
+Object.keys(POP_WINDOWS).forEach(function (c) {
+  const w = POP_WINDOWS[c];
+  POP[c] = [popMask(w[0], w[1]), popMask(w[2], w[1])];
+});
+export { POP };
+
+// How much of a color a Sin City look keeps at one pixel (r, g, b from 0 to 1): 0 is gray, 1 is all of it.
+// The same sum the filter does, for the tests.
+export function popStrength(color, rgb) {
+  const a = function (row) {
+    const v = row.split(" ").map(Number);
+    return Math.max(0, Math.min(1, v[0] * rgb[0] + v[1] * rgb[1] + v[2] * rgb[2] + v[4]));
+  };
+  return POP[color] ? a(POP[color][0]) * a(POP[color][1]) : 0;
+}
 const POP_ORDER = ["red", "blue", "green", "yellow", "purple", "cyan"];
 
 // The Sin City color a look keeps ("red" for pop-red), or "".

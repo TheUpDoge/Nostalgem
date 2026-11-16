@@ -3,6 +3,7 @@
 // test can check nothing readable went through it.
 //
 //   const b = await startBroker(); // b.url, b.seen, b.close()
+//   b.drop = (topic, payload) => true   loses that PUBLISH, the way a public broker can (null: loses none)
 
 import { createRequire } from "node:module";
 import { mqttParse, mqttReadPublish } from "../../web/js/relay.js";
@@ -16,6 +17,7 @@ export function startBroker() {
     const wss = new WebSocketServer({ host: "127.0.0.1", port: 0, handleProtocols: (p) => (p.has("mqtt") ? "mqtt" : false) });
     const clients = new Set();
     const seen = [];
+    const self = { url: "", seen, drop: null, dropped: 0, close: () => wss.close() };
     wss.on("connection", (ws) => {
       const c = { ws, topics: new Set(), buf: new Uint8Array(0) };
       clients.add(c);
@@ -35,6 +37,10 @@ export function startBroker() {
           } else if (p.type === 3) {
             const pub = mqttReadPublish(p);
             seen.push(Buffer.from(pub.payload));
+            if (self.drop && self.drop(pub.topic, pub.payload)) {
+              self.dropped++;
+              continue;
+            }
             const header = [0x30];
             let n = p.body.length;
             do {
@@ -52,7 +58,8 @@ export function startBroker() {
       ws.on("close", () => clients.delete(c));
     });
     wss.on("listening", () => {
-      ok({ url: "ws://127.0.0.1:" + wss.address().port + "/", seen, close: () => wss.close() });
+      self.url = "ws://127.0.0.1:" + wss.address().port + "/";
+      ok(self);
     });
   });
 }

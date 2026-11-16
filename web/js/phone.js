@@ -2,7 +2,7 @@
 // sends button presses straight to it over WebRTC, or through the relay (relay.js) when the two can't
 // reach each other directly, and shows what the TV reports back.
 
-import { cleanCode, peerIdFor, prettyCode, peerClass, peerOptions, linkReport, PROTOCOL, FILE_CHUNK, FILE_MAX, typingDiff } from "./link.js";
+import { cleanCode, peerIdFor, prettyCode, peerClass, peerOptions, linkReport, PROTOCOL, FILE_CHUNK, RELAY_CHUNK, FILE_SMALLEST, FILE_MAX, typingDiff } from "./link.js";
 import { relayConnect, relaySupported, probeBrokers, pathsText } from "./relay.js";
 import { escapeHtml as esc, fmtDuration, pad2 } from "./util.js";
 import { parseSent, sentUrl, sentLabel, sharedLink, isAdult } from "./sendto.js";
@@ -645,8 +645,12 @@ function renderFound() {
 function renderButtons() {
   const st = r.state;
   if (!st) return;
-  $("playBtn").textContent = st.paused ? "▶" : "❚❚";
-  $("playBtn").classList.toggle("lit", !!st.paused);
+  // Fast-forwarding, play is back to normal speed: it shows ▶ then, as when paused.
+  const ff = st.ff > 1 ? st.ff : 1;
+  $("playBtn").textContent = st.paused || ff > 1 ? "▶" : "❚❚";
+  $("playBtn").classList.toggle("lit", !!st.paused || ff > 1);
+  $("ffBtn").classList.toggle("lit", ff > 1);
+  $("shuttleNow").textContent = ff > 1 ? "⏩ " + ff + "×" : st.behind > 0 ? fmtDuration(st.behind) + " behind live" : st.shifted && st.paused ? "Paused" : "";
   $("liveBtn").classList.toggle("lit", !!st.shifted);
   $("liveBtn").disabled = !st.shifted;
   $("muteBtn").textContent = st.muted ? "🔇" : "🔊";
@@ -1168,7 +1172,7 @@ kbdForm.addEventListener("submit", function (e) {
 // ---------- a channel pack, sent to the TV ----------
 // The file goes in pieces (FILE_CHUNK base64 characters, a few at a time, each one answered); the TV checks
 // it with its own pack loader and asks "Load these packs?" on its screen, and says here what it found.
-const pk = { id: "", pieces: [], name: "", size: 0, next: 0, acked: {}, ackCount: 0, timer: 0 };
+const pk = { id: "", lastId: "", b64: "", chunk: 0, startedAt: 0, pieces: [], name: "", size: 0, how: null, next: 0, acked: {}, ackCount: 0, sentAt: [], tries: [], resent: 0, knocks: 0, heardAt: 0, knockedAt: 0, timer: 0 };
 function packMsg(text, list, kind) {
   $("packMsg").textContent = text;
   const ul = $("packList");
@@ -1207,50 +1211,113 @@ function base64(bytes) {
   for (let i = 0; i < bytes.length; i += 0x6000) out += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x6000));
   return btoa(out);
 }
+// How a pack travels. Through the relay the pieces are smaller and fewer go at once: the public message
+// brokers are slower and less forgiving than the direct link. A piece the TV hasn't answered goes again;
+// when the TV goes quiet the phone knocks on the relay again; it gives up only after a long silence.
+const PACK_SEND = {
+  direct: { chunk: FILE_CHUNK, window: 4, resend: 4000 },
+  relay: { chunk: RELAY_CHUNK, window: 2, resend: 5000 },
+  tries: 6, // sends of one piece, the first included
+  shrinkAfter: 6000, // not one piece answered for this long: start again in pieces half the size...
+  smallest: FILE_SMALLEST, // ...down to this (something on the way may lose big messages and pass small ones)
+  knockAfter: 8000, // no answer for this long: knock on the relay again
+  giveUp: 45000, // no answer for this long: stop, and say where it stuck
+};
 function sendPackFile(name, bytes) {
-  const b64 = base64(bytes);
-  const pieces = [];
-  for (let i = 0; i < b64.length; i += FILE_CHUNK) pieces.push(b64.slice(i, i + FILE_CHUNK));
-  if (!pieces.length) pieces.push("");
-  pk.id = Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
-  pk.pieces = pieces;
+  clearInterval(pk.timer);
+  pk.b64 = base64(bytes);
   pk.name = name.slice(0, 120);
   pk.size = bytes.length;
+  pk.resent = 0;
+  pk.knocks = 0;
+  pk.heardAt = Date.now(); // the last time the TV answered (or the start)
+  pk.knockedAt = 0;
+  packMsg("Sending " + pk.name + " to the TV…");
+  buzz(12);
+  packStart((r.connKind === "relay" ? PACK_SEND.relay : PACK_SEND.direct).chunk);
+  pk.timer = setInterval(packTick, 1000);
+}
+// (Re)start the file in pieces of this size, under a new id (the TV keys a file by its id and piece count).
+function packStart(chunk) {
+  const how = r.connKind === "relay" ? PACK_SEND.relay : PACK_SEND.direct;
+  const pieces = [];
+  for (let i = 0; i < pk.b64.length; i += chunk) pieces.push(pk.b64.slice(i, i + chunk));
+  if (!pieces.length) pieces.push("");
+  pk.id = pk.lastId = Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+  pk.pieces = pieces;
+  pk.how = how;
+  pk.chunk = chunk;
+  pk.startedAt = Date.now();
   pk.next = 0;
   pk.acked = {};
   pk.ackCount = 0;
-  packMsg("Sending " + pk.name + " to the TV…");
-  buzz(12);
+  pk.sentAt = [];
+  pk.tries = [];
   pumpPack();
 }
-// Up to four pieces on their way at once; a stall of 20 seconds gives up.
+function sendPiece(i) {
+  pk.sentAt[i] = Date.now();
+  pk.tries[i] = (pk.tries[i] || 0) + 1;
+  return quietSend({ t: "file", id: pk.id, name: pk.name, size: pk.size, n: pk.pieces.length, i: i, data: pk.pieces[i] });
+}
+function packStop(text) {
+  clearInterval(pk.timer);
+  pk.id = "";
+  if (text) packMsg(text);
+}
+// New pieces go while fewer than the window are waiting for an answer.
 function pumpPack() {
-  clearTimeout(pk.timer);
-  while (pk.next < pk.pieces.length && pk.next - pk.ackCount < 4) {
-    const i = pk.next++;
-    if (!quietSend({ t: "file", id: pk.id, name: pk.name, size: pk.size, n: pk.pieces.length, i: i, data: pk.pieces[i] })) {
-      packMsg("Lost the TV while sending. Send it again once the phone says Connected.");
-      pk.id = "";
-      return;
-    }
+  while (pk.next < pk.pieces.length && pk.next - pk.ackCount < pk.how.window) {
+    if (!sendPiece(pk.next++)) return packStop("Lost the TV while sending. Send it again once the phone says Connected.");
   }
-  const id = pk.id;
-  pk.timer = setTimeout(function () {
-    if (pk.id === id && pk.ackCount < pk.pieces.length) {
-      packMsg("The TV stopped answering while it was sent. Send it again.");
-      pk.id = "";
-    }
-  }, 20000);
+}
+// Once a second: send again what wasn't answered, knock when the TV goes quiet, give up after long silence.
+function packTick() {
+  if (!pk.id) return clearInterval(pk.timer);
+  if (!(r.conn && r.conn.open)) return packStop("Lost the TV while sending. Send it again once the phone says Connected.");
+  const now = Date.now();
+  const quiet = now - pk.heardAt;
+  if (quiet > PACK_SEND.giveUp) return packStop(packStall());
+  // Not one piece answered: maybe the pieces are too big for something on the way. Smaller ones.
+  if (!pk.ackCount && now - pk.startedAt > PACK_SEND.shrinkAfter && pk.chunk > PACK_SEND.smallest) {
+    const smaller = Math.max(PACK_SEND.smallest, Math.floor(pk.chunk / 2));
+    packMsg("The TV hasn't answered yet. Trying smaller pieces…");
+    return packStart(smaller);
+  }
+  for (let i = 0; i < pk.next; i++) {
+    if (pk.acked[i] || now - pk.sentAt[i] < pk.how.resend || pk.tries[i] >= PACK_SEND.tries) continue;
+    pk.resent++;
+    if (!sendPiece(i)) return packStop("Lost the TV while sending. Send it again once the phone says Connected.");
+  }
+  if (quiet > PACK_SEND.knockAfter && now - pk.knockedAt > PACK_SEND.knockAfter) {
+    pk.knockedAt = now;
+    pk.knocks++;
+    if (r.conn.knock) r.conn.knock();
+    packMsg("The TV hasn't answered for " + Math.round(quiet / 1000) + " s (" + packWhere() + "). Trying again…");
+  }
+}
+// "piece 3 of 5, 2 arrived"
+function packWhere() {
+  let stuck = 0;
+  while (pk.acked[stuck]) stuck++;
+  return "piece " + (stuck + 1) + " of " + pk.pieces.length + (pk.ackCount ? ", " + pk.ackCount + " arrived" : "");
+}
+function packStall() {
+  const via = r.connKind === "relay" ? " The phone reaches the TV through the relay: on the TV, Menu ▸ Phone remote says whether its relay is up." : "";
+  const small = pk.chunk < pk.how.chunk ? ", even in small pieces" : "";
+  if (!pk.ackCount) return "The TV never answered (" + packWhere() + ", sent " + pk.tries[0] + " times" + small + "). Check the TV is showing NostalGem, then send it again." + via;
+  return "The TV stopped answering at " + packWhere() + ". Send it again." + via;
 }
 function packAck(m) {
-  if (m.id !== pk.id || pk.acked[m.i]) return;
+  if (m.id !== pk.id || pk.acked[m.i] || !(m.i >= 0 && m.i < pk.pieces.length)) return;
   pk.acked[m.i] = 1;
   pk.ackCount++;
+  pk.heardAt = Date.now();
   if (pk.ackCount < pk.pieces.length) {
     if (pk.pieces.length > 2) packMsg("Sending " + pk.name + "… " + Math.round((100 * pk.ackCount) / pk.pieces.length) + "%");
     pumpPack();
   } else {
-    clearTimeout(pk.timer);
+    clearInterval(pk.timer);
     packMsg("Sent. The TV is checking " + pk.name + "…");
   }
 }
@@ -1314,8 +1381,13 @@ if ("serviceWorker" in navigator && window.location.protocol === "https:") {
 
 // For tests.
 window.NGRemote = {
+  packTiming: PACK_SEND, // the tests shorten the waits
+  // For the tests: piece i of the last pack again, as if the phone resent it late.
+  resendPackPiece: function (i) {
+    return quietSend({ t: "file", id: pk.lastId, name: pk.name, size: pk.size, n: pk.pieces.length, i: i, data: pk.pieces[i] });
+  },
   state: function () {
-    return { status: r.status, code: r.code, tv: r.state, channels: r.channels.length, tab: r.tab, pack: $("packMsg").textContent, packList: $("packList").textContent, shared: r.shared, found: r.found.length };
+    return { status: r.status, code: r.code, tv: r.state, channels: r.channels.length, tab: r.tab, pack: $("packMsg").textContent, packList: $("packList").textContent, packSend: { pieces: pk.pieces.length, chunk: pk.chunk, acked: pk.ackCount, resent: pk.resent, knocks: pk.knocks, sending: !!pk.id }, shared: r.shared, found: r.found.length };
   },
   // A message straight to the TV, as the Mouse page sends them (a pointer move of an exact size).
   send: function (msg) {

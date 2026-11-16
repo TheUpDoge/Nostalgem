@@ -2,7 +2,8 @@
 // link-out stations open their sites right on the TV when the app can, and say to update it when it can't.
 //
 // Also: Menu ▸ Load a channel pack ▸ Choose a file opens a file window, or says why it can't and what to
-// do instead (an older TV app, a TV with no picker, OK from the phone).
+// do instead (an older TV app, a TV with no picker, OK from the phone). And BACK exits the TV app: from the
+// TV remote, the phone or a controller, after closing whatever is open.
 //
 //   npm install --no-save playwright && node tests/tvapp.browser.mjs
 
@@ -168,6 +169,64 @@ async function packPicker(tvApp, can) {
   await b.page.waitForTimeout(250);
   check(/Paste pack JSON/.test(await b.page.textContent("#dialog")) && (await b.page.isVisible("#dialog textarea, #dialog input")), "…Paste pack JSON there opens the paste box");
   await b.close();
+}
+
+// ---------- BACK exits the TV app ----------
+// The TV remote's own BACK goes through the app (NP.back(); false means exit). BACK that reaches the page by
+// another way (the phone remote, a controller, a keyboard) asks the app to exit itself, on the second press
+// with nothing left to close; a single BACK still closes what's open first.
+{
+  const c = await playing.newContext({ viewport: { width: 1280, height: 720 } });
+  await c.addInitScript(() => {
+    window.NostalGemRelayBrokers = [];
+    localStorage.setItem("nostalgem:seenVersion", JSON.stringify("999.0.0"));
+    window.__toApp = [];
+    window.NostalGemTV = {
+      postMessage(msg) {
+        if (msg === "hello") {
+          setTimeout(() => window.NostalGemTV.onmessage({ data: JSON.stringify({ lan: [], app: "1.0.99", can: ["open", "overlay", "pointer", "box", "files"] }) }), 20);
+          return;
+        }
+        window.__toApp.push(JSON.parse(msg));
+      },
+    };
+  });
+  await c.route(/^https?:\/\/(?!127\.0\.0\.1)/, (r) => r.abort());
+  const page = await c.newPage();
+  await page.goto(base + "?tv=android&ch=1");
+  await page.waitForFunction(() => window.NP && window.NP.state().app === "on" && window.NP.state().tvApp, null, { timeout: 15000 });
+  await page.waitForFunction(() => !window.NP.state().turnOn, null, { timeout: 10000 }).catch(() => {});
+  const exits = () => page.evaluate(() => window.__toApp.filter((m) => m.t === "exit").length);
+  const clear = async () => {
+    for (let i = 0; i < 6; i++) {
+      const s = await page.evaluate(() => ({ o: window.NP.state().overlay, b: !document.getElementById("banner").hidden }));
+      if (!s.o && !s.b) break;
+      await page.evaluate(() => window.NP.back());
+    }
+    await page.waitForTimeout(2700); // past the "press again" window
+  };
+  await clear();
+  // The menu open: BACK (Escape on a keyboard, as a controller's B or the phone's BACK reach the page) closes
+  // it, and nothing exits.
+  await page.keyboard.press("ArrowRight");
+  await page.waitForFunction(() => window.NP.state().overlay === "menu", null, { timeout: 5000 }).catch(() => {});
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+  check((await page.evaluate(() => window.NP.state().overlay)) === "" && (await exits()) === 0, "BACK from a keyboard, a controller or the phone closes the menu first, and the app stays");
+  await clear();
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+  const toast = (await page.textContent("#toast")) || "";
+  check((await exits()) === 0 && /Press BACK again to exit/.test(toast), `…with nothing open, one BACK says to press again (${toast.trim()})`);
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+  check((await exits()) === 1, "…and the second asks the TV app to exit");
+  // The TV remote's BACK, through the app: NP.back() answers false on the second press, which the app takes as exit.
+  await clear();
+  const first = await page.evaluate(() => window.NP.back());
+  const second = await page.evaluate(() => window.NP.back());
+  check(first === true && second === false, `the TV remote's BACK (through the app): the first press says press again, the second answers exit (${first}, ${second})`);
+  await c.close();
 }
 
 await playing.close();

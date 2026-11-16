@@ -262,6 +262,7 @@ class MainActivity : Activity() {
         when (m.optString("t")) {
             "open" -> openAway(m.optString("url"))
             "close" -> closeAway(true)
+            "exit" -> finish() // BACK from the phone remote or a controller, with nothing left to close
             "back" -> comeHome()
             "mute" -> muteAway()
             "ptr" -> movePointer(m.optDouble("dx", 0.0), m.optDouble("dy", 0.0))
@@ -688,8 +689,19 @@ class MainActivity : Activity() {
 
     // Back closes whatever is open; with nothing open the page says so and the app exits
     // (after a second press, so one stray press doesn't drop you out).
+    private var backAskedAt = 0L
+
     private fun back() {
+        val now = SystemClock.uptimeMillis()
+        // The page hasn't answered the last BACK (it's busy, or reloading): this one leaves anyway, so
+        // BACK always gets you out.
+        if (backAskedAt > 0 && now - backAskedAt > BACK_ANSWER_MS) {
+            finish()
+            return
+        }
+        backAskedAt = now
         web.evaluateJavascript("window.NP ? NP.back() : false") { result ->
+            backAskedAt = 0
             if (result != "true") finish()
         }
     }
@@ -796,6 +808,7 @@ class MainActivity : Activity() {
         const val SELECT_HOLD_MS = 1500L
         const val POINTER_HIDE_MS = 4000L
         const val PICK_FILE = 41
+        const val BACK_ANSWER_MS = 1500L
         const val QUICK_NO_MS = 1000L
         const val CLICK_MS = 40L
         const val HOLD_LIMIT_MS = 8000L
@@ -823,8 +836,11 @@ class MainActivity : Activity() {
             KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_HEADSETHOOK -> "playpause"
             KeyEvent.KEYCODE_MEDIA_PLAY -> "play"
             KeyEvent.KEYCODE_MEDIA_PAUSE, KeyEvent.KEYCODE_MEDIA_STOP -> "pause"
-            KeyEvent.KEYCODE_MEDIA_NEXT, KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> "chup"
-            KeyEvent.KEYCODE_MEDIA_PREVIOUS, KeyEvent.KEYCODE_MEDIA_REWIND -> "chdown"
+            KeyEvent.KEYCODE_MEDIA_NEXT -> "chup"
+            KeyEvent.KEYCODE_MEDIA_PREVIOUS -> "chdown"
+            // The page's shuttle bar: FF steps 2x/4x/8x, RW jumps back 10 s then 30 s (held, it keeps going).
+            KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> "ff"
+            KeyEvent.KEYCODE_MEDIA_REWIND -> "rw"
             KeyEvent.KEYCODE_INFO -> "info"
             KeyEvent.KEYCODE_GUIDE -> "guide"
             KeyEvent.KEYCODE_MENU -> "menu"

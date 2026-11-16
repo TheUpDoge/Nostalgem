@@ -10,7 +10,11 @@
 //   Packs: a .zip with two packs and a broken one, picked on the phone, goes to the TV, which asks "Load
 //   these packs?" with the broken one left out; the phone says so too, OK loads them, and the phone hears
 //   what went on the air. A link sent from the phone while a pack waits for OK calls the pack off.
-//   Through the relay (no WebRTC at all, a local broker): the pointer, a key and a pack get through too.
+//   Through the relay (no WebRTC at all, a local broker): the pointer, a key and a pack get through too,
+//   in relay-sized pieces. With a broker that loses pieces the phone sends them again and the pack arrives
+//   once (the TV says pieces are coming); with one that loses big messages, the phone starts again in
+//   smaller pieces; with one that loses them all, the phone knocks on the relay again and then says which
+//   piece it stuck on.
 //
 //   npm install --no-save playwright && node tests/mouse.browser.mjs
 
@@ -453,6 +457,72 @@ const browser = await chromium.launch();
   check(/Relay Films/.test(await tv.textContent("#dialog")), "…and a pack sent in several pieces arrives whole: Load this pack?");
   await ph.waitForFunction(() => /1 to load/.test(window.NGRemote.state().pack), null, { timeout: 8000 }).catch(() => {});
   check(/1 to load/.test((await ph.evaluate(() => window.NGRemote.state())).pack), "…and the phone hears it's waiting on the TV");
+  await ph.evaluate(() => window.NGRemote.send({ t: "key", type: "back" }));
+  await tv.waitForFunction(() => window.NP.state().overlay !== "dialog", null, { timeout: 5000 }).catch(() => {});
+
+  // A broker that loses pieces: every other one from the phone vanishes. The phone sends again what
+  // wasn't answered, and the pack still arrives, once. The TV says pieces are coming.
+  await ph.evaluate(() => {
+    const t = window.NGRemote.packTiming;
+    t.relay.resend = 1200;
+    t.shrinkAfter = 1800;
+    t.knockAfter = 2500;
+    t.giveUp = 9000;
+  });
+  let big2 = 0;
+  let toTv = 0;
+  broker.drop = (topic, payload) => {
+    if (!/\/tv$/.test(topic)) return false;
+    toTv = Math.max(toTv, payload.length);
+    return payload.length > 2000 && big2++ % 2 === 0;
+  };
+  await tv.evaluate(() => {
+    window.__toasts = [];
+    const el = document.getElementById("toast");
+    new MutationObserver(() => window.__toasts.push(el.textContent)).observe(el, { childList: true, characterData: true, subtree: true });
+  });
+  const lossy = JSON.parse(pack("Lossy Films", 47, "test_mouse_b"));
+  lossy.notes = "z".repeat(14000);
+  const [chooserL] = await Promise.all([ph.waitForEvent("filechooser"), ph.click("#packBtn")]);
+  await chooserL.setFiles({ name: "lossy-films.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(lossy)) });
+  await tv.waitForFunction(() => /Lossy Films/.test(document.getElementById("dialog").textContent), null, { timeout: 30000 }).catch(() => {});
+  let ps = (await ph.evaluate(() => window.NGRemote.state())).packSend;
+  check(/Lossy Films/.test(await tv.textContent("#dialog")) && ps.resent > 0, `with a broker losing every other piece, the pack still arrives: Load this pack? (${broker.dropped} lost, ${ps.resent} sent again)`);
+  const toasts = await tv.evaluate(() => window.__toasts.join(" | "));
+  check(/A pack is coming from the phone: lossy-films\.json \(\d+ of \d+\)/.test(toasts), "…and the TV said pieces were coming: " + (toasts.match(/A pack is coming[^|]*/) || [""])[0]);
+  // Through the relay the pieces are small: nothing from the phone much over RELAY_CHUNK.
+  check(toTv > 3000 && toTv < 4400, `…in relay-sized pieces (the biggest message from the phone: ${toTv} bytes)`);
+  broker.drop = null;
+  // A piece that turns up again after the pack is whole is only answered, not loaded a second time.
+  await ph.evaluate(() => window.NGRemote.send({ t: "key", type: "back" }));
+  await tv.waitForFunction(() => window.NP.state().overlay !== "dialog", null, { timeout: 5000 }).catch(() => {});
+  await ph.evaluate(() => window.NGRemote.resendPackPiece(0));
+  await tv.waitForTimeout(2500);
+  check((await st()).overlay !== "dialog", "…and a piece sent again after it was whole doesn't ask a second time");
+
+  // Something on the way that loses every big message and passes small ones: not one piece is answered, so
+  // the phone starts again in smaller pieces, and those get there.
+  await ph.evaluate(() => window.NGRemote.send({ t: "key", type: "back" }));
+  broker.drop = (topic, payload) => /\/tv$/.test(topic) && payload.length > 3000;
+  const shrunk = JSON.parse(pack("Small Pieces", 48, "test_mouse_a"));
+  shrunk.notes = "s".repeat(9000);
+  const [chooserS] = await Promise.all([ph.waitForEvent("filechooser"), ph.click("#packBtn")]);
+  await chooserS.setFiles({ name: "small-pieces.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(shrunk)) });
+  await tv.waitForFunction(() => /Small Pieces/.test(document.getElementById("dialog").textContent), null, { timeout: 30000 }).catch(() => {});
+  ps = (await ph.evaluate(() => window.NGRemote.state())).packSend;
+  check(/Small Pieces/.test(await tv.textContent("#dialog")) && ps.chunk === 2000, `when big messages are lost on the way, the phone starts again in smaller pieces and the pack arrives (pieces of ${ps.chunk})`);
+  await ph.evaluate(() => window.NGRemote.send({ t: "key", type: "back" }));
+  await tv.waitForFunction(() => window.NP.state().overlay !== "dialog", null, { timeout: 5000 }).catch(() => {});
+
+  // A TV that never hears the phone's pieces, however small: the phone knocks on the relay again, then says
+  // where it stuck.
+  broker.drop = (topic, payload) => /\/tv$/.test(topic) && payload.length > 600;
+  const [chooserD] = await Promise.all([ph.waitForEvent("filechooser"), ph.click("#packBtn")]);
+  await chooserD.setFiles({ name: "lost.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(lossy)) });
+  await ph.waitForFunction(() => /never answered/.test(window.NGRemote.state().pack), null, { timeout: 20000 }).catch(() => {});
+  const lost = await ph.evaluate(() => window.NGRemote.state());
+  check(/The TV never answered \(piece 1 of \d+, sent \d+ times, even in small pieces\)/.test(lost.pack) && lost.packSend.chunk === 1000 && /through the relay/.test(lost.pack) && lost.packSend.knocks > 0 && !lost.packSend.sending, `when the TV never answers, the phone knocks again (${lost.packSend.knocks}×) and then says where it stuck: ${lost.pack.slice(0, 90)}`);
+  broker.drop = null;
   const plain = broker.seen.map((b) => b.toString("latin1")).join("\n");
   check(!/Relay Films|"ptr"|"kbd"/.test(plain), "nothing readable went through the broker");
   await tvCtx.close();

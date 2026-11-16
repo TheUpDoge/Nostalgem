@@ -5344,3 +5344,272 @@ body {
   font-size: 1.05rem;
   color: #b9b9c6;
 }
+
+/* Fast-forward and rewind: the shuttle bar over the picture (main.js drawShuttle). */
+.shuttle {
+  position: absolute;
+  left: var(--safe-x);
+  right: var(--safe-x);
+  bottom: var(--safe-y);
+  z-index: 21;
+  padding: 0.9rem 1.2rem 0.8rem;
+  background: linear-gradient(180deg, rgba(36, 12, 84, 0.94), rgba(13, 2, 33, 0.95));
+  border: 0.12rem solid var(--line);
+  border-radius: 0.9rem;
+  box-shadow: 0 0 2.2rem rgba(242, 34, 255, 0.28), inset 0 0.08rem 0 rgba(255, 255, 255, 0.1);
+  animation: rise 0.22s ease-out;
+  font-size: 1.15rem;
+}
+.sh-top {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  min-width: 0;
+}
+.sh-state {
+  font-size: 1.6rem;
+  color: #fff;
+  white-space: nowrap;
+  min-width: 7.5rem;
+}
+.sh-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.85;
+}
+.sh-where {
+  white-space: nowrap;
+  color: #ffd166;
+}
+.sh-where.live {
+  color: #ff4d6d;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+.sh-track {
+  position: relative;
+  height: 0.5rem;
+  margin: 0.7rem 0 0.6rem;
+  border-radius: 0.25rem;
+  background: rgba(255, 255, 255, 0.15);
+}
+.sh-track i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 0.25rem;
+  background: linear-gradient(90deg, #f222ff, #00e5ff);
+}
+.sh-track s {
+  position: absolute;
+  top: -0.3rem;
+  bottom: -0.3rem;
+  width: 0.2rem;
+  margin-left: -0.1rem;
+  background: #ff4d6d;
+}
+.sh-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.sh-time {
+  font-variant-numeric: tabular-nums;
+  min-width: 9rem;
+}
+.sh-row button {
+  font: inherit;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border: 0.1rem solid var(--line);
+  border-radius: 0.6rem;
+  padding: 0.35rem 0.8rem;
+  cursor: pointer;
+}
+.sh-row button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.sh-row button small {
+  font-size: 0.75em;
+  opacity: 0.8;
+}
+.sh-keys {
+  margin-left: auto;
+  font-size: 0.85em;
+  opacity: 0.6;
+  white-space: nowrap;
+}
+@media (max-width: 700px) {
+  .sh-keys {
+    display: none;
+  }
+/* A box set (ui/club.js boxSetHtml): a cardboard slipcase with the episodes' spines along its side. */
+.boxset {
+  display: flex;
+  gap: 1.2rem;
+  align-items: flex-start;
+}
+.bs-case {
+  flex: 0 0 14rem;
+  border-radius: 0.4rem;
+  overflow: hidden;
+  background: linear-gradient(160deg, var(--case), #1a0d24 85%);
+  box-shadow: 0.35rem 0.5rem 0 rgba(0, 0, 0, 0.38), inset 0 0 0 0.15rem rgba(255, 255, 255, 0.18);
+}
+.bs-front {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 8.5rem;
+  padding: 1rem 0.9rem;
+  text-align: center;
+}
+.bs-kicker {
+  font-size: 0.7rem;
+  letter-spacing: 0.3em;
+  color: rgba(255, 255, 255, 0.75);
+}
+.bs-title {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 1.35rem;
+  line-height: 1.1;
+  color: #fff;
+  text-shadow: 0 0.12rem 0 rgba(0, 0, 0, 0.45);
+}
+.bs-count {
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  color: var(--yellow);
+}
+.bs-spines {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  padding: 0.5rem 0.6rem 0.65rem;
+  background: rgba(0, 0, 0, 0.35);
+}
+.bs-spines i {
+  flex: 0 0 auto;
+  min-width: 1.35rem;
+  padding: 0.25rem 0;
+  border-radius: 0.15rem;
+  font-style: normal;
+  font-size: 0.65rem;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.12);
+}
+.bs-spines i.seen {
+  color: #1a0d24;
+  background: rgba(255, 255, 255, 0.65);
+}
+.bs-spines i.now {
+  color: #1a0d24;
+  background: var(--yellow);
+  font-weight: 700;
+}
+.bs-spines i.more {
+  background: none;
+}
+.bs-text {
+  flex: 1;
+  min-width: 0;
+}
+.bs-eps {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  font-size: 0.95rem;
+}
+.bs-eps li {
+  padding: 0.12rem 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.75;
+}
+.bs-eps li.now {
+  opacity: 1;
+  color: var(--yellow);
+}
+.bs-eps li span {
+  opacity: 0.6;
+  font-size: 0.85em;
+/* Card layouts (cards.js CARD_LAYOUTS). The family's look (.fam-*) keeps its colors and type; these only
+   move things. "panel" is the card as it always was; "title" and "marquee" keep clear of the info banner
+   at the bottom, which comes up with a break. */
+.card.cv-title .card-panel {
+  background: none;
+  border: 0;
+  box-shadow: none;
+  margin-top: -20vh; /* above the info banner, which comes up with the break */
+  max-width: 80rem;
+}
+.card.cv-title .card-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+.card.cv-title .card-kicker::before,
+.card.cv-title .card-kicker::after {
+  content: "";
+  width: 3rem;
+  height: 0.12rem;
+  background: currentColor;
+  opacity: 0.7;
+}
+.card.cv-title .card-title {
+  font-size: 4rem;
+  line-height: 1.05;
+  text-shadow: 0 0.2rem 0 rgba(0, 0, 0, 0.55), 0 0 1.2rem rgba(0, 0, 0, 0.6);
+}
+.card.cv-title .card-sub {
+  text-shadow: 0 0.1rem 0.4rem rgba(0, 0, 0, 0.8);
+}
+/* A band along the top: the info banner takes the bottom when a break starts. */
+.card.cv-marquee {
+  justify-content: flex-start;
+}
+.card.cv-marquee .card-panel {
+  align-self: stretch;
+  max-width: none;
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "kick count" "title count" "sub count";
+  column-gap: 2rem;
+  text-align: left;
+  padding: 1.1rem 1.8rem;
+  border-radius: 0.6rem;
+}
+.card.cv-marquee .card-kicker {
+  grid-area: kick;
+}
+.card.cv-marquee .card-title {
+  grid-area: title;
+  font-size: 2.2rem;
+  margin: 0.3rem 0 0.2rem;
+}
+.card.cv-marquee .card-sub {
+  grid-area: sub;
+}
+.card.cv-marquee .card-countlabel,
+.card.cv-marquee .card-count,
+.card.cv-marquee .card-dots {
+  grid-column: 2;
+  grid-row: 1 / 4;
+  align-self: center;
+  text-align: right;
+  margin: 0;
+}
+.card.cv-marquee .card-countlabel {
+  align-self: start;
+}

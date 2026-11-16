@@ -4,6 +4,18 @@
 
 export const CHANGES = [
   {
+    v: "1.19.0",
+    title: "Fast-forward, box sets, and packs from the web",
+    items: [
+      "⏪ ⏩ Rewind and fast-forward: the remote's ⏪ ⏩ keys, [ and ], the phone's new RW and FF buttons, or Menu ▸ Fast-forward / rewind. FF runs 2×, 4×, 8×; RW jumps back 10 seconds, then 30. You can't skip ahead of live, and LIVE (or ▲) takes you back to it.",
+      "📦 Box sets in the 📼 Video Club: a whole series as one loan, a week at a time, on top of your tapes. Episodes play in order, the next starts by itself, and it remembers where you got to.",
+      "Channel packs can list links to video files as well as Archive items, and a pack list on a website can be browsed and loaded right on the TV. A link that won't play is left out, and the TV says why.",
+      "Sending a pack from the phone through the relay copes with a bad connection now: smaller pieces, sent again when they go missing, and the phone says where it got stuck.",
+      "Sin City yellow keeps real yellows (taxis, signs, faded film) and leaves orange out; every Sin City color fades at its edges instead of cutting off.",
+      "Station cards come in three layouts, the computer, music and sci-fi channels sometimes borrow one of the newer looks, and every channel family has more to say. Pressing BACK twice leaves the TV app, and the Reading Room's page turn is softer.",
+    ],
+  },
+  {
     v: "1.18.1",
     title: "Channel packs from a file",
     items: [

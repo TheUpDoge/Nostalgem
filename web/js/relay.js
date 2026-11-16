@@ -287,6 +287,19 @@ export class Broker {
     };
   }
 
+  // Drop the connection and make a fresh one soon (2 s): for a line that looks up but has gone quiet.
+  restart() {
+    if (!this.on) return;
+    this.retries = 0;
+    const ws = this.ws;
+    if (!ws) return;
+    try {
+      ws.close();
+    } catch (e) {
+      /* onclose reconnects */
+    }
+  }
+
   again() {
     const self = this;
     if (!self.on) return;
@@ -571,6 +584,15 @@ export function relayConnect(opts) {
     }
   );
 
+  // The phone's pack sender knocks when the TV goes quiet mid-send: say hello again on the broker in use,
+  // and if the TV hasn't been heard from for a while, make that broker connection afresh too (a phone's
+  // WebSocket can look open long after the network under it has changed).
+  conn.knock = function () {
+    if (conn.closed || !chosen) return;
+    frame(chosen, { k: "join" });
+    if (Date.now() - heard > 6000) chosen.restart();
+  };
+
   const fail = function (why) {
     if (conn.closed) return;
     conn.emit("error", { type: "relay", message: why });
@@ -624,7 +646,8 @@ export function relayConnect(opts) {
           });
         },
         function (up) {
-          if (up && !chosen) frame(b, { k: "join" });
+          // Before the TV answers, and again whenever the broker in use comes back after a drop.
+          if (up && (!chosen || b === chosen)) frame(b, { k: "join" });
         }
       );
       b.subscribe(k.topic + "/ph");

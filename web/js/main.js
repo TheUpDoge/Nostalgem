@@ -2,19 +2,19 @@
 
 import { makeTimeline, slotAt, programKey, nextAiring, foldText } from "./schedule.js";
 import { guessCountry, playableIn } from "./regions.js";
-import { Player } from "./player.js";
+import { Player, FF_SPEEDS, RW_STEPS, RW_AGAIN_MS } from "./player.js";
 import { Static } from "./static.js";
 import { actionFor, isTypingTarget, registerTvKeys } from "./remote.js";
 import { load, save } from "./store.js";
 import { archiveLinkQuery, buildChannel, browserFetchJson, metadataUrl } from "./archive.js";
 import { archiveAboutHtml } from "./about.js";
-import { asPack, buildItemsChannel, packChannelDef, packFilesFromZip, packSkipLists, parsePack, validatePack } from "./packs.js";
+import { asPack, buildItemsChannel, buildLinkPrograms, mixPrograms, packChannelDef, packFilesFromZip, packIndexLine, packSkipLists, parsePack, parsePackIndex, shortLink, validatePack } from "./packs.js";
 import { channelForDigits, moreToType, packNumberFor, typedLabel } from "./dial.js";
 import { LINK_CHANNELS, isLinkChannel, isGuideVisible, linkCardName, linkUrl, openLinkChannel } from "./linkout.js";
 import { createGamepad, samePress } from "./gamepad.js";
 import { LOOKS, asciiMask, comboCss, lookById, lookCss, lookYtCss, looksSvg, mixable, nextLook } from "./looks.js";
 import { FrameWatch } from "./framewatch.js";
-import { MAX_TAPES, LOAN_HOURS, MAX_BOOKS, BOOK_DAYS, cleanLibrary, issueCard, cancelCard, loanFor, checkOut, setPosition, setSafeCut, isRewound, rewind, returnTape, overdue, storeShelves, staffPicks, searchStore, groupAisles, aisleFilms, bookLoan, borrowBook, returnBook, overdueBooks, setMark, markFor } from "./library.js";
+import { MAX_BOXES, BOX_DAYS, seriesShelves, boxFor, checkOutBox, setBoxPlace, nextEpisode, restartBox, returnBox, overdueBoxes, MAX_TAPES, LOAN_HOURS, MAX_BOOKS, BOOK_DAYS, cleanLibrary, issueCard, cancelCard, loanFor, checkOut, setPosition, setSafeCut, isRewound, rewind, returnTape, overdue, storeShelves, staffPicks, searchStore, groupAisles, aisleFilms, bookLoan, borrowBook, returnBook, overdueBooks, setMark, markFor } from "./library.js";
 import { bookSearchUrl, parseBookSearch, bookFromMetadata, pageNumbersUrl, parsePageNumbers, scandataUrl, parseScandata, parseShelves, parseCatalog, groupStackShelves } from "./books.js";
 import { Reader } from "./ui/reader.js";
 import * as Stacks from "./ui/stacks.js";
@@ -46,7 +46,7 @@ import { parseSent, archivePlan, whyNot, QUEUE_MAX } from "./sendto.js";
 import { playlistIds } from "./youtube.js";
 import { escapeHtml as esc, slugify, fmtClock, fmtDuration, hash32, chLabel, chKey, chOrder, numberText } from "./util.js";
 
-const VERSION = "1.18.1";
+const VERSION = "1.19.0";
 const NAME = "NostalGem";
 const params = new URLSearchParams(window.location.search);
 const ANDROID = params.get("tv") === "android";
@@ -58,7 +58,7 @@ const ON_PAGES = window.location.href.indexOf(PAGES_BASE) === 0;
 const LIVE_LINEUP = ANDROID && !ON_PAGES ? PAGES_BASE + "data/lineup.json" : "";
 const LINEUP_RECHECK = 3 * 3600 * 1000; // coming back to the app after this long: look for a newer lineup
 
-const DEFAULTS = { shape: "wide", crt: "light", fit: "contain", cc: "off", staticFx: "sound", bug: true, clock24: false, surf: "all", phone: false, region: "auto", look: "off", mix: "off", ambience: "off", lookQuality: "auto", liteLooks: {}, readMode: "auto", readPaper: "day" };
+const DEFAULTS = { shape: "wide", crt: "light", fit: "contain", cc: "off", staticFx: "sound", bug: true, clock24: false, surf: "all", phone: false, region: "auto", look: "off", mix: "off", ambience: "off", lookQuality: "auto", liteLooks: {}, readMode: "auto", readPaper: "day", packIndex: "" };
 const SLEEP_STEPS = [0, 15, 30, 45, 60, 90, 120];
 // Whether this TV had used NostalGem before this start (for a welcome, or "what's new").
 const HAD_USED = load("settings", null) != null || load("last", null) != null || load("favs", null) != null;
@@ -254,10 +254,18 @@ const player = new Player($("screen"), {
   },
   state: onPlayerState,
   program: onProgram,
+  // Fast-forward reached the clock, or a program watched behind the clock ended: live again.
+  shuttle: function (what) {
+    V.toast(what === "live" ? "⏩ Caught up with the clock: you're watching live again" : "That program's over, so you're back on the live schedule", 3500);
+    drawShuttle();
+  },
   bad: onBad,
   problem: onProblem,
   // Send to TV: something sent in parts (or a playlist) plays one after the other.
-  demandEnded: sentNext,
+  // An on-demand program ended: a box set's next episode, or what a phone sent next.
+  demandEnded: function (item) {
+    return boxEpisodeEnded(item) || sentNext(item);
+  },
   // A sent YouTube video's title and length arrive once it plays.
   learned: function () {
     if (!banner.hidden) renderBanner();
@@ -595,7 +603,150 @@ function lastChannel() {
   else V.toast("No previous channel yet");
 }
 
+// ---------- fast-forward and rewind: the shuttle bar ----------
+// FF and RW (the remote's media keys, ] and [, the phone's ⏪ ⏩, Menu ▸ Fast-forward / rewind) bring up a
+// bar over the picture with the speed and the place in the program. While it's up: ◀ rewinds, ▶ steps the
+// speed up, OK plays at normal speed, ▲ is back to live, ▼ or BACK hides it. Its buttons work by touch or
+// mouse too. Scrubbing is the viewer's own: the shared clock goes on, and the viewer is behind it until
+// Back to live, until FF catches up with it, or until the program ends (then the channel is live again).
+const shuttleEl = $("shuttle");
+const shuttle = { open: false, hideTimer: 0, drawTimer: 0, said: "", saidAt: 0 };
+const SHUTTLE_WHY = {
+  atLive: "⏩ You're watching live: there's nothing after now to skip to. ⏪ Rewind first, or pause.",
+  live: "This is a live broadcast: it can't be rewound or fast-forwarded.",
+  youtube: "⏩ YouTube's player can't fast-forward. ⏪ Rewind works.",
+  wait: "Wait for the picture first.",
+};
+function shuttleShow() {
+  if (!shuttle.open) {
+    shuttle.open = true;
+    shuttleEl.hidden = false;
+    hideBanner();
+    clearInterval(shuttle.drawTimer);
+    shuttle.drawTimer = setInterval(drawShuttle, 250);
+  }
+  drawShuttle();
+  shuttleKeepUp();
+}
+function shuttleHide() {
+  if (!shuttle.open) return;
+  shuttle.open = false;
+  shuttleEl.hidden = true;
+  clearInterval(shuttle.drawTimer);
+  clearTimeout(shuttle.hideTimer);
+}
+// The bar goes by itself 6 seconds after the last press, unless it's fast-forwarding.
+function shuttleKeepUp() {
+  clearTimeout(shuttle.hideTimer);
+  shuttle.hideTimer = setTimeout(function () {
+    if (player.ff > 1) shuttleKeepUp();
+    else shuttleHide();
+  }, 6000);
+}
+function shuttleAct(kind) {
+  let r = null;
+  if (kind === "ff" || kind === "rw") {
+    r = kind === "ff" ? player.fastForward() : player.rewind();
+    if (r.why) {
+      V.toast(SHUTTLE_WHY[r.why] || SHUTTLE_WHY.wait, 4000);
+      if (shuttle.open) drawShuttle();
+      return;
+    }
+    shuttle.said = kind === "ff" ? "⏩ " + r.speed + "×" : "⏪ −" + r.back + " s";
+    shuttle.saidAt = Date.now();
+  } else if (kind === "play") {
+    if (!player.playNormal() && player.mode === "paused") togglePause("play");
+    player.rwAt = 0;
+    shuttle.said = "";
+  } else if (kind === "live") {
+    if (player.shifted) {
+      player.goLive();
+      V.toast("Back to live");
+    }
+    shuttleHide();
+    return;
+  }
+  shuttleShow();
+}
+// Keys while the bar is up. -> whether it took the key.
+function shuttleKey(a) {
+  const map = { left: "rw", rw: "rw", right: "ff", ff: "ff", ok: "play", play: "play", playpause: "play", up: "live", live: "live" };
+  if (a.type === "down") {
+    shuttleHide();
+    return true;
+  }
+  if (a.type === "pause" || (a.type === "playpause" && player.ff === 1 && player.mode === "playing")) {
+    togglePause("pause");
+    shuttleShow();
+    return true;
+  }
+  if (!map[a.type]) {
+    shuttleHide();
+    return false;
+  }
+  shuttleAct(map[a.type]);
+  return true;
+}
+function drawShuttle() {
+  if (!shuttle.open) return;
+  const sl = player.slot;
+  const pos = player.position();
+  if (!sl || !pos) {
+    shuttleHide();
+    return;
+  }
+  const behind = player.behind();
+  const paused = player.mode === "paused";
+  const d = pos.d > 0 ? pos.d : 0;
+  const pct = d ? Math.min(100, (100 * pos.at) / d) : 0;
+  const livePct = d && !sl.onDemand && player.shifted ? Math.min(100, (100 * player.liveTarget(Date.now())) / d) : -1;
+  const just = shuttle.said && Date.now() - shuttle.saidAt < 1500 ? shuttle.said : "";
+  const state = player.ff > 1 ? "⏩ " + player.ff + "×" : just || (paused ? "❚❚ Paused" : "▶ Playing");
+  const where = sl.onDemand ? "On demand" : behind >= 1 ? fmtDuration(behind) + " behind live" : "LIVE";
+  const rwNext = player.rwAt && Date.now() - player.rwAt < RW_AGAIN_MS ? RW_STEPS[1] : RW_STEPS[0];
+  const ffNext = FF_SPEEDS[Math.min(FF_SPEEDS.length - 1, FF_SPEEDS.indexOf(player.ff) + 1)];
+  shuttleEl.innerHTML =
+    '<div class="sh-top"><b class="sh-state">' +
+    esc(state) +
+    '</b><span class="sh-title">' +
+    esc(sl.item.t || "") +
+    '</span><span class="sh-where' +
+    (where === "LIVE" ? " live" : "") +
+    '">' +
+    esc(where) +
+    "</span></div>" +
+    '<div class="sh-track"><i style="width:' +
+    pct.toFixed(2) +
+    '%"></i>' +
+    (livePct >= 0 ? '<s style="left:' + livePct.toFixed(2) + '%" title="Live"></s>' : "") +
+    '</div><div class="sh-row"><span class="sh-time">' +
+    fmtDuration(pos.at) +
+    (d ? " / " + fmtDuration(d) : "") +
+    "</span>" +
+    '<button type="button" data-sh="rw" aria-label="Rewind ' + rwNext + ' seconds">⏪ <small>' + rwNext + " s</small></button>" +
+    '<button type="button" data-sh="play" aria-label="Play">' + (player.ff > 1 || paused ? "▶" : "❚❚") + "</button>" +
+    '<button type="button" data-sh="ff" aria-label="Fast-forward">⏩ <small>' + ffNext + "×</small></button>" +
+    '<button type="button" data-sh="live"' + (player.shifted ? "" : " disabled") + ">LIVE</button>" +
+    '<span class="sh-keys">◀ ⏪ · ▶ ⏩ · OK ▶ · ▲ live · ▼ hide</span></div>';
+}
+shuttleEl.addEventListener("click", function (e) {
+  const b = e.target.closest ? e.target.closest("[data-sh]") : null;
+  if (!b || b.disabled) return;
+  app.lastInput = Date.now();
+  const kind = b.getAttribute("data-sh");
+  if (kind === "play" && player.ff === 1 && player.mode === "playing") {
+    togglePause("pause");
+    shuttleShow();
+  } else shuttleAct(kind);
+});
+
 function togglePause(kind) {
+  // Fast-forwarding: play is back to normal speed, not a pause.
+  if (player.ff > 1 && kind !== "pause") {
+    player.playNormal();
+    drawShuttle();
+    return;
+  }
   if (kind === "play" && player.mode !== "paused") return;
   if (kind === "pause" && player.mode !== "playing") return;
   const r = player.togglePause();
@@ -734,7 +885,7 @@ function onPlayerState(mode, extra) {
           fx.release();
           if (item && item.sent) V.showCard("tuning", V.sentLoadingCard(item));
           else {
-            V.showCard("tuning", V.loadingCard(ch, app.cards, tunedAt), cardClass(ch));
+            V.showCard("tuning", V.loadingCard(ch, app.cards, tunedAt), cardClass(ch, tunedAt));
             // The ident plays once, with the light sweep. Muted, or a blocked audio context: silence.
             if (familyOf(ch).id === "crystalsignal") crystalChime({ muted: player.muted, volume: player.v && typeof player.v.volume === "number" ? player.v.volume : 1 });
           }
@@ -760,7 +911,7 @@ function onPlayerState(mode, extra) {
     case "gap":
       fx.release();
       hideRadio();
-      if (player.slot) V.showCard("gap", V.gapCard(ch, player.slot, s.clock24, app.bumpers, app.cards), cardClass(ch));
+      if (player.slot) V.showCard("gap", V.gapCard(ch, player.slot, s.clock24, app.bumpers, app.cards), cardClass(ch, V.breakStartOf(player.slot)));
       break;
     case "standby":
       fx.release();
@@ -1067,6 +1218,7 @@ function startSent(items, i, conn, at) {
   }
   if (ch !== current() || player.mode === "off") tuneTo(ch, { quiet: true });
   if (app.tape) ejectTape(); // the tape comes out, keeping its place
+  if (app.box) ejectBox(); // so does a box set's episode
   app.sent = { items: items, i: i, conn: conn };
   sentLook(true);
   if (!playSentAt(i, at)) {
@@ -1272,6 +1424,22 @@ function clubPage() {
           },
         });
       });
+      const boxes = lib.boxes || [];
+      list.push({ head: true, label: "Your box set · " + boxes.length + " of " + MAX_BOXES });
+      boxes.forEach(function (box) {
+        list.push({
+          label: "📦 " + box.t,
+          sub: true,
+          swatch: Club.spineColor(box.key),
+          value: function () {
+            return Club.boxState(box, now);
+          },
+          ok: function () {
+            const series = findSeries(box.key);
+            if (series) openBox(series);
+          },
+        });
+      });
       const shelves = clubShelves();
       const week = Math.floor(now / (7 * 86400000));
       const picks = staffPicks(shelves, week, 12);
@@ -1302,6 +1470,18 @@ function clubPage() {
           },
         });
       });
+      const sets = boxShelves();
+      if (sets.length) {
+        list.push({ head: true, label: "Box sets" });
+        list.push({
+          label: "📦 Box sets: whole series",
+          sub: true,
+          value: sets.length + " sets",
+          ok: function () {
+            menu.push(boxShelfPage(sets));
+          },
+        });
+      }
       list.push({
         label: "📜 Club rules & the fine print",
         sub: true,
@@ -1514,15 +1694,17 @@ function showMyCard(welcome, ret) {
   const books = lib.history.filter(function (h) {
     return h.kind === "book";
   }).length;
-  const tapes = lib.history.length - books;
+  const tapes = lib.history.filter(function (h) {
+    return h.kind !== "book" && h.kind !== "box";
+  }).length;
   dialog.open({
     title: welcome ? "🎉 Welcome to the club!" : "📇 Your library card",
     html:
       Club.cardHtml(lib.card) +
       '<div class="club-sub">' +
       (welcome
-        ? "Tapes: up to " + MAX_TAPES + " at a time, " + LOAN_HOURS / 24 + " days each. Books: up to " + MAX_BOOKS + ", " + BOOK_DAYS + " days each."
-        : lib.loans.length + " of " + MAX_TAPES + " tapes and " + (lib.books || []).length + " of " + MAX_BOOKS + " books out · " + tapes + (tapes === 1 ? " tape" : " tapes") + " and " + books + (books === 1 ? " book" : " books") + " returned") +
+        ? "Tapes: up to " + MAX_TAPES + " at a time, " + LOAN_HOURS / 24 + " days each. A box set (a whole series): " + MAX_BOXES + " at a time, " + BOX_DAYS + " days. Books: up to " + MAX_BOOKS + ", " + BOOK_DAYS + " days each."
+        : lib.loans.length + " of " + MAX_TAPES + " tapes, " + (lib.boxes || []).length + " of " + MAX_BOXES + " box set and " + (lib.books || []).length + " of " + MAX_BOOKS + " books out · " + tapes + (tapes === 1 ? " tape" : " tapes") + " and " + books + (books === 1 ? " book" : " books") + " returned") +
       "</div>",
     buttons: buttons,
   });
@@ -1543,6 +1725,7 @@ function confirmCancelCard() {
         label: "Cut it up",
         action: function (d) {
           ejectTape();
+          ejectBox();
           lib = cancelCard(lib, Date.now());
           saveLib();
           d.close();
@@ -1551,6 +1734,247 @@ function confirmCancelCard() {
       },
     ],
   });
+}
+
+// ---------- box sets: a whole series as one loan ----------
+let boxesFor = null;
+let boxesCache = [];
+function boxShelves() {
+  if (boxesFor !== app.channels) {
+    boxesFor = app.channels;
+    boxesCache = seriesShelves(app.channels, {
+      skip: function (item) {
+        return !!app.bad[programKey(item)];
+      },
+    });
+  }
+  return boxesCache;
+}
+// A series on the shelf, or (its channel changed or went) the one the box out remembers.
+function findSeries(key) {
+  const sets = boxShelves();
+  for (let i = 0; i < sets.length; i++) if (sets[i].key === key) return sets[i];
+  const box = boxFor(lib, key);
+  if (!box) return null;
+  const ch = app.channels.filter(function (c) {
+    return c.slug === box.ch;
+  })[0];
+  return { key: key, show: box.t, ch: ch || null, eps: box.eps };
+}
+
+function boxShelfPage(sets) {
+  return {
+    title: "📦 Box sets",
+    wide: true,
+    place: "club",
+    sub: "Whole series, checked out as one loan · " + MAX_BOXES + " at a time, " + BOX_DAYS + " days · apart from your tapes",
+    items: function () {
+      const list = [];
+      let chName = "";
+      sets.forEach(function (series) {
+        if (series.ch && series.ch.name !== chName) {
+          chName = series.ch.name;
+          list.push({ head: true, label: (series.ch.icon || "📺") + " " + chName });
+        }
+        list.push({
+          label: series.show,
+          swatch: Club.spineColor(series.key),
+          value: function () {
+            return (boxFor(lib, series.key) ? "📦 YOURS · " : "") + series.eps.length + " episodes";
+          },
+          ok: function () {
+            openBox(series);
+          },
+        });
+      });
+      return list;
+    },
+  };
+}
+
+// A box set's slipcase, with what you can do with it.
+function openBox(series, focusLabel) {
+  const now = Date.now();
+  const box = boxFor(lib, series.key);
+  const buttons = [];
+  let note = "";
+  if (box) {
+    const ep = box.eps[box.ep];
+    buttons.push({
+      label: box.done ? "▶ Watch again from episode 1" : box.pos > 2 ? "▶ Resume episode " + (box.ep + 1) + " at " + fmtDuration(box.pos) : "▶ Play episode " + (box.ep + 1),
+      action: function (d) {
+        d.close();
+        if (box.done) {
+          lib = restartBox(lib, series.key);
+          saveLib();
+        }
+        playBox(series.key);
+      },
+    });
+    if (!box.done && box.ep + 1 < box.eps.length) {
+      buttons.push({
+        label: "⏭ Skip to episode " + (box.ep + 2),
+        action: function (d) {
+          if (app.box === series.key) ejectBox();
+          lib = setBoxPlace(lib, series.key, box.ep + 1, 0);
+          saveLib();
+          d.close();
+          openBox(series, "▶ Play episode " + (box.ep + 2));
+        },
+      });
+    }
+    if (!box.done && (box.ep > 0 || box.pos > 2)) {
+      buttons.push({
+        label: "⏮ Back to episode 1",
+        action: function (d) {
+          if (app.box === series.key) ejectBox();
+          lib = restartBox(lib, series.key);
+          saveLib();
+          d.close();
+          openBox(series, "▶ Play episode 1");
+        },
+      });
+    }
+    buttons.push({
+      label: "⏏ Return box set",
+      action: function (d) {
+        returnBoxNow(series.key);
+        d.close();
+      },
+    });
+  } else if (!lib.card) {
+    note = "On the shelf · a free library card checks it out";
+    buttons.push({
+      label: "📇 Get a library card",
+      action: function (d) {
+        d.close();
+        openSignup(0, { label: "📦 Back to " + shortTitle(series.show), go: function () { openBox(series); } }, false);
+      },
+    });
+  } else if ((lib.boxes || []).length >= MAX_BOXES) {
+    note = "You have a box set out (" + lib.boxes[0].t + "). Return it to take this one.";
+    buttons.push({
+      label: "📦 Your box set",
+      action: function (d) {
+        d.close();
+        const other = findSeries(lib.boxes[0].key);
+        if (other) openBox(other);
+      },
+    });
+  } else {
+    note = "On the shelf · " + BOX_DAYS + "-day loan · doesn't count against your " + MAX_TAPES + " tapes";
+    buttons.push({
+      label: "📦 Check out & play",
+      action: function (d) {
+        const r = checkOutBox(lib, series, Date.now());
+        if (r.error) {
+          d.status(r.text);
+          return;
+        }
+        lib = r.lib;
+        saveLib();
+        d.close();
+        playBox(series.key);
+        V.toast("📦 Checked out " + series.show + " · " + series.eps.length + " episodes · due back " + dueDay(r.box.due), 5000);
+      },
+    });
+  }
+  buttons.push({
+    label: "Close",
+    action: function (d) {
+      d.close();
+    },
+  });
+  dialog.open({ title: "📦 Box set", html: Club.boxSetHtml(series, box, now, note), buttons: buttons });
+  if (focusLabel) {
+    for (let i = 0; i < buttons.length; i++) {
+      if (buttons[i].label === focusLabel) {
+        dialog.focus = i;
+        dialog.paint();
+      }
+    }
+  }
+}
+
+// The box set's episode, from where the viewer left it, off the schedule. When it ends the next one
+// starts (boxEpisodeEnded).
+function playBox(key) {
+  const box = boxFor(lib, key);
+  const series = findSeries(key);
+  if (!box || !series) return;
+  if (app.tape) ejectTape();
+  if (app.box && app.box !== key) ejectBox();
+  closeOverlays();
+  let ch = series.ch;
+  if (!ch || isLinkChannel(ch)) ch = isLinkChannel(current()) ? visibleChannels()[0] : current();
+  if (ch && ch !== current()) tuneTo(ch, { quiet: true });
+  const ep = box.eps[box.ep];
+  const at = box.pos >= ep.d - Math.min(20, ep.d * 0.1) ? 0 : box.pos; // at its very end: from the top
+  if (player.playFromStart(ep, at)) {
+    app.box = key;
+    app.boxPos = at;
+    app.boxSavedAt = Date.now();
+    showBanner(5000);
+    V.toast("📦 " + box.t + " · episode " + (box.ep + 1) + " of " + box.eps.length + ": " + Club.episodeTitle(ep, box.t) + (at > 2 ? " · from " + fmtDuration(at) : ""), 5000);
+  }
+}
+
+// The episode leaves the screen (back to the schedule, a tape, a phone's link): remember where it was.
+function ejectBox() {
+  if (!app.box) return;
+  const key = app.box;
+  app.box = "";
+  const box = boxFor(lib, key);
+  if (box && app.boxPos > 0) {
+    lib = setBoxPlace(lib, key, box.ep, app.boxPos);
+    saveLib();
+  }
+  app.boxPos = 0;
+}
+
+// The episode playing is the box's current one?
+function boxPlaying(item) {
+  const box = app.box ? boxFor(lib, app.box) : null;
+  return !!(box && item && programKey(item) === programKey(box.eps[box.ep]));
+}
+
+// An episode came to its end: on to the next, or (after the last) back to the schedule.
+function boxEpisodeEnded(item) {
+  if (!boxPlaying(item)) return false;
+  const key = app.box;
+  const n = nextEpisode(lib, key);
+  lib = n.lib;
+  saveLib();
+  const box = boxFor(lib, key);
+  if (n.done) {
+    app.box = "";
+    app.boxPos = 0;
+    V.toast("📦 That's the last episode of " + box.t + ". Return it, or watch it again: Menu ▸ 📼 Video Club", 7000);
+    return false;
+  }
+  const ep = box.eps[box.ep];
+  if (!player.playFromStart(ep, 0)) {
+    app.box = "";
+    return false;
+  }
+  app.boxPos = 0;
+  app.boxSavedAt = Date.now();
+  V.toast("📦 Next: episode " + (box.ep + 1) + " of " + box.eps.length + " · " + Club.episodeTitle(ep, box.t), 5000);
+  return true;
+}
+
+function returnBoxNow(key) {
+  const box = boxFor(lib, key);
+  if (app.box === key) {
+    ejectBox();
+    player.goLive();
+  }
+  const r = returnBox(lib, key, Date.now(), false);
+  if (r.error) return r;
+  lib = r.lib;
+  saveLib();
+  V.toast("⏏ Returned " + (box ? box.t : "the box set") + ". Thanks!", 4000);
+  return r;
 }
 
 // A tape's box, with what you can do with it.
@@ -1676,6 +2100,7 @@ function playTape(key) {
   const film = findFilm(key);
   if (!loan || !film) return;
   if (app.tape && app.tape !== key) ejectTape(); // the other tape comes out first, keeping its place
+  if (app.box) ejectBox();
   closeOverlays();
   let ch = film.ch;
   if (!ch || isLinkChannel(ch)) ch = isLinkChannel(current()) ? visibleChannels()[0] : current();
@@ -1736,8 +2161,32 @@ function clubTick(now) {
       }
     } else ejectTape();
   }
+  if (app.box) {
+    const sl = player.slot;
+    if (sl && sl.onDemand && boxPlaying(sl.item) && player.mode !== "off" && player.mode !== "gap" && player.mode !== "empty") {
+      if (player.mode === "playing" || player.mode === "paused") {
+        const t = player.v.currentTime;
+        if (isFinite(t) && t > 0) app.boxPos = t;
+      }
+      if (now - app.boxSavedAt > 5000 && app.boxPos > 0) {
+        app.boxSavedAt = now;
+        const b = boxFor(lib, app.box);
+        lib = setBoxPlace(lib, app.box, b.ep, app.boxPos);
+        saveLib();
+      }
+    } else if (!(sl && sl.onDemand && player.mode === "tuning")) ejectBox();
+  }
   if (now - (app.dueCheckedAt || 0) > 30000) {
     app.dueCheckedAt = now;
+    overdueBoxes(lib, now)
+      .filter(function (b) {
+        return b.key !== app.box; // the one playing goes back when it's off the screen
+      })
+      .forEach(function (b) {
+        lib = returnBox(lib, b.key, now, true).lib;
+        saveLib();
+        V.toast("📦 " + b.t + " was due back, so it went back on the shelf. No late fees.", 6000);
+      });
     const late = overdue(lib, now).filter(function (l) {
       return l.key !== app.tape; // the one playing goes back when it's over
     });
@@ -2851,6 +3300,14 @@ function rootPage() {
         });
       if (it && watching && !it.live)
         list.push({
+          label: "Fast-forward / rewind",
+          ok: function () {
+            shuttleShow();
+            return "close";
+          },
+        });
+      if (it && watching && !it.live)
+        list.push({
           label: "Start this program over",
           ok: function () {
             if (player.restart()) V.toast("From the top: " + it.t);
@@ -3517,11 +3974,20 @@ function showArchiveAbout() {
 }
 
 // ---------- channel packs ----------
+// The pack list's address: the viewer's own (Menu ▸ Load a channel pack ▸ Pack list address), else the one
+// the app ships with. PACK_INDEX_DEFAULT is empty until Mitchel chooses where the list lives (see PACKS.md):
+// it's outside this repo, since the packs in it are personal.
+const PACK_INDEX_DEFAULT = "";
+function packIndexAddress() {
+  return s.packIndex || PACK_INDEX_DEFAULT;
+}
+
 function packPage() {
   return {
     title: "Load a channel pack",
     sub: "Archive-only packs · saved on this TV",
     items: function () {
+      const listAt = packIndexAddress();
       return [
         { head: true, label: "From a file" },
         {
@@ -3539,6 +4005,23 @@ function packPage() {
             return "close";
           },
         },
+        { head: true, label: "From the pack list" },
+        listAt
+          ? {
+              label: "📚 Browse the pack list",
+              ok: function () {
+                browsePacks(); // the list opens as the next page of this menu
+              },
+            }
+          : { head: true, label: "No pack list set yet: give its address below." },
+        {
+          label: listAt ? "Pack list address" : "Set the pack list address…",
+          value: listAt ? shortAddress(listAt) : "",
+          ok: function () {
+            askPackIndex();
+            return "close";
+          },
+        },
         { head: true, label: "About packs" },
         {
           label: "How channel packs work",
@@ -3552,17 +4035,160 @@ function packPage() {
   };
 }
 
+function shortAddress(url) {
+  const t = String(url).replace(/^https?:\/\//, "");
+  return t.length > 34 ? t.slice(0, 31) + "…" : t;
+}
+
+function askPackIndex() {
+  dialog.open({
+    title: "Pack list address",
+    html: "The address of a NostalGem pack list (an <b>index.json</b> on a website, made with <b>tools/build-pack-index.mjs</b>). Leave it empty to use " + (PACK_INDEX_DEFAULT ? "the app's own list." : "none."),
+    input: { placeholder: "https://…/index.json", value: s.packIndex || "" },
+    buttons: [
+      {
+        label: "Save",
+        action: function (d) {
+          const v = d.value().trim();
+          if (v && !/^https?:\/\/\S+$/i.test(v)) {
+            d.status("That doesn't look like a web address (https://…).");
+            return;
+          }
+          s.packIndex = v;
+          saveSettings();
+          d.close();
+          if (v) browsePacks();
+        },
+      },
+      {
+        label: "Cancel",
+        action: function (d) {
+          d.close();
+        },
+      },
+    ],
+  });
+}
+
+// The pack list, fresh each time it's opened (it changes when packs are added), held for ten minutes.
+let packIndexCache = null;
+function browsePacks() {
+  const url = packIndexAddress();
+  if (!url) return askPackIndex();
+  if (packIndexCache && packIndexCache.url === url && Date.now() - packIndexCache.at < 600000) {
+    openPackList(packIndexCache.index);
+    return;
+  }
+  let cancelled = false;
+  dialog.open({
+    title: "📚 Pack list",
+    html: "Getting the list of packs…",
+    onClose: function () {
+      cancelled = true;
+    },
+    buttons: [
+      {
+        label: "Cancel",
+        action: function (d) {
+          d.close();
+        },
+      },
+    ],
+  });
+  fetch(url, { credentials: "omit", cache: "no-cache" })
+    .then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    })
+    .then(function (json) {
+      if (cancelled) return;
+      const index = parsePackIndex(json, url);
+      if (!index.ok) throw new Error(index.errors[0]);
+      packIndexCache = { url: url, at: Date.now(), index: index };
+      cancelled = true;
+      dialog.close();
+      openPackList(index);
+    })
+    .catch(function (e) {
+      if (!cancelled) dialog.status("Couldn't get the pack list (" + e.message + "). Check the address: Menu ▸ Load a channel pack ▸ Pack list address.");
+    });
+}
+
+function openPackList(index) {
+  if (!menu.isOpen) menu.open(rootPage());
+  menu.push({
+    title: "📚 " + index.title,
+    sub: index.packs.length + (index.packs.length === 1 ? " pack" : " packs") + (index.updated ? " · updated " + index.updated : "") + " · OK to see one",
+    items: function () {
+      if (!index.packs.length) return [{ head: true, label: "The list is empty." }];
+      return index.packs.map(function (p) {
+        return {
+          label: p.name,
+          value: packIndexLine(p),
+          ok: function () {
+            openListedPack(p);
+          },
+        };
+      });
+    },
+  });
+}
+
+function openListedPack(p) {
+  const chans = p.channels
+    .slice(0, 12)
+    .map(function (c) {
+      return "CH " + c.number + (c.name ? " · " + esc(c.name) : "");
+    })
+    .join("<br>");
+  dialog.open({
+    title: "📦 " + p.name,
+    html: (p.about ? esc(p.about) + "<br><br>" : "") + (chans || "") + (p.channels.length > 12 ? "<br>…and " + (p.channels.length - 12) + " more" : "") + (p.programs ? "<br><br>" + p.programs + " programs" : "") + (p.by ? " · from " + esc(p.by) : ""),
+    buttons: [
+      {
+        label: "Load this pack",
+        action: function (d) {
+          d.status("Getting " + p.name + "…");
+          fetch(p.url, { credentials: "omit", cache: "no-cache" })
+            .then(function (r) {
+              if (!r.ok) throw new Error("HTTP " + r.status);
+              return r.arrayBuffer();
+            })
+            .then(function (buf) {
+              const bytes = new Uint8Array(buf);
+              const label = decodeURIComponent(p.url.split("/").pop().split("?")[0]) || p.name;
+              // Loaded the way a picked file is: the same checks, the same "Load these packs?".
+              if (p.zip || (bytes[0] === 0x50 && bytes[1] === 0x4b)) handlePackZip(bytes, label);
+              else handlePackText(utf8Text(bytes), label);
+            })
+            .catch(function (e) {
+              d.status("Couldn't get " + p.name + " (" + e.message + ").");
+            });
+        },
+      },
+      {
+        label: "Back",
+        action: function (d) {
+          d.close();
+        },
+      },
+    ],
+  });
+}
+
 function showPackHelp() {
   dialog.open({
     title: "How channel packs work",
     html:
       "A channel pack is a small JSON file that adds channels from the <b>Internet Archive</b> — " +
-      "a collection search, or Archive item IDs. Nothing else: no YouTube, no other sites, no direct video links.<br><br>" +
+      "a collection search, or Archive item IDs — and from <b>direct links</b> to video files (.mp4, .webm, .m3u8). " +
+      "No YouTube or Vimeo pages: a link that won't play is left out, and the TV says which and why.<br><br>" +
       "Pack channels land on <b>CH 30–49</b>, <b>CH 100–199</b>, or <b>CH 200–299</b>, and are saved on this TV only, like channels you add by search. " +
       "Loading a pack never changes the shipped lineup.<br><br>" +
       "The format is in <b>PACKS.md</b>, with an example pack in <b>packs/example-pack.json</b>. " +
       "Several packs can come together in one <b>.zip</b>: every .json file in it is loaded. " +
       "On a TV with no file picker, send it from the phone remote (its Channels page: Send a pack to the TV), or use Paste pack JSON. " +
+      "With a <b>pack list</b> address set, Browse the pack list shows the packs it names and loads the one you pick. " +
       "Channels you load are your choice on your own TV.",
     buttons: [
       {
@@ -3849,6 +4475,47 @@ function keepSkipLists(lists) {
   skipLists.packs = checkSkipLists({ format: SKIP_FORMAT, lists: kept }).lists;
 }
 
+// Does this browser play an .m3u8 (HLS) stream in a <video>? Android's WebView and Safari do.
+function canPlayHls() {
+  const v = document.createElement("video");
+  return !!(v.canPlayType && (v.canPlayType("application/vnd.apple.mpegurl") || v.canPlayType("application/x-mpegURL")));
+}
+
+// A pack's direct link, loaded the way the player will (a <video> reading the file's details, so no
+// CORS is needed): { ok, d } or { ok: false, why }. Nothing plays and nothing is kept.
+function probeLink(url, kind) {
+  return new Promise(function (done) {
+    const v = document.createElement(kind === "audio" ? "audio" : "video");
+    let over = false;
+    const end = function (r) {
+      if (over) return;
+      over = true;
+      clearTimeout(timer);
+      v.removeAttribute("src");
+      try {
+        v.load();
+      } catch (e) {
+        /* fine */
+      }
+      done(r);
+    };
+    const timer = setTimeout(function () {
+      end({ ok: false, why: "it didn't answer in 20 seconds" });
+    }, 20000);
+    v.preload = "metadata";
+    v.muted = true;
+    v.onloadedmetadata = function () {
+      if (!(v.duration > 0)) return end({ ok: false, why: "it has no length (an empty or broken file)" });
+      end({ ok: true, d: v.duration });
+    };
+    v.onerror = function () {
+      const code = v.error ? v.error.code : 0;
+      end({ ok: false, why: code === 4 ? "it isn't a video this TV can play, or the link is dead or needs a login" : code === 2 ? "it couldn't be reached" : "it didn't load" });
+    };
+    v.src = url;
+  });
+}
+
 // Load packs, one channel after another (a zip can hold several; a number one pack took moves the next
 // one's channel along).
 function loadPacks(packs, report) {
@@ -3916,6 +4583,30 @@ function loadPacks(packs, report) {
     }
     const first = done[0];
     tuneTo(first);
+    // A link left out is the pack author's to fix: say which and why, where it can be read.
+    const linkNotes = notes.filter(function (n) {
+      return / left out /.test(n);
+    });
+    if (linkNotes.length) {
+      dialog.open({
+        title: (packs.length > 1 ? "Packs on the air" : "Pack on the air") + " — " + linkNotes.length + (linkNotes.length === 1 ? " link" : " links") + " left out",
+        html:
+          done.map(function (c) {
+            return "CH " + esc(chLabel(c)) + " " + esc(c.name);
+          }).join(", ") +
+          "<br><br>" +
+          notes.slice(0, 12).map(esc).join("<br>"),
+        buttons: [
+          {
+            label: "OK",
+            action: function (d) {
+              d.close();
+            },
+          },
+        ],
+      });
+      return;
+    }
     let msg = (packs.length > 1 ? "Packs on the air: " : "Pack on the air: ") + done.map(function (c) {
       return "CH " + chLabel(c) + " " + c.name;
     }).join(", ");
@@ -3930,11 +4621,32 @@ function loadPacks(packs, report) {
     i++;
     dialog.status("Building " + ch.name + " (" + i + " of " + queue.length + ")…");
     const def = packChannelDef(pack.pack, ch);
-    const job = def.items
+    const archive = def.items
       ? buildItemsChannel(def.items, def, channelCtx())
-      : fetchChannelPrograms(def, function (n, total) {
+      : def.sources
+      ? fetchChannelPrograms(def, function (n, total) {
           if (!cancelled) dialog.status("Checking " + n + " of " + total + " items for " + ch.name + "…");
+        })
+      : Promise.resolve({ items: [], about: {} });
+    // Direct links ride along with the Archive programs: each checked the way the player will load it.
+    const job = archive.then(function (res) {
+      if (!def.urls || cancelled) return res;
+      return buildLinkPrograms(def.urls, def, {
+        probe: probeLink,
+        secure: location.protocol === "https:",
+        hls: canPlayHls(),
+        progress: function (n, total) {
+          if (!cancelled) dialog.status("Checking link " + n + " of " + total + " for " + ch.name + "…");
+        },
+      }).then(function (links) {
+        links.skipped.forEach(function (sk) {
+          notes.push(ch.name + ": left out " + shortLink(sk.url) + " — " + sk.why);
+          if (window.console) console.info("NostalGem pack " + pack.pack + ", " + ch.name + ": left out " + sk.url + " — " + sk.why);
         });
+        app.linkSkips = (app.linkSkips || []).concat(links.skipped).slice(-50);
+        return { items: mixPrograms(res.items, links.items), about: res.about };
+      });
+    });
     job
       .then(function (res) {
         if (cancelled) return;
@@ -4047,6 +4759,9 @@ function phoneSnapshot() {
     mode: player.mode,
     paused: paused,
     shifted: player.shifted,
+    // Fast-forward speed, and how far behind live (to 5 s, so the phone isn't told every second).
+    ff: player.ff,
+    behind: Math.round(player.behind() / 5) * 5,
     // On demand (a sent link, a tape, "watch from the start"): the phone may move through it.
     demand: !!(sl && sl.onDemand && (player.mode === "playing" || paused)),
     sent: app.sent && sentOn() ? { i: app.sent.i, n: app.sent.items.length } : null,
@@ -4120,7 +4835,7 @@ function phoneMessage(m, conn) {
     // Back only dismisses the ident: it must not also arm "press again to exit".
     if (m.type === "back") {
       if (turnOnUp) skipTurnOn();
-      else back();
+      else backOrExit();
       return;
     }
     handleAction({ type: m.type, digit: m.digit });
@@ -4251,15 +4966,33 @@ function awayAction(m) {
 // The phone sends the file in pieces (link.js); once it's all here, it goes through the same loader as a
 // file chosen on the TV — checked, then "Load these packs?" — and the phone hears what the TV made of it.
 const incoming = {}; // id -> { name, size, n, parts, got, at }
+// Packs from the phone arrive in pieces, each one answered. A piece can come twice (the phone sends again
+// what wasn't answered in time), so a pack already put together is only answered again, never reloaded.
+// The TV says when pieces start arriving, so it's plain whether it hears the phone at all.
+const finishedPacks = {}; // id -> when it was put together
 function packFromPhone(m, conn) {
   const now = Date.now();
   Object.keys(incoming).forEach(function (id) {
     if (now - incoming[id].at > 60000) delete incoming[id];
   });
+  Object.keys(finishedPacks).forEach(function (id) {
+    if (now - finishedPacks[id] > 120000) delete finishedPacks[id];
+  });
+  if (finishedPacks[m.id]) {
+    link.sendTo(conn, { t: "fileack", id: m.id, i: m.i });
+    return;
+  }
   let f = incoming[m.id];
   if (!f) {
-    if (Object.keys(incoming).length >= 3) return;
-    f = incoming[m.id] = { name: m.name, size: m.size, n: m.n, parts: [], got: 0, at: now };
+    // Room for three at once; a fourth sends away the one that has waited longest (a send given up on).
+    const ids = Object.keys(incoming);
+    if (ids.length >= 3) {
+      ids.sort(function (a, b) {
+        return incoming[a].at - incoming[b].at;
+      });
+      delete incoming[ids[0]];
+    }
+    f = incoming[m.id] = { name: m.name, size: m.size, n: m.n, parts: [], got: 0, at: now, shownAt: 0 };
   }
   if (f.n !== m.n || f.size !== m.size) return;
   f.at = now;
@@ -4268,8 +5001,15 @@ function packFromPhone(m, conn) {
     f.got++;
   }
   link.sendTo(conn, { t: "fileack", id: m.id, i: m.i });
-  if (f.got < f.n) return;
+  if (f.got < f.n) {
+    if (now - f.shownAt > 1500) {
+      f.shownAt = now;
+      V.toast("📱 A pack is coming from the phone: " + f.name + " (" + f.got + " of " + f.n + ")", 2500);
+    }
+    return;
+  }
   delete incoming[m.id];
+  finishedPacks[m.id] = now;
   const report = function (what) {
     link.sendTo(conn, Object.assign({ t: "packs", id: m.id, name: f.name }, what));
   };
@@ -4396,7 +5136,8 @@ function showHelp() {
     ["Green", "Subtitles", "C"],
     ["Yellow", "Previous channel", "P"],
     ["Blue", "TV guide", "G"],
-    ["", "Back to live after pausing", "L"],
+    ["", "Back to live after pausing or rewinding", "L"],
+    ["⏪ ⏩", "Rewind (10 s, 30 s) and fast-forward (2×, 4×, 8×)", "[ and ]"],
     ["", "Sound on / off", "M"],
     ["🎨", "Next picture filter (a controller's Y button too)", "V"],
     ["📱", "Use your phone as the remote: Menu ▸ Phone remote", ""],
@@ -4531,7 +5272,7 @@ function openLinkOut(ch) {
 
 function restoreCard() {
   const ch = current();
-  if (player.mode === "gap" && player.slot) V.showCard("gap", V.gapCard(ch, player.slot, s.clock24, app.bumpers, app.cards), cardClass(ch));
+  if (player.mode === "gap" && player.slot) V.showCard("gap", V.gapCard(ch, player.slot, s.clock24, app.bumpers, app.cards), cardClass(ch, V.breakStartOf(player.slot)));
   else if (player.mode === "standby") V.showCard("standby", V.standbyCard(app.standby));
   else if (player.mode === "empty") V.showCard("empty", V.emptyCard(ch, app.emptyWhy));
   else if (player.mode === "adbreak") showAdCard(ch);
@@ -4584,9 +5325,10 @@ function handleAction(a) {
     return;
   }
   if (a.type === "back") {
-    back();
+    backOrExit();
     return;
   }
+  if (shuttle.open && !overlayOpen() && shuttleKey(a)) return;
   if (dialog.isOpen) {
     dialog.handle(a);
     return;
@@ -4654,6 +5396,11 @@ function rootAction(a) {
         player.goLive();
         V.toast("Back to live");
       }
+      shuttleHide();
+      break;
+    case "ff":
+    case "rw":
+      shuttleAct(a.type);
       break;
     case "last":
     case "yellow":
@@ -4709,6 +5456,10 @@ function back() {
     menu.pop();
     return true;
   }
+  if (shuttle.open) {
+    shuttleHide();
+    return true;
+  }
   if (guide.isOpen) {
     guide.close();
     updateBug();
@@ -4736,6 +5487,14 @@ function back() {
     V.toast("Press BACK again to exit", 2500);
   }
   return true;
+}
+
+// BACK that came to the page itself (the phone remote, a controller, a keyboard), not through the TV app's
+// own BACK handling: with nothing left to close and the second press made, the page asks the TV app to
+// exit, the same as the TV remote's BACK. (The app's own BACK asks NP.back() and exits on false itself.)
+function backOrExit() {
+  if (back()) return;
+  if (ANDROID) sendApp({ t: "exit" });
 }
 
 document.addEventListener("keydown", function (e) {
@@ -4963,6 +5722,17 @@ window.NP = {
     return true;
   },
   back: back,
+  // A channel's programs by number, for the tests: [{ t, u, id }] (u: a pack's direct link), or null.
+  programs: function (n) {
+    const ch = app.channels.filter(function (c) {
+      return String(c.number) === String(n);
+    })[0];
+    return ch
+      ? (ch.items || []).map(function (it) {
+          return { t: it.t, u: it.u || "", id: it.id };
+        })
+      : null;
+  },
   suspend: suspend,
   resume: resume,
   // Read-only snapshot for tests and debugging.
@@ -4973,11 +5743,17 @@ window.NP = {
       app: app.state,
       mode: player.mode,
       shifted: player.shifted,
+      ff: player.ff,
+      behind: Math.round(player.behind()),
+      at: player.slot && player.v && isFinite(player.v.currentTime) ? Math.round(player.v.currentTime * 10) / 10 : 0,
+      shuttle: shuttle.open ? shuttleEl.textContent : "",
       channel: ch ? ch.number : 0,
       sub: ch && ch.sub ? ch.sub : 0,
       label: ch ? chLabel(ch) : "",
       name: ch ? ch.name : "",
       program: it ? it.t : "",
+      link: it && it.u ? it.u : "",
+      slotEnd: player.slot ? player.slot.slotEndMs : 0,
       channels: app.channels.length,
       overlay: dialog.isOpen ? "dialog" : menu.isOpen ? "menu" : guide.isOpen ? "guide" : "",
       phone: { on: s.phone, status: link.status, phones: link.phones(), code: link.code, lan: native.lan.length, calling: app.calling, why: app.callingWhy },
@@ -4988,6 +5764,10 @@ window.NP = {
       club: {
         card: lib.card ? lib.card.name : "",
         tape: app.tape,
+        box: app.box || "",
+        boxes: (lib.boxes || []).map(function (b) {
+          return { key: b.key, t: b.t, ep: b.ep, pos: Math.round(b.pos), n: b.eps.length, done: !!b.done };
+        }),
         loans: lib.loans.map(function (l) {
           return { t: l.t, pos: Math.round(l.pos), rewound: isRewound(l) };
         }),
@@ -5287,7 +6067,8 @@ async function boot() {
     const item = player.slot ? player.slot.item : null;
     const ch = current();
     if (player.mode === "tuning" && ch && !card.hidden && /\bcard-tuning\b/.test(card.className) && !/\bcard-leave\b/.test(card.className) && !(item && item.sent)) {
-      V.showCard("tuning", V.loadingCard(ch, app.cards, Date.now()), cardClass(ch));
+      const at = Date.now();
+      V.showCard("tuning", V.loadingCard(ch, app.cards, at), cardClass(ch, at));
     }
   };
   // House bumpers for the station breaks. Loads in the background; a missing

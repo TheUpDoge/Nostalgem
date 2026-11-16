@@ -19,6 +19,10 @@
     "perf": "node tests/perf.mjs",
     "test:cards": "node tests/cards.browser.mjs",
     "test:sendto": "node tests/sendto.browser.mjs",
+    "test:packlinks": "node tests/packlinks.browser.mjs",
+    "test:shuttle": "node tests/shuttle.browser.mjs",
+    "test:boxsets": "node tests/boxsets.browser.mjs",
+    "test:packbrowse": "node tests/packbrowse.browser.mjs",
     "lineup": "node tools/build-lineup.mjs"
   },
   "devDependencies": {

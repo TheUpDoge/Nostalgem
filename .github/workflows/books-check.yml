@@ -7,6 +7,7 @@ name: Live Archive check
 #   app 111's sound goes to church and 666 plays slow and low.
 #   Send to TV: a real film sent from the phone plays and the phone's bar moves through it; YouTube's real
 #   player gives a video's title and a playlist's videos (reported only: YouTube may turn a runner away).
+#   The relay: what the public message brokers pass, and packs sent from the phone through each of them.
 # "local" tests this checkout's web/ folder; a URL tests a published copy.
 
 on:
@@ -36,6 +37,9 @@ jobs:
       - name: Send to TV (a real film from the phone and its bar, then YouTube's real player, reported)
         if: always()
         run: node tests/live-sendto.mjs "${{ github.event.inputs.site }}"
+      - name: Phone link through the relay (the public brokers, then packs from the phone)
+        if: always()
+        run: node tests/live-relay.mjs "${{ github.event.inputs.site }}"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -6,7 +6,7 @@ import { SOUTH_PARK_CHANNEL, SOUTH_PARK_URL } from "../southpark.js";
 import { CITY_WIRE_CHANNEL, CITY_WIRE_URL } from "../citywire.js";
 import { standbyText } from "../problems.js";
 import { bumperForSlot } from "../bumpers.js";
-import { breakKicker, countLabel, familyOf, familyScene, loadingLine } from "../cards.js";
+import { breakKicker, cardLook, countLabel, familyOf, familyScene, loadingLine } from "../cards.js";
 
 export function $(id) {
   return document.getElementById(id);
@@ -199,10 +199,16 @@ export function hideCard() {
   c.innerHTML = "";
 }
 
-// The scenery behind a card: the channel family's (cards.js), or NostalGem's own sunset.
-function sceneFor(ch) {
-  const look = familyOf(ch).look;
+// The scenery behind a card: its look's (cards.js cardLook, from the same moment as its class), or
+// NostalGem's own sunset.
+function sceneFor(ch, seedMs) {
+  const look = cardLook(ch, seedMs);
   return look === "retro" ? SCENE : familyScene(look);
+}
+
+// When a slot's break starts: the moment its card (words, layout, look) is picked from.
+export function breakStartOf(slot) {
+  return slot.startMs + (slot.item && slot.item.d > 0 ? slot.item.d * 1000 : 0);
 }
 
 // A station break (or a file that ended early): the next program starts when this slot ends, and the card
@@ -216,10 +222,10 @@ export function gapCard(ch, slot, clock24, bumpers, cards) {
   const startMs = slot.slotEndMs;
   const left = gapSecondsLeft(slot);
   const time = fmtClock(new Date(startMs), clock24);
-  const breakStart = slot.startMs + (slot.item && slot.item.d > 0 ? slot.item.d * 1000 : 0);
+  const breakStart = breakStartOf(slot);
   const label = countLabel(cards, ch);
   return (
-    sceneFor(ch) +
+    sceneFor(ch, breakStart) +
     panel(
       breakKicker(cards, ch, breakStart, chLabel(ch), time),
       n.t,
@@ -232,7 +238,7 @@ export function gapCard(ch, slot, clock24, bumpers, cards) {
 // A channel's program is taking a moment to load (player mode "tuning"): a card in the family's look, with
 // one of its lines, until the picture comes. startMs: when it was tuned (the line is picked from it).
 export function loadingCard(ch, cards, startMs) {
-  return sceneFor(ch) + panel("CH " + chLabel(ch) + " · " + ch.name.toUpperCase(), loadingLine(cards, ch, startMs), "", '<div class="card-dots"><i></i><i></i><i></i></div>');
+  return sceneFor(ch, startMs) + panel("CH " + chLabel(ch) + " · " + ch.name.toUpperCase(), loadingLine(cards, ch, startMs), "", '<div class="card-dots"><i></i><i></i><i></i></div>');
 }
 
 // Something a phone sent (Send to TV) is taking a moment to load: NostalGem's own card, not the channel's,
